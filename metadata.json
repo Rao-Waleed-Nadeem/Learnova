@@ -1,0 +1,6 @@
+{
+  "name": "Learnova Learning Platform",
+  "description": "Adaptive and gamified learning platform with comprehensive Student Module, Teacher Portal, and Administrator Governance & Security Module.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
