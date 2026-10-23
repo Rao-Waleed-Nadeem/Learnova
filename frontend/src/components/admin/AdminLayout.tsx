@@ -18,7 +18,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { UserAccount } from '../../types';
-import { ToastMessage } from '../layout/TeacherLayout';
+import { ToastMessage } from '../teacher/TeacherLayout';
 
 export type AdminNavigationPage =
   | 'dashboard'

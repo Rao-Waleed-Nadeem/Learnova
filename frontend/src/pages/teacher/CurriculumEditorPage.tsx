@@ -16,11 +16,11 @@ import {
   AlertCircle,
   HelpCircle,
 } from 'lucide-react';
-import { PageHeader } from '../components/ui/PageHeader';
-import { Button } from '../components/ui/Button';
-import { FormField } from '../components/ui/FormField';
-import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { Course, Topic, Lesson, LearningResource } from '../types';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { Button } from '../../components/ui/Button';
+import { FormField } from '../../components/ui/FormField';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { Course, Topic, Lesson, LearningResource } from '../../types';
 
 interface CurriculumEditorPageProps {
   course: Course;

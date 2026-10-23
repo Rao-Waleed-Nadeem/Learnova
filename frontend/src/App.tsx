@@ -3,7 +3,7 @@ import {
   TeacherLayout,
   NavigationPage as TeacherNavigationPage,
   ToastMessage,
-} from './components/layout/TeacherLayout';
+} from './components/teacher/TeacherLayout';
 import { storage, CURRENT_TEACHER } from './services/storageService';
 import {
   Course,
@@ -26,18 +26,18 @@ import {
 } from './types';
 
 // Teacher Portal Pages
-import { DashboardPage as TeacherDashboardPage } from './pages/DashboardPage';
-import { CoursesPage } from './pages/CoursesPage';
-import { CourseOverviewPage } from './pages/CourseOverviewPage';
-import { CurriculumEditorPage } from './pages/CurriculumEditorPage';
-import { PrerequisiteManagerPage } from './pages/PrerequisiteManagerPage';
-import { ResourceManagerPage } from './pages/ResourceManagerPage';
-import { QuestionBankPage } from './pages/QuestionBankPage';
-import { QuestionEditorPage } from './pages/QuestionEditorPage';
-import { AIReviewPage } from './pages/AIReviewPage';
-import { AssessmentsPage } from './pages/AssessmentsPage';
-import { AssessmentEditorPage } from './pages/AssessmentEditorPage';
-import { AnalyticsPage } from './pages/AnalyticsPage';
+import { DashboardPage as TeacherDashboardPage } from './pages/teacher/DashboardPage';
+import { CoursesPage } from './pages/teacher/CoursesPage';
+import { CourseOverviewPage } from './pages/teacher/CourseOverviewPage';
+import { CurriculumEditorPage } from './pages/teacher/CurriculumEditorPage';
+import { PrerequisiteManagerPage } from './pages/teacher/PrerequisiteManagerPage';
+import { ResourceManagerPage } from './pages/teacher/ResourceManagerPage';
+import { QuestionBankPage } from './pages/teacher/QuestionBankPage';
+import { QuestionEditorPage } from './pages/teacher/QuestionEditorPage';
+import { AIReviewPage } from './pages/teacher/AIReviewPage';
+import { AssessmentsPage } from './pages/teacher/AssessmentsPage';
+import { AssessmentEditorPage } from './pages/teacher/AssessmentEditorPage';
+import { AnalyticsPage } from './pages/teacher/AnalyticsPage';
 
 // Student Portal Components & 18 Pages
 import {

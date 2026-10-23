@@ -13,12 +13,12 @@ import {
   ArrowLeft,
   X,
 } from 'lucide-react';
-import { PageHeader } from '../components/ui/PageHeader';
-import { Button } from '../components/ui/Button';
-import { FormField } from '../components/ui/FormField';
-import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { EmptyState } from '../components/ui/EmptyState';
-import { Course, Topic, Lesson, LearningResource, ResourceType } from '../types';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { Button } from '../../components/ui/Button';
+import { FormField } from '../../components/ui/FormField';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { Course, Topic, Lesson, LearningResource, ResourceType } from '../../types';
 
 interface ResourceManagerPageProps {
   course: Course;

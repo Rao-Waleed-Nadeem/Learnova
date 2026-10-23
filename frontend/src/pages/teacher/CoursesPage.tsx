@@ -1,13 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { BookOpen, Plus, ExternalLink, Edit3, Trash2, CheckCircle2, Archive, Layers } from 'lucide-react';
-import { PageHeader } from '../components/ui/PageHeader';
-import { Button } from '../components/ui/Button';
-import { StatusBadge } from '../components/ui/StatusBadge';
-import { SearchFilterBar, ActiveChip, FilterOption } from '../components/ui/SearchFilterBar';
-import { EmptyState } from '../components/ui/EmptyState';
-import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { FormField } from '../components/ui/FormField';
-import { Course, Topic, Lesson, CourseStatus } from '../types';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { Button } from '../../components/ui/Button';
+import { StatusBadge } from '../../components/ui/StatusBadge';
+import { SearchFilterBar, ActiveChip, FilterOption } from '../../components/ui/SearchFilterBar';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { FormField } from '../../components/ui/FormField';
+import { Course, Topic, Lesson, CourseStatus } from '../../types';
 
 interface CoursesPageProps {
   courses: Course[];

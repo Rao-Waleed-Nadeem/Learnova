@@ -11,10 +11,10 @@ import {
   ArrowLeft,
   Info,
 } from 'lucide-react';
-import { PageHeader } from '../components/ui/PageHeader';
-import { Button } from '../components/ui/Button';
-import { Course, Topic } from '../types';
-import { validateAllPrerequisites, validatePrerequisiteAddition } from '../utils/dag';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { Button } from '../../components/ui/Button';
+import { Course, Topic } from '../../types';
+import { validateAllPrerequisites, validatePrerequisiteAddition } from '../../utils/dag';
 
 interface PrerequisiteManagerPageProps {
   course: Course;

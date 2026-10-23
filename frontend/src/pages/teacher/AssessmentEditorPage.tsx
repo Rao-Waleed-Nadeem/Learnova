@@ -16,13 +16,13 @@ import {
   FileCheck,
   Trash2,
 } from 'lucide-react';
-import { PageHeader } from '../components/ui/PageHeader';
-import { Button } from '../components/ui/Button';
-import { FormField } from '../components/ui/FormField';
-import { StatusBadge } from '../components/ui/StatusBadge';
-import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { Assessment, Course, Topic, QuestionData, AssessmentType, AssessmentStatus } from '../types';
-import { calculateAssessmentTotalPoints } from '../utils/assessment';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { Button } from '../../components/ui/Button';
+import { FormField } from '../../components/ui/FormField';
+import { StatusBadge } from '../../components/ui/StatusBadge';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { Assessment, Course, Topic, QuestionData, AssessmentType, AssessmentStatus } from '../../types';
+import { calculateAssessmentTotalPoints } from '../../utils/assessment';
 
 interface AssessmentEditorPageProps {
   initialAssessment?: Assessment;

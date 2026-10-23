@@ -12,11 +12,11 @@ import {
   CheckCircle2,
   Layers,
 } from 'lucide-react';
-import { PageHeader } from '../components/ui/PageHeader';
-import { Button } from '../components/ui/Button';
-import { StatusBadge } from '../components/ui/StatusBadge';
-import { EmptyState } from '../components/ui/EmptyState';
-import { Course, Assessment, AICandidateQuestion, AssessmentAttempt } from '../types';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { Button } from '../../components/ui/Button';
+import { StatusBadge } from '../../components/ui/StatusBadge';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { Course, Assessment, AICandidateQuestion, AssessmentAttempt } from '../../types';
 
 interface DashboardPageProps {
   courses: Course[];

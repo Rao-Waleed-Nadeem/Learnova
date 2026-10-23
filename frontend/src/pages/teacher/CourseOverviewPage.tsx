@@ -11,12 +11,12 @@ import {
   ArrowRight,
   BookOpen,
 } from 'lucide-react';
-import { PageHeader } from '../components/ui/PageHeader';
-import { Button } from '../components/ui/Button';
-import { StatusBadge } from '../components/ui/StatusBadge';
-import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { FormField } from '../components/ui/FormField';
-import { Course, Topic, Lesson, LearningResource, Assessment, CourseStatus } from '../types';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { Button } from '../../components/ui/Button';
+import { StatusBadge } from '../../components/ui/StatusBadge';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { FormField } from '../../components/ui/FormField';
+import { Course, Topic, Lesson, LearningResource, Assessment, CourseStatus } from '../../types';
 
 interface CourseOverviewPageProps {
   course: Course;

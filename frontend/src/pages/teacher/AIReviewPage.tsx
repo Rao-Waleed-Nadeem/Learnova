@@ -16,11 +16,11 @@ import {
   Loader2,
   FileCheck,
 } from 'lucide-react';
-import { PageHeader } from '../components/ui/PageHeader';
-import { Button } from '../components/ui/Button';
-import { FormField } from '../components/ui/FormField';
-import { StatusBadge } from '../components/ui/StatusBadge';
-import { EmptyState } from '../components/ui/EmptyState';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { Button } from '../../components/ui/Button';
+import { FormField } from '../../components/ui/FormField';
+import { StatusBadge } from '../../components/ui/StatusBadge';
+import { EmptyState } from '../../components/ui/EmptyState';
 import {
   Course,
   Topic,
@@ -28,7 +28,7 @@ import {
   AICandidateQuestion,
   QuestionType,
   Difficulty,
-} from '../types';
+} from '../../types';
 
 interface AIReviewPageProps {
   courses: Course[];

@@ -14,13 +14,13 @@ import {
   X,
   FileCheck,
 } from 'lucide-react';
-import { PageHeader } from '../components/ui/PageHeader';
-import { Button } from '../components/ui/Button';
-import { StatusBadge } from '../components/ui/StatusBadge';
-import { SearchFilterBar, ActiveChip, FilterOption } from '../components/ui/SearchFilterBar';
-import { EmptyState } from '../components/ui/EmptyState';
-import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { QuestionData, Course, Topic, QuestionType, Difficulty } from '../types';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { Button } from '../../components/ui/Button';
+import { StatusBadge } from '../../components/ui/StatusBadge';
+import { SearchFilterBar, ActiveChip, FilterOption } from '../../components/ui/SearchFilterBar';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { QuestionData, Course, Topic, QuestionType, Difficulty } from '../../types';
 
 interface QuestionBankPageProps {
   questions: QuestionData[];

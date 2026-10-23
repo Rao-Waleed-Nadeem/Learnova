@@ -14,10 +14,10 @@ import {
   HelpCircle,
   FileText,
 } from 'lucide-react';
-import { PageHeader } from '../components/ui/PageHeader';
-import { Button } from '../components/ui/Button';
-import { Course, Topic, Assessment, AssessmentAttempt } from '../types';
-import { calculateAcademicMastery } from '../utils/assessment';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { Button } from '../../components/ui/Button';
+import { Course, Topic, Assessment, AssessmentAttempt } from '../../types';
+import { calculateAcademicMastery } from '../../utils/assessment';
 
 interface AnalyticsPageProps {
   courses: Course[];

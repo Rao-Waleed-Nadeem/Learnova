@@ -12,11 +12,11 @@ import {
   HelpCircle,
   FileCheck,
 } from 'lucide-react';
-import { PageHeader } from '../components/ui/PageHeader';
-import { Button } from '../components/ui/Button';
-import { FormField } from '../components/ui/FormField';
-import { StatusBadge } from '../components/ui/StatusBadge';
-import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { Button } from '../../components/ui/Button';
+import { FormField } from '../../components/ui/FormField';
+import { StatusBadge } from '../../components/ui/StatusBadge';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import {
   QuestionData,
   Course,
@@ -24,8 +24,8 @@ import {
   QuestionType,
   Difficulty,
   MatchingPair,
-} from '../types';
-import { validateQuestion } from '../utils/assessment';
+} from '../../types';
+import { validateQuestion } from '../../utils/assessment';
 
 interface QuestionEditorPageProps {
   initialQuestion?: QuestionData;

@@ -11,13 +11,13 @@ import {
   BarChart3,
   Calendar,
 } from 'lucide-react';
-import { PageHeader } from '../components/ui/PageHeader';
-import { Button } from '../components/ui/Button';
-import { StatusBadge } from '../components/ui/StatusBadge';
-import { SearchFilterBar, ActiveChip, FilterOption } from '../components/ui/SearchFilterBar';
-import { EmptyState } from '../components/ui/EmptyState';
-import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { Assessment, Course, Topic, QuestionData } from '../types';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { Button } from '../../components/ui/Button';
+import { StatusBadge } from '../../components/ui/StatusBadge';
+import { SearchFilterBar, ActiveChip, FilterOption } from '../../components/ui/SearchFilterBar';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { Assessment, Course, Topic, QuestionData } from '../../types';
 
 interface AssessmentsPageProps {
   assessments: Assessment[];
