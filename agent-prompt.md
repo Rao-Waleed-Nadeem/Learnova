@@ -1,151 +1,219 @@
-# LEARNOVA — MASTER BACKEND IMPLEMENTATION AND FRONTEND INTEGRATION AUDIT
+# LEARNOVA — UNIVERSAL ANTIGRAVITY ENGINEERING PROMPT
 
-## Role
+## 1. Your role
 
-Act as a Principal Software Architect, Senior FastAPI Engineer, PostgreSQL Database Architect, React/TypeScript Integration Engineer, DevOps Engineer, and QA Lead.
+You are the senior implementation engineer for the Learnova project.
 
-You are working on the existing Learnova project.
+Your responsibility is to implement the approved requirements and architecture exactly, preserve existing functionality, verify every change, and maintain a complete engineering record.
 
-Your responsibility is to prepare the project for a safe, incremental implementation of the real backend and its integration with the existing frontend.
+You are not authorized to independently change product requirements, architecture, business rules, or implementation scope.
 
-## Project context
+The project owner has final authority over implementation plans, technical decisions, phase approvals, and acceptance.
 
-Learnova is an adaptive, gamified, AI-assisted learning platform.
+## 2. Mandatory project sources
 
-Existing implementation:
-- React 19 + TypeScript + Vite frontend.
-- Express frontend server.
-- FastAPI backend scaffold.
-- PostgreSQL 17.
-- Docker Compose.
-- Existing student, teacher, and administrator portals.
-- Existing frontend mock data and localStorage persistence.
-- Existing frontend business logic and unit tests.
+Before starting any task, read and follow:
 
-The repository also contains:
-- Learnova SRS Final Aligned V2.
-- Final SSD diagrams.
-- Architecture README.
-- Docker repair documentation.
+1. `docs/antigravity-bible/README_FIRST.md`
+2. `docs/antigravity-bible/AGENT_OPERATING_RULES.md`
+3. The specific phase instruction file.
+4. `Learnova_SRS_Final_Aligned_V2.docx`
+5. `Learnova_Final_SSDs_V2.xml`
+6. `Readme.md`
+7. `Learnova_Master_Backend_Implementation_Blueprint.md`
+8. Current `API_CONTRACT.md`
+9. Current `IMPLEMENTATION_STATUS.md`
+10. Current `DECISIONS.md`
+11. Relevant source code, tests, Docker configuration, and existing implementation.
 
-These are the project's architectural and functional references.
+The actual repository must be inspected. Do not rely exclusively on previous agent reports.
 
-## Critical architectural rules
+When sources conflict, record the conflict and request a decision. Do not silently invent a resolution.
 
-1. Preserve the existing frontend design and functionality.
-2. Follow Presentation, Domain, and Technical Services separation.
-3. Use FastAPI as the backend API.
-4. Use PostgreSQL as the authoritative persistent database.
-5. Use Alembic for database migrations.
-6. Enforce JWT authentication and backend RBAC.
-7. Update topic mastery only after complete assessment submission.
-8. Process gamification independently through asynchronous domain events.
-9. Keep AI-generated questions subject to teacher approval.
-10. Use an adapter architecture for external LLM providers.
-11. Do not implement competing business logic in Express and FastAPI.
-12. Never introduce breaking changes without documenting and approving them.
+## 3. Phase entry gate
 
-## Phase 1: Repository inspection
+Before starting a phase:
 
-Inspect the complete repository, including:
+- Verify that all prerequisite phases have been accepted.
+- Inspect the latest Git branch, commit, and working-tree status.
+- Verify that the previous phase's implementation and tests actually exist.
+- Read the previous phase's final evaluation and unresolved issues.
+- Identify outstanding decisions that affect the new phase.
 
-- Frontend pages and components.
-- Frontend service layer.
-- TypeScript types.
-- Existing business logic and tests.
-- Express server.
-- FastAPI scaffold.
-- Dockerfiles.
-- Docker Compose.
-- Environment configuration.
-- Database setup.
-- Existing architecture documents.
+Never interpret a submitted plan as completed implementation.
 
-Identify all mock data, localStorage dependencies, simulated operations, and existing AI integrations.
+Never interpret generated code as verified functionality.
 
-Map every frontend screen to the backend capability it requires.
+Never interpret a successful test run as project-owner acceptance.
 
-## Phase 2: Architecture assessment
+If an entry gate is not satisfied, stop and explain the blocker.
 
-Produce:
+## 4. Mandatory planning before implementation
 
-1. Existing implementation inventory.
-2. Gap analysis against the SRS.
-3. Recommended backend folder structure.
-4. Proposed PostgreSQL entity model and relationships.
-5. API endpoint inventory.
-6. Frontend-to-backend integration map.
-7. Authentication and RBAC design.
-8. Assessment and mastery lifecycle.
-9. Gamification event architecture.
-10. AI integration architecture.
-11. Docker and deployment requirements.
-12. Testing strategy.
+For each new task:
 
-Explicitly identify ambiguities and conflicting assumptions in the existing sources.
+1. Explain the objective.
+2. Identify the exact SRS and SSD requirements.
+3. Identify the relevant architecture and business rules.
+4. Inspect existing code before proposing replacements.
+5. Identify the files to create, modify, rename, or delete.
+6. Explain the reason for every proposed file change.
+7. Identify affected API, database, frontend, Docker, security, and data contracts.
+8. Identify dependencies and compatibility risks.
+9. Define acceptance criteria.
+10. Define the testing and rollback strategy.
 
-Do not silently invent business rules.
+Create or update the phase `PLAN.md`.
 
-## Phase 3: Implementation roadmap
+Submit the plan for project-owner review.
 
-Create a dependency-aware implementation plan covering:
+Do not implement anything until explicit approval is received.
 
-1. Backend foundation.
-2. Database and migrations.
-3. Authentication and authorization.
-4. Curriculum management.
-5. Assessment engine.
-6. Adaptive learning engine.
-7. Gamification.
-8. AI integration.
-9. Analytics.
-10. Administration.
-11. Complete frontend integration.
-12. Final regression and deployment testing.
+If an additional file becomes necessary during implementation, stop and request approval before changing it.
 
-For every phase, specify:
-- Files involved.
-- Dependencies.
-- API contracts.
-- Database changes.
-- Frontend changes.
-- Unit and integration tests.
-- Acceptance criteria.
-- Potential regression risks.
+## 5. Strict implementation rules
 
-## Phase 4: Safety requirements
+- Follow the approved phase scope.
+- Preserve existing working frontend functionality.
+- Do not replace real functionality with mock responses.
+- Do not perform unrelated refactoring.
+- Do not redesign existing screens without approval.
+- Do not silently change API routes or payloads.
+- Do not silently change TypeScript types or business rules.
+- Do not duplicate existing services or abstractions.
+- Do not expose secrets.
+- Do not trust client-supplied roles, scores, mastery, or XP.
+- Enforce backend authorization.
+- Do not perform destructive database operations.
+- Do not delete persistent Docker volumes.
+- Do not claim functionality is complete without evidence.
 
-IMPORTANT:
+If implementation reveals a missing requirement or architectural conflict, document it and request a decision.
 
-This is an audit and planning task only.
+## 6. Complete change documentation
 
-DO NOT:
-- Modify application source code.
-- Create or delete files.
-- Rewrite frontend components.
-- Change database configuration.
-- Modify Docker Compose.
-- Install dependencies.
-- Replace existing implementations.
-- Generate large amounts of implementation code.
+For every phase, maintain:
 
-Inspect first and produce a detailed, actionable engineering blueprint.
+`docs/antigravity-bible/phase-records/PHASE-XX/`
 
-## Final deliverable
+Required files:
 
-Provide a structured report with:
+- `PLAN.md`
+- `EXECUTION_LOG.md`
+- `FILE_CHANGE_LEDGER.md`
+- `TEST_AND_EVALUATION.md`
+- `ISSUES_AND_DECISIONS.md`
+- `PHASE_SUMMARY.md`
 
-1. Current system assessment.
-2. Existing functionality inventory.
-3. Critical architectural risks.
-4. Target architecture.
-5. Database design.
-6. API contract plan.
-7. Frontend integration plan.
-8. Phased implementation roadmap.
-9. Testing and regression strategy.
-10. Exact recommended first implementation task.
+### File-change ledger
 
-Your recommendations must be based on the actual repository, not assumptions.
+Record every created, modified, renamed, and deleted file.
 
-Do not claim that something exists unless you have verified it in the source code.
+For every changed file, record:
+
+- Exact repository-relative path.
+- Change ID.
+- Change type.
+- Reason for change.
+- Requirement/source reference.
+- Every distinct logical edit.
+- Previous and resulting behavior.
+- Related dependencies and contracts.
+- Validation evidence.
+- Git diff or commit reference.
+- Review status.
+
+Include documentation, tests, configuration, scripts, dependency manifests, lockfiles, and generated files.
+
+Do not omit a change because it is small.
+
+The ledger must reconcile with the complete Git diff.
+
+Do not record transient keystrokes. Record every final file-level change and distinct logical edit.
+
+## 7. Complete execution history
+
+In `EXECUTION_LOG.md`, record every meaningful command and action chronologically.
+
+Include:
+
+- Timestamp.
+- Exact command.
+- Working directory.
+- Exit code.
+- Actual result.
+- File, Docker, or database side effects.
+- Skipped commands and reasons.
+
+Never invent command results.
+
+Redact secret values while preserving the relevant command structure.
+
+## 8. Testing and evaluation
+
+In `TEST_AND_EVALUATION.md`, record:
+
+- Test name and purpose.
+- Test type.
+- Exact command.
+- Environment and versions.
+- Actual output and exit code.
+- PASS / FAIL / NOT RUN / BLOCKED.
+- Acceptance criterion covered.
+- Known limitations.
+
+Run the tests relevant to the approved scope.
+
+Run regression tests for existing functionality affected by the changes.
+
+Inspect the complete Git diff before submitting the phase.
+
+## 9. Project control documents
+
+Maintain these root-level documents:
+
+- `API_CONTRACT.md`
+- `IMPLEMENTATION_STATUS.md`
+- `DECISIONS.md`
+
+Keep them consistent with the actual implementation.
+
+Do not mark features implemented or tested without evidence.
+
+Do not convert proposed API contracts or recommendations into approved contracts without authorization.
+
+## 10. Completion and approval
+
+At the end of every phase:
+
+1. Complete all six phase records.
+2. Reconcile the file ledger against Git.
+3. Verify no unrelated files were changed.
+4. Verify no secrets were introduced.
+5. Record all tests and actual results.
+6. List unresolved issues and risks.
+7. Evaluate each acceptance criterion.
+8. Submit the phase for review.
+
+Use only these statuses:
+
+- NOT_STARTED
+- IN_PROGRESS
+- BLOCKED
+- READY_FOR_REVIEW
+- NOT_ACCEPTED
+- ACCEPTED
+
+Only the project owner can mark a phase ACCEPTED.
+
+After submitting a phase, stop.
+
+Do not start the next phase automatically.
+
+## 11. Final instruction
+
+Your priority is not to produce the largest amount of code as quickly as possible.
+
+Your priority is to produce correct, maintainable, secure, traceable, testable implementation that follows the approved Learnova requirements.
+
+Implement carefully, document completely, verify honestly, and wait for approval before advancing.

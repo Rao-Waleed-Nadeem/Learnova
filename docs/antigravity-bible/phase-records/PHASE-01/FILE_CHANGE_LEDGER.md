@@ -5,7 +5,7 @@
 ## Non-Modification Invariant Confirmation
 
 **Current Status:** At this planning stage, **ZERO application source code, test files, configuration files, environment variables, or Docker compose definitions have been modified**.
-Only the Phase 1 planning documents have been created under `docs/antigravity-bible/phase-records/PHASE-01/`. Implementation is paused awaiting owner approval.
+Only the Phase 1 planning documents have been created under `docs/antigravity-bible/phase-records/PHASE-01/`, and canonical Bible documents were placed at `docs/antigravity-bible/` per `README_FIRST.md` line 7 and `agent-prompt.md` Section 2. Implementation is paused awaiting owner approval.
 
 ---
 
@@ -14,10 +14,10 @@ Only the Phase 1 planning documents have been created under `docs/antigravity-bi
 ### CHG-P1-001
 - **Path:** `docs/antigravity-bible/phase-records/PHASE-01/PLAN.md`
 - **Action:** CREATE
-- **Reason / intended outcome:** Detailed Phase 1 implementation plan, scope, exclusions, proposed file list, contracts, risks, and approval request.
-- **Requirement/source traceability:** `docs/phases/PHASE-01_BACKEND_FOUNDATION.md`, `Learnova_Master_Backend_Implementation_Blueprint.md` Sections 10, 16, 17.
+- **Reason / intended outcome:** Detailed Phase 1 implementation plan adhering strictly to `agent-prompt.md` Section 4 (10 planning steps), scope, exclusions, proposed file list, contracts, risks, and approval request.
+- **Requirement/source traceability:** `agent-prompt.md` Section 4, `docs/phases/PHASE-01_BACKEND_FOUNDATION.md`, `Learnova_Master_Backend_Implementation_Blueprint.md` Sections 10, 16, 17.
 - **Distinct edits in this file:**
-  1. Creation of Phase 1 Plan.
+  1. Creation and alignment of Phase 1 Plan.
 - **Impact:** Docs only.
 - **Validation evidence:** File created and verified.
 - **Git diff / commit reference:** Untracked new file.
@@ -26,8 +26,8 @@ Only the Phase 1 planning documents have been created under `docs/antigravity-bi
 ### CHG-P1-002
 - **Path:** `docs/antigravity-bible/phase-records/PHASE-01/EXECUTION_LOG.md`
 - **Action:** CREATE
-- **Reason / intended outcome:** Chronological log of inspection and verification commands for Phase 1.
-- **Requirement/source traceability:** `docs/templates/EXECUTION_LOG_TEMPLATE.md`, `AGENT_OPERATING_RULES.md` Section 5.
+- **Reason / intended outcome:** Chronological log of inspection, copy, and verification commands for Phase 1.
+- **Requirement/source traceability:** `docs/templates/EXECUTION_LOG_TEMPLATE.md`, `agent-prompt.md` Section 7.
 - **Distinct edits in this file:**
   1. Creation of Phase 1 Execution Log.
 - **Impact:** Docs only.
@@ -39,7 +39,7 @@ Only the Phase 1 planning documents have been created under `docs/antigravity-bi
 - **Path:** `docs/antigravity-bible/phase-records/PHASE-01/FILE_CHANGE_LEDGER.md`
 - **Action:** CREATE
 - **Reason / intended outcome:** Authoritative ledger of all files created/modified for Phase 1.
-- **Requirement/source traceability:** `docs/templates/FILE_CHANGE_LEDGER_TEMPLATE.md`, `AGENT_OPERATING_RULES.md` Section 4.
+- **Requirement/source traceability:** `docs/templates/FILE_CHANGE_LEDGER_TEMPLATE.md`, `agent-prompt.md` Section 6.
 - **Distinct edits in this file:**
   1. Creation of Phase 1 File Change Ledger.
 - **Impact:** Docs only.
@@ -83,16 +83,22 @@ Only the Phase 1 planning documents have been created under `docs/antigravity-bi
 - **Git diff / commit reference:** Untracked new file.
 - **Approval:** Submitted for project-owner review.
 
+### CHG-P1-007
+- **Path:** `docs/antigravity-bible/`
+- **Action:** CREATE
+- **Reason / intended outcome:** Placed canonical Antigravity Bible files at `docs/antigravity-bible/` per `README_FIRST.md` line 7-10 and `agent-prompt.md` Section 2.
+- **Requirement/source traceability:** `README_FIRST.md`, `agent-prompt.md`
+- **Distinct edits in this file:**
+  1. Copied `README_FIRST.md`, `AGENT_OPERATING_RULES.md`, `phases/`, `templates/` to `docs/antigravity-bible/`.
+- **Impact:** Docs only.
+- **Validation evidence:** Files verified.
+- **Git diff / commit reference:** Untracked directory.
+- **Approval:** Submitted for project-owner review.
+
 ---
 
 ## Diff Reconciliation
 
 - **Application code modified:** ZERO files (0 lines).
-- **Paths recorded in this ledger:** 6 new documentation files:
-  - `docs/antigravity-bible/phase-records/PHASE-01/PLAN.md`
-  - `docs/antigravity-bible/phase-records/PHASE-01/EXECUTION_LOG.md`
-  - `docs/antigravity-bible/phase-records/PHASE-01/FILE_CHANGE_LEDGER.md`
-  - `docs/antigravity-bible/phase-records/PHASE-01/TEST_AND_EVALUATION.md`
-  - `docs/antigravity-bible/phase-records/PHASE-01/ISSUES_AND_DECISIONS.md`
-  - `docs/antigravity-bible/phase-records/PHASE-01/PHASE_SUMMARY.md`
+- **Paths recorded in this ledger:** Documentation and phase records only.
 - **Unmatched Git paths:** Zero.

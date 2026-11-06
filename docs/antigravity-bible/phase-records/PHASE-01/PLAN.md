@@ -2,15 +2,17 @@
 
 - **Phase:** Phase 1 — Backend Foundation
 - **Status:** **PLAN_SUBMITTED_FOR_REVIEW** (Awaiting explicit project-owner approval before code edits)
+- **Governing Standard:** `agent-prompt.md` Section 4 (Mandatory planning before implementation)
 - **Primary Source:** `docs/sources/Learnova_Master_Backend_Implementation_Blueprint.md`, Sections 10 (Phase 1), 13, 16, and 17.
-- **Related Sources:** `docs/sources/Readme.md`, `docs/phases/PHASE-01_BACKEND_FOUNDATION.md`, `docs/AGENT_OPERATING_RULES.md`, `API_CONTRACT.md`, `IMPLEMENTATION_STATUS.md`.
-- **Branch / Commit Baseline:** `main` / `abd879e69d4a42af087ffaee39073bc397f85cc7` (Working tree clean; Phase 0 verified and committed).
+- **Related Sources:** `docs/sources/Readme.md`, `docs/sources/Learnova_SRS_Final_Aligned_V2 (1).docx`, `docs/sources/Learnova_Final_SSDs_V2.xml`, `docs/antigravity-bible/phases/PHASE-01_BACKEND_FOUNDATION.md`, `docs/antigravity-bible/AGENT_OPERATING_RULES.md`, `API_CONTRACT.md`, `IMPLEMENTATION_STATUS.md`, `DECISIONS.md`.
+- **Branch / Commit Baseline:** `main` / `abd879e69d4a42af087ffaee39073bc397f85cc7` (Working tree clean; Phase 0 accepted and committed).
 
 ---
 
 ## 1. Task Objective
 
-Establish a reliable, production-structured FastAPI configuration and PostgreSQL connectivity layer within Docker without modifying or regressing frontend behavior.
+Establish a reliable, production-structured FastAPI configuration and PostgreSQL connectivity layer within Docker without modifying or regressing frontend behavior. Add the minimum technical foundation required for subsequent domain implementation (Phases 2–10).
+
 Specifically:
 1. Provide validated, environment-driven backend settings via Pydantic (`pydantic-settings`).
 2. Implement a single consistent synchronous SQLAlchemy 2.0+ engine and session factory with `psycopg2-binary`.
@@ -25,28 +27,45 @@ Specifically:
 
 ---
 
-## 2. Explicit Scope Exclusions
+## 2. SRS and SSD Requirements Traceability
 
-As mandated by `PHASE-01_BACKEND_FOUNDATION.md` and Blueprint Section 16:
-- **NO** authentication or RBAC logic.
-- **NO** user or domain tables, and no full domain schema.
-- **NO** frontend UI modifications or API client rewrites.
-- **NO** modifications to `storageService.ts`.
-- **NO** migration of AI routes from Express to FastAPI (retained in Express until Phase 9).
-- **NO** course, assessment, adaptive learning, gamification, analytics, or teacher/admin business logic.
-- **NO** hardcoded production or seed user credentials.
-- **NO** destructive database resets, `docker compose down -v`, or volume deletions.
-- **NO** destructive Alembic migrations against the persistent `postgres_data` volume.
+- **Architectural Foundation:** All 8 System Sequence Diagrams (`SSD-01` through `SSD-08`) require a functioning backend API server and PostgreSQL persistence store.
+- **Non-Functional Requirements Traceability:**
+  - `NFR-REL-01` (Service Reliability & Monitoring): Distinct liveness and readiness probes to monitor application process status versus database dependency health.
+  - `NFR-DATA-01` (Data Persistence & Schema Evolution): Version-controlled migrations via Alembic linked to PostgreSQL 17.
+  - `NFR-SEC-01` (Credential Security): Environment-driven configuration without committed or logged secrets; automated secret scrubbing in logs and error responses.
+- **Scope Exclusions Traceability:**
+  - Domain use cases (`uc_auth`, `uc_enroll`, `uc_diag`, `uc_path`, `uc_practice`, `uc_exam`, `uc_gamify`, `uc_manage_courses`, etc.) are deferred to Phases 2–10. Phase 1 provides exclusively technical services (`LAY-TECH`).
 
 ---
 
-## 3. Exact Intended File List & Traceability
+## 3. Relevant Architecture and Business Rules
 
-Every file to be created or modified is listed below with justification and requirement traceability:
+- **Three-Layer Separation:** `LAY-TECH` (Technical Services) provides settings, database sessions, and migrations without embedding domain or presentation rules.
+- **Single Driver Strategy:** Consistent synchronous SQLAlchemy 2.0+ session with `psycopg2-binary`. Prohibits mixing async and sync drivers without approved justification.
+- **Data Invariant:** Persistent Docker volume `postgres_data` must not be dropped, reset, or altered with destructive migrations.
+- **Health Compatibility Invariant:** Existing `/health` endpoint contract (`{"status": "ok", "service": "learnova-api"}`) must remain 100% backward-compatible.
+- **AI Route Invariant:** AI endpoints remain in Express on port 3000 until Phase 9.
 
-### A. Application Source & Configuration (To Create/Modify)
+---
 
-| Path | Action | Reason & Intended Outcome | Source Traceability |
+## 4. Code Inspection Baseline Before Proposing Replacements
+
+The repository code and runtime were inspected directly:
+- `backend/app/main.py`: 12-line stub with only `@app.get("/health")`.
+- `backend/app/__init__.py`: 1-line docstring.
+- `backend/requirements.txt`: Contains only `fastapi` and `uvicorn[standard]`.
+- `backend/Dockerfile`: Copies `requirements.txt` and `app/`. Does not copy `alembic.ini`, `alembic/`, or `tests/`.
+- `docker-compose.yml`: Services `frontend`, `backend`, `database`. Backend lacks `./backend:/app` bind mount.
+- Docker runtime: Backend runs Python `3.12.15` in container `learnova-backend-1`. Database is healthy on port 5432 with 0 relations.
+
+---
+
+## 5 & 6. Files to Create, Modify, Rename, or Delete with Reasons
+
+### A. Application Source & Configuration
+
+| Path | Action | Reason & Intended Outcome | Requirement / Source |
 |---|:---:|---|---|
 | `backend/requirements.txt` | MODIFY | Add pinned dependencies: `pydantic-settings>=2.6.0`, `sqlalchemy>=2.0.36`, `alembic>=1.13.3`, `psycopg2-binary>=2.9.9`, `pytest>=8.3.3`, `httpx>=0.27.2`. | Blueprint Sec 16, 17 |
 | `backend/app/core/__init__.py` | CREATE | Package marker for core module. | Python package standard |
@@ -69,9 +88,9 @@ Every file to be created or modified is listed below with justification and requ
 | `backend/Dockerfile` | MODIFY | Ensure `alembic.ini`, `alembic/`, and `tests/` are copied to the container image alongside `app/`. | Docker best practice |
 | `docker-compose.yml` | MODIFY | Add `./backend:/app` bind mount to `backend` service (matching `frontend`) for live development sync. | Docker best practice |
 
-### B. Test Suites (To Create)
+### B. Test Suites
 
-| Path | Action | Reason & Intended Outcome | Source Traceability |
+| Path | Action | Reason & Intended Outcome | Requirement / Source |
 |---|:---:|---|---|
 | `backend/tests/__init__.py` | CREATE | Package marker for test suite. | Testing standard |
 | `backend/tests/conftest.py` | CREATE | Pytest fixtures providing test settings, test client, and mock/disposable DB engines. | Blueprint Sec 11 |
@@ -79,71 +98,85 @@ Every file to be created or modified is listed below with justification and requ
 | `backend/tests/test_health.py` | CREATE | Unit tests verifying `/health` backward compatibility, `/ready` behavior, and `/api/v1/health/*`. | AC-3, AC-4 |
 | `backend/tests/test_db_connection.py` | CREATE | Integration tests verifying database readiness check against live PostgreSQL service and connection error simulation. | AC-2, AC-10 |
 
-### C. Project Control & Phase Records (To Create/Update)
+### C. Project Control Documents (Root)
 
 | Path | Action | Reason & Intended Outcome |
 |---|:---:|---|
-| `docs/antigravity-bible/phase-records/PHASE-01/PLAN.md` | CREATE | This plan document. |
-| `docs/antigravity-bible/phase-records/PHASE-01/EXECUTION_LOG.md` | CREATE | Chronological log of all executed commands, exit codes, and outputs. |
-| `docs/antigravity-bible/phase-records/PHASE-01/FILE_CHANGE_LEDGER.md` | CREATE | Complete change ledger recording every file created/modified and reconciling git diff. |
-| `docs/antigravity-bible/phase-records/PHASE-01/TEST_AND_EVALUATION.md` | CREATE | Evidence from pytest, alembic, docker, curl, and frontend regression runs. |
-| `docs/antigravity-bible/phase-records/PHASE-01/ISSUES_AND_DECISIONS.md` | CREATE | Blocker, deviation, and architectural decision records for Phase 1. |
-| `docs/antigravity-bible/phase-records/PHASE-01/PHASE_SUMMARY.md` | CREATE | Executive phase outcome and acceptance matrix. |
-| `API_CONTRACT.md` | MODIFY | Record new verified health/readiness endpoints. |
+| `API_CONTRACT.md` | MODIFY | Update verified endpoints with `/ready` and `/api/v1/health/*`. |
 | `IMPLEMENTATION_STATUS.md` | MODIFY | Update foundation capability status to verified. |
 | `DECISIONS.md` | MODIFY | Record approved driver selection and health/readiness architecture. |
 
 ---
 
-## 4. Affected Contracts
+## 7. Affected Contracts
 
-### API Contracts:
-- `GET /health` — **UNMODIFIED**; preserves exact response: `{"status": "ok", "service": "learnova-api"}` (`200 OK`).
-- `GET /ready` — **NEW**; returns `{"status": "ready", "database": "connected", "service": "learnova-api"}` (`200 OK`) when DB is healthy; returns `503 Service Unavailable` with details when DB is down.
-- `GET /api/v1/health/liveness` — **NEW**; identical process liveness check (`200 OK`).
-- `GET /api/v1/health/readiness` — **NEW**; dependency readiness check (`200 OK` or `503`).
-
-### Database Contracts:
-- Database host: `database` (Compose service name).
-- Port: `5432`.
-- Database name: `learnova` (or `learnova_whz` from `.env`).
-- Driver: `postgresql+psycopg2://` (standard sync driver via `psycopg2-binary`).
-- Existing `postgres_data` volume is strictly preserved and read-only during health checks (`SELECT 1`).
-- Alembic test migration will be run against a disposable database (e.g., SQLite in-memory or a temporary test database) to avoid writing test schema into the persistent database.
+- **API Contracts:**
+  - `GET /health` (`200 OK`) — UNCHANGED: `{"status": "ok", "service": "learnova-api"}`.
+  - `GET /ready` (`200 OK` or `503 Service Unavailable`) — NEW: reports database connectivity status.
+  - `GET /api/v1/health/liveness` (`200 OK`) — NEW: process health check.
+  - `GET /api/v1/health/readiness` (`200 OK` or `503 Service Unavailable`) — NEW: dependency readiness check.
+- **Database Contracts:**
+  - Connection string: `postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB}`.
+  - Persistent volume `postgres_data` is strictly preserved.
+  - Test migration executed exclusively against a disposable test database.
+- **Docker Contracts:**
+  - Compose services `frontend`, `backend`, `database` continue on ports 3000, 8000, 5432.
+  - Backend volume mount `./backend:/app` added for local dev reflection.
 
 ---
 
-## 5. Risks, Assumptions, and Rollback
+## 8. Dependencies and Compatibility Risks
 
-| Risk | Impact | Mitigation |
-|---|---|---|
-| PostgreSQL credentials exposure in logs/errors | Security breach | Pydantic `SecretStr` / custom `__repr__` and structured logger scrubber to mask passwords. |
-| Docker Compose volume corruption | Data loss | Never run `docker compose down -v`. Database container is left running untouched. |
-| Frontend breakage | Regression | Frontend code is not modified. Existing health endpoint behavior is strictly preserved. Full frontend lint, test, and build runs must pass. |
-| Dependency incompatibility in Python 3.12 | Container build failure | Pin modern, tested dependency versions (`pydantic-settings>=2.6`, `sqlalchemy>=2.0.36`, `psycopg2-binary>=2.9.9`, `alembic>=1.13.3`). |
+- **Python 3.12 Compatibility:** `psycopg2-binary>=2.9.9`, `sqlalchemy>=2.0.36`, `pydantic-settings>=2.6.0`, `alembic>=1.13.3` are fully compatible with Python 3.12.
+- **Frontend Compatibility:** Zero changes to frontend files; existing `/health` response preserved; full regression test execution mandated.
+- **Security:** Pydantic `SecretStr` and custom `__repr__` ensure passwords in `DATABASE_URL` cannot leak into logs, exceptions, or reports.
+
+---
+
+## 9. Acceptance Criteria
+
+1. Backend starts successfully in the existing Docker setup.
+2. Backend connects to configured PostgreSQL using the Compose service hostname (`database:5432`).
+3. Liveness and readiness distinguish application availability from database readiness.
+4. Existing `/health` behavior remains compatible.
+5. Alembic is configured from validated environment settings.
+6. Alembic can apply a small initial/test migration to a disposable database.
+7. Configuration is environment-driven and validates required settings.
+8. Structured logging and exception handling do not expose secrets.
+9. `/api/v1` router structure is established without breaking existing behavior.
+10. Backend unit tests and DB connectivity integration test pass.
+11. Existing frontend lint, tests, and production build still pass.
+12. `docker compose config` succeeds and Docker networking is verified safely.
+13. No frontend behavior has been removed or replaced with mocks.
+14. Existing database volume/data remain untouched.
+15. Every changed path and distinct edit is recorded; Git diff and ledger reconcile.
+16. No unrelated modifications or secrets are present.
+
+---
+
+## 10. Testing and Rollback Strategy
+
+### Testing Strategy:
+1. `docker compose config` validation.
+2. Container build: `docker compose build backend`.
+3. Container startup: `docker compose up -d backend`.
+4. HTTP health test: `curl http://localhost:8000/health`.
+5. HTTP readiness test: `curl http://localhost:8000/ready`.
+6. Pytest execution inside container: `docker compose exec backend pytest tests/ -v`.
+7. Alembic test on disposable database: run migration upgrade and downgrade against a temporary SQLite or test DB.
+8. Frontend regression checks: `npm run lint`, `npm test`, `npm run build`.
+9. Git diff audit vs `FILE_CHANGE_LEDGER.md`.
 
 ### Rollback Strategy:
-- Git rollback: `git restore backend/ docker-compose.yml` and `git clean -fd backend/`.
-- Container rollback: Revert `docker-compose.yml` and rebuild backend container from original commit.
+- Revert code edits: `git restore backend/ docker-compose.yml API_CONTRACT.md IMPLEMENTATION_STATUS.md DECISIONS.md`
+- Remove untracked new files: `git clean -fd backend/`
+- Rebuild backend container from clean commit `abd879e`.
 
 ---
 
-## 6. Verification and Acceptance Plan
+## Approval Checkpoint
 
-Once approved, implementation will be validated against the 16 acceptance criteria in `PHASE-01_BACKEND_FOUNDATION.md`:
-1. `docker compose config` passes.
-2. Backend container builds and starts cleanly.
-3. `curl http://localhost:8000/health` returns original `{"status": "ok", "service": "learnova-api"}`.
-4. `curl http://localhost:8000/ready` returns `200 OK` with database connected status.
-5. Pytest suite passes: config tests, health route tests, DB connectivity tests.
-6. Alembic applies and rolls back a test migration against a disposable database.
-7. Frontend regressions verified: `npm run lint`, `npm test`, and `npm run build` all pass with 0 errors.
-8. Git diff and change ledger reconcile 100%.
+In accordance with `agent-prompt.md` Section 4 and `AGENT_OPERATING_RULES.md` Rule 2:
+> **"Do not implement anything until explicit approval is received."**
 
----
-
-## 7. Approval Request
-
-In accordance with `AGENT_OPERATING_RULES.md` Rule 2 and `PHASE-01_BACKEND_FOUNDATION.md`:
-- **Current Status:** `PLAN_SUBMITTED_FOR_REVIEW`
-- **Action Required:** Antigravity requests explicit project-owner approval of this plan and the exact file list above before initiating any code modifications.
+This plan is submitted for project-owner review. Antigravity will pause and wait for your explicit approval before modifying any application source or configuration code.
