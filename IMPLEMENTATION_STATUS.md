@@ -1,0 +1,124 @@
+# Learnova Implementation Status & Traceability Matrix
+
+**Document Status:** Baseline Verified for Phase 0  
+**Authority:** `Learnova_Master_Backend_Implementation_Blueprint.md`, Section 14.2  
+**Last Updated:** Phase 0 Baseline Audit (2026-11-06)
+
+---
+
+## 1. Summary of Capabilities
+
+| Status | Count | Notes |
+|---|---|---|
+| **IMPLEMENTED** | 0 | No complete end-to-end backend persisted workflows currently exist. |
+| **PARTIAL** | 2 | Express AI endpoints (`POST /api/ai/generate-questions`, `POST /api/ai/simplify-lesson`) are live with Gemini integration & deterministic fallbacks, but lack FastAPI ownership and persistent database logging. |
+| **MOCK_ONLY** | 16 | All UI screens, navigation, assessment players, mastery logic, DAG validation, and admin actions function via in-memory and `localStorage` mock state in `frontend/src/services/storageService.ts`. |
+| **NOT_IMPLEMENTED** | 0 | (All target capabilities exist in at least mock UI form). |
+| **BLOCKED/UNKNOWN** | 0 | All areas inspected and classified with direct code evidence. |
+
+---
+
+## 2. SSD-01 through SSD-08 Workflow Traceability
+
+| SSD | Name | UI Component / Page | Current API Endpoint | Backend Service | Persistence Mechanism | Test Coverage | Current Status |
+|:---|:---|:---|:---|:---|:---|:---|:---:|
+| **SSD-01** | Course Enrollment & Curriculum Loading | `CourseCatalogPage.tsx`, `CourseDetailsPage.tsx`, `MyLearningPage.tsx` | None (Direct JS) | None (Client storage) | `localStorage` (`learnova_courses_v2`, `learnova_enrollments_v2`) | None | **MOCK_ONLY** |
+| **SSD-02** | Topic Selection & Prerequisite Diagnostic | `CourseLearningMapPage.tsx`, `DiagnosticIntroPage.tsx`, `DiagnosticPlayerPage.tsx` | None (Direct JS) | None (Client logic in `src/utils/studentLogic.ts`) | `localStorage` (`learnova_mastery_states_v2`, `learnova_assessment_sessions_v2`) | `src/utils/studentLogic.test.ts` (Topic readiness) | **MOCK_ONLY** |
+| **SSD-03** | Personalized Learning Path & Resource Study | `CourseLearningMapPage.tsx`, `LessonWorkspacePage.tsx` | None (Direct JS) | None (Client `getRecommendedNextStep`) | `localStorage` (`learnova_lesson_completions_v2`) | None | **MOCK_ONLY** |
+| **SSD-04** | Adaptive Practice & Mastery Recalibration | `AdaptivePracticePlayerPage.tsx`, `AssessmentResultsPage.tsx`, `QuestionRenderer.tsx` | None (Direct JS) | None (Client `getNextAdaptiveQuestion`, `calculateAcademicMastery`) | `localStorage` (`learnova_attempts_v2`, `learnova_mastery_states_v2`) | `src/utils/studentLogic.test.ts`, `src/utils/assessment.test.ts` | **MOCK_ONLY** |
+| **SSD-05** | On-Demand AI/LLM Learning Support | `AIHelperPanel.tsx` | `POST /api/ai/simplify-lesson` (Port 3000) | Express (`frontend/server.ts`) | In-memory `lessonAICache` (`Map<string, string>`) | Live HTTP curl tests | **PARTIAL** |
+| **SSD-06** | Final Summative Exam & Course Completion | `FinalExamPlayerPage.tsx`, `AssessmentResultsPage.tsx` | None (Direct JS) | None (Client assessment scoring) | `localStorage` (`learnova_attempts_v2`, `learnova_enrollments_v2`) | `src/utils/assessment.test.ts` | **MOCK_ONLY** |
+| **SSD-07** | Teacher Course & Content Management | `CoursesPage.tsx`, `CourseOverviewPage.tsx`, `CurriculumEditorPage.tsx`, `PrerequisiteManagerPage.tsx`, `ResourceManagerPage.tsx` | None (Direct JS) | None (Client DAG validator) | `localStorage` (`learnova_courses_v2`, `learnova_topics_v2`, `learnova_lessons_v2`) | `src/utils/dag.test.ts` (Cycle detection) | **MOCK_ONLY** |
+| **SSD-08** | Teacher Assessment & AI Question Management | `QuestionBankPage.tsx`, `QuestionEditorPage.tsx`, `AIReviewPage.tsx`, `AssessmentsPage.tsx`, `AssessmentEditorPage.tsx` | `POST /api/ai/generate-questions` (Port 3000) | Express (`frontend/server.ts`) | `localStorage` (`learnova_questions_v2`, `learnova_ai_candidates_v2`, `learnova_assessments_v2`) | `src/utils/assessment.test.ts`, live HTTP curl | **PARTIAL** |
+
+---
+
+## 3. Complete SRS Use Case Traceability (18 Use Cases)
+
+| Use Case ID | Use Case Name | Primary Actors | Frontend Screen / Component | Storage / State | Verified Tests | Status |
+|:---|:---|:---|:---|:---|:---|:---:|
+| `uc_auth` | Manage Account & Profile | Student, Teacher | `SignInPage.tsx`, `CreateAccountPage.tsx`, `ProfileSettingsPage.tsx` | `storage.getStudentUser()`, `localStorage` | None | **MOCK_ONLY** |
+| `uc_enroll` | Browse & Enroll in Course | Student | `CourseCatalogPage.tsx`, `CourseDetailsPage.tsx` | `storage.getEnrollments()`, `localStorage` | None | **MOCK_ONLY** |
+| `uc_diag` | Take Prerequisite Diagnostic | Student | `DiagnosticIntroPage.tsx`, `DiagnosticPlayerPage.tsx` | `storage.getAssessmentSessions()` | `studentLogic.test.ts` | **MOCK_ONLY** |
+| `uc_path` | Receive Personalized Learning Path | Student | `CourseLearningMapPage.tsx` | `storage.getRecommendedNextStep()` | `studentLogic.test.ts` | **MOCK_ONLY** |
+| `uc_study` | Study Learning Resources | Student | `LessonWorkspacePage.tsx` | `storage.getLessonCompletions()` | None | **MOCK_ONLY** |
+| `uc_practice` | Attempt Adaptive Practice | Student | `AdaptivePracticePlayerPage.tsx` | `storage.getAttempts()` | `studentLogic.test.ts`, `assessment.test.ts` | **MOCK_ONLY** |
+| `uc_exam` | Take Final Examination | Student | `FinalExamPlayerPage.tsx` | `storage.getAttempts()` | `assessment.test.ts` | **MOCK_ONLY** |
+| `uc_stu_analytics` | View Learning Progress & Analytics | Student | `ProgressAnalyticsPage.tsx` | `storage.getMasteryStates()` | None | **MOCK_ONLY** |
+| `uc_update_mastery` | Update Topic Mastery & Student State | System | Triggered on assessment complete | `storage.saveMasteryState()` | `assessment.test.ts` (`calculateAcademicMastery`) | **MOCK_ONLY** |
+| `uc_regen_path` | Regenerate Learning Path | System | Triggered on mastery change | `storage.getRecommendedNextStep()` | `studentLogic.test.ts` | **MOCK_ONLY** |
+| `uc_gamify` | Earn Gamification Rewards (XP, Badges, Streaks) | Student | `AchievementsBadgesPage.tsx`, `XPActivityHistoryPage.tsx`, `LeaderboardPage.tsx` | `storage.getGamificationProfile()`, `storage.getXPEvents()` | `studentLogic.test.ts` (`calculateLevelFromXP`) | **MOCK_ONLY** |
+| `uc_ai_support` | Request AI Learning Support | Student, AI/LLM | `AIHelperPanel.tsx` | Express `/api/ai/simplify-lesson` + `lessonAICache` | Live endpoint test (cached & uncached) | **PARTIAL** |
+| `uc_manage_courses` | Manage Courses & Hierarchy | Teacher | `CoursesPage.tsx`, `CourseOverviewPage.tsx`, `CurriculumEditorPage.tsx` | `storage.getCourses()`, `storage.getTopics()` | None | **MOCK_ONLY** |
+| `uc_define_prereq` | Define Prerequisite Dependencies | Teacher | `PrerequisiteManagerPage.tsx` | `storage.saveTopic()` | `dag.test.ts` (DAG cycle tests) | **MOCK_ONLY** |
+| `uc_manage_content` | Provide Content & Resources | Teacher | `ResourceManagerPage.tsx` | `storage.getResources()` | None | **MOCK_ONLY** |
+| `uc_manage_assessments` | Manage Assessments & Questions | Teacher | `QuestionBankPage.tsx`, `QuestionEditorPage.tsx`, `AssessmentsPage.tsx` | `storage.getQuestions()`, `storage.getAssessments()` | `assessment.test.ts` (`validateQuestion`) | **MOCK_ONLY** |
+| `uc_review_ai` | Review AI-Generated Questions | Teacher, AI/LLM | `AIReviewPage.tsx` | Express `/api/ai/generate-questions` + `storage.saveCandidates()` | Live endpoint test | **PARTIAL** |
+| `uc_monitor_perf` | Monitor Student Performance | Teacher | `AnalyticsPage.tsx` | `storage.getAttempts()`, `storage.getUsers()` | None | **MOCK_ONLY** |
+
+---
+
+## 4. Frontend Screen Inventory (39 Total Pages)
+
+### Teacher Portal (12 Pages + 1 Layout)
+1. `DashboardPage.tsx` — Teacher KPI dashboard and quick actions.
+2. `CoursesPage.tsx` — Course catalog management for instructor.
+3. `CourseOverviewPage.tsx` — Syllabus outline and topic hierarchy.
+4. `CurriculumEditorPage.tsx` — Topic tree and lesson sequence editor.
+5. `PrerequisiteManagerPage.tsx` — Visual prerequisite graph with DAG cycle prevention.
+6. `ResourceManagerPage.tsx` — Media, PDF, slide, and notes attachment manager.
+7. `QuestionBankPage.tsx` — Item pool filtering by topic, difficulty, type.
+8. `QuestionEditorPage.tsx` — Question authoring interface with real-time validation.
+9. `AIReviewPage.tsx` — Gemini question generation, preview, edit, approve, reject flow.
+10. `AssessmentsPage.tsx` — Assessment lifecycle management (draft, published, archived).
+11. `AssessmentEditorPage.tsx` — Test composition, question picking, timing, passing grade.
+12. `AnalyticsPage.tsx` — Class mastery distributions, radar charts, question item discrimination.
+- Layout: `TeacherLayout.tsx`
+
+### Student Portal (18 Pages + 1 Layout + 3 Sub-components)
+1. `SignInPage.tsx` — Mock authentication entry point.
+2. `CreateAccountPage.tsx` — Student registration with interest tags.
+3. `StudentDashboardPage.tsx` — Overview of enrolled courses, daily streak, recent achievements.
+4. `CourseCatalogPage.tsx` — Public course discovery and search.
+5. `CourseDetailsPage.tsx` — Course syllabus, instructor info, enrollment action.
+6. `MyLearningPage.tsx` — Enrolled courses with progress indicators.
+7. `CourseLearningMapPage.tsx` — Interactive learning map with topic readiness states.
+8. `LessonWorkspacePage.tsx` — Lesson reading, markdown viewer, resource launcher.
+9. `DiagnosticIntroPage.tsx` — Prerequisite diagnostic briefing and readiness explanation.
+10. `DiagnosticPlayerPage.tsx` — Timed prerequisite diagnostic test engine.
+11. `AdaptivePracticePlayerPage.tsx` — Formative quiz engine with live difficulty adaptation.
+12. `FinalExamPlayerPage.tsx` — Summative examination runner with strict countdown timer.
+13. `AssessmentResultsPage.tsx` — Performance breakdown, score, earned XP, updated mastery.
+14. `ProgressAnalyticsPage.tsx` — Topic mastery radar charts and score trajectory.
+15. `AchievementsBadgesPage.tsx` — Badge showcase and criteria tracker.
+16. `XPActivityHistoryPage.tsx` — Chronological ledger of all earned XP events.
+17. `LeaderboardPage.tsx` — Ranked student rankings with filtering.
+18. `ProfileSettingsPage.tsx` — Student avatar, notification preferences, learning pace.
+- Layout: `StudentLayout.tsx`
+- Components: `AIHelperPanel.tsx`, `AssessmentPlayerShell.tsx`, `QuestionRenderer.tsx`
+
+### Administrator Portal (9 Pages + 1 Layout + 4 Sub-components)
+1. `AdminDashboardPage.tsx` — Platform overview, active users, course count, system status.
+2. `UserManagementPage.tsx` — Search, filter, and manage student/teacher accounts.
+3. `UserDetailsPage.tsx` — Deep dive into user enrollments, audit history, roles.
+4. `RolesAccessPage.tsx` — RBAC matrix and role assignment safeguards.
+5. `SecurityAuditLogPage.tsx` — Filterable security audit events with IP masking.
+6. `SystemHealthPage.tsx` — Service health indicators (DB, Cache, Storage, AI).
+7. `AdminProfileSecurityPage.tsx` — Admin credential management and MFA settings.
+8. `CourseOversightPage.tsx` — Cross-institution course monitoring and flags.
+9. `AccessDeniedPage.tsx` — Role violation fallback boundary.
+- Layout: `AdminLayout.tsx`
+- Components: `AuditDetailDrawer.tsx`, `ChangeRoleModal.tsx`, `DeactivateAccountModal.tsx`, `RoleBadge.tsx`
+
+---
+
+## 5. Architectural Overlaps & Integration Gaps
+
+1. **Dual Server Split:**
+   - Express on port 3000 currently serves the frontend AND implements the AI endpoints (`generate-questions`, `simplify-lesson`).
+   - FastAPI on port 8000 is completely isolated, hosting only `GET /health`.
+   - **Target Resolution:** In Phase 1–3, frontend will proxy `/api/v1/*` to FastAPI. In Phase 9, AI endpoints will migrate from Express to FastAPI behind an LLM adapter.
+
+2. **Client-Side Security:**
+   - In the current frontend, role enforcement (`validateRoleChange`, `validateAccountStatusChange`) is performed inside React UI components using `frontend/src/utils/adminLogic.ts`.
+   - **Target Resolution:** Must be enforced authoritatively on the FastAPI backend with JWT claims and database constraints (Phase 3).
