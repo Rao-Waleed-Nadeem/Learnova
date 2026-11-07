@@ -10,7 +10,8 @@
 
 | Status | Count | Notes |
 |---|---|---|
-| **IMPLEMENTED** | 1 | Phase 1 Backend Foundation (FastAPI environment configuration, synchronous SQLAlchemy session with `psycopg2-binary`, health/readiness endpoints, structured logging, Alembic migration scaffold, and 13 backend pytest tests). |
+| **IMPLEMENTED** | 3 | Phase 1 Backend Foundation, Phase 2 Initial Domain Schema & Migrations, and Phase 3 Authentication & RBAC (FastAPI auth routes, bcrypt cost 12, JWT 15m, rotating refresh cookies 7d, admin safeguards, teacher course scoping, audit logging, 52 backend tests passing, live frontend student auth integration, 29 frontend tests passing). |
+| **IN_PROGRESS** | 0 | Phase 3 Stage B completed and verified; awaiting project owner review before commencing Phase 4. |
 | **PARTIAL** | 2 | Express AI endpoints (`POST /api/ai/generate-questions`, `POST /api/ai/simplify-lesson`) are live with Gemini integration & deterministic fallbacks, but lack FastAPI ownership and persistent database logging. |
 | **MOCK_ONLY** | 16 | All UI screens, navigation, assessment players, mastery logic, DAG validation, and admin actions function via in-memory and `localStorage` mock state in `frontend/src/services/storageService.ts`. |
 | **NOT_IMPLEMENTED** | 0 | (All domain capabilities exist in mock UI form). |
@@ -37,7 +38,7 @@
 
 | Use Case ID | Use Case Name | Primary Actors | Frontend Screen / Component | Storage / State | Verified Tests | Status |
 |:---|:---|:---|:---|:---|:---|:---:|
-| `uc_auth` | Manage Account & Profile | Student, Teacher | `SignInPage.tsx`, `CreateAccountPage.tsx`, `ProfileSettingsPage.tsx` | `storage.getStudentUser()`, `localStorage` | None | **MOCK_ONLY** |
+| `uc_auth` | Manage Account & Profile | Student, Teacher, Admin | `SignInPage.tsx`, `CreateAccountPage.tsx`, `ProfileSettingsPage.tsx` | Live PostgreSQL (`users`, `roles`, `user_profiles`, `sessions`, `security_audit_events`) | `test_auth_endpoints.py`, `test_rbac_authorization.py`, `test_admin_guardrails.py`, `test_user_profile_security.py` | **IMPLEMENTED** |
 | `uc_enroll` | Browse & Enroll in Course | Student | `CourseCatalogPage.tsx`, `CourseDetailsPage.tsx` | `storage.getEnrollments()`, `localStorage` | None | **MOCK_ONLY** |
 | `uc_diag` | Take Prerequisite Diagnostic | Student | `DiagnosticIntroPage.tsx`, `DiagnosticPlayerPage.tsx` | `storage.getAssessmentSessions()` | `studentLogic.test.ts` | **MOCK_ONLY** |
 | `uc_path` | Receive Personalized Learning Path | Student | `CourseLearningMapPage.tsx` | `storage.getRecommendedNextStep()` | `studentLogic.test.ts` | **MOCK_ONLY** |
@@ -136,3 +137,34 @@
 | Database Readiness | `backend/app/main.py`, `backend/app/api/v1/endpoints/health.py` | `GET /ready`, `GET /api/v1/health/readiness` | PostgreSQL connection probe (`SELECT 1`) | `tests/test_health.py` (2 tests), live `curl` | **IMPLEMENTED** |
 | Alembic Migration Scaffold | `backend/alembic.ini`, `backend/alembic/env.py` | CLI (`alembic upgrade/downgrade`) | Dynamic URL from settings, `Base.metadata` | `tests/test_alembic_disposable.py` (2 tests) | **IMPLEMENTED** |
 | Docker Synchronization | `docker-compose.yml`, `backend/Dockerfile` | Ports 8000 & 5432 | Volume bind `./backend:/app` | Docker container build & execution | **IMPLEMENTED** |
+
+
+---
+
+## 7. Initial Domain Schema (`LAY-DOMAIN`) — Phase 2 Status
+
+| Capability | Component / Module | Scope / Tables | Driver / Migration | Verified Tests | Status |
+|:---|:---|:---|:---|:---|:---:|
+| D1 User Identity & Roles | `backend/app/models/user.py`, `role.py`, `profile.py` | `roles`, `users`, `user_profiles` | Alembic Migration 1 (`20261108_0001`) | `tests/test_models_d1.py` (6 tests) | **IMPLEMENTED** |
+| D2 Courses & Assignments | `backend/app/models/course.py`, `course_teacher.py` | `courses`, `course_teachers` | Alembic Migration 2 (`20261108_0002`) | `tests/test_models_d2.py` (8 tests) | **IMPLEMENTED** |
+| D2 Topics & Prerequisite DAG | `backend/app/models/topic.py`, `topic_prerequisite.py` | `topics`, `topic_prerequisites` | Alembic Migration 3 (`20261108_0003`) | `tests/test_models_d2.py` (prereq self-edge & duplicate) | **IMPLEMENTED** |
+| D2 Lessons & Resources | `backend/app/models/lesson.py`, `resource.py` | `lessons`, `learning_resources` | Alembic Migration 4 (`20261108_0004`) | `tests/test_models_d2.py` (type constraints & cascades) | **IMPLEMENTED** |
+| Migration Lifecycle | `backend/tests/test_migrations_postgres.py` | Full upgrade/downgrade/upgrade on disposable DB | PostgreSQL 17 isolated test DB | `tests/test_migrations_postgres.py` (1 test) | **IMPLEMENTED** |
+| Development Seed CLI | `backend/app/cli/seed.py` | Role seed & dev accounts | CLI (`python -m app.cli.seed`) | `tests/test_seed_dev.py` (3 tests) | **IMPLEMENTED** |
+
+
+---
+
+## 8. Authentication and RBAC (`LAY-TECH` / `LAY-DOMAIN`) — Phase 3 Status
+
+| Capability | Component / Module | Scope / Endpoints | Persistence / Drivers | Verified Tests | Status |
+|:---|:---|:---|:---|:---|:---:|
+| User Registration | `backend/app/api/v1/endpoints/auth.py` | `POST /api/v1/auth/register` (student only) | `users`, `user_profiles`, `sessions` | `tests/test_auth_endpoints.py` | **IMPLEMENTED** |
+| User Login & Sessions | `backend/app/api/v1/endpoints/auth.py` | `POST /api/v1/auth/login` (bcrypt + JWT + cookie) | `sessions` table (SHA-256 hashed) | `tests/test_auth_endpoints.py` | **IMPLEMENTED** |
+| Token Refresh Rotation | `backend/app/api/v1/endpoints/auth.py` | `POST /api/v1/auth/refresh` | `sessions` table (hash rotation) | `tests/test_auth_endpoints.py` | **IMPLEMENTED** |
+| Logout & Revocation | `backend/app/api/v1/endpoints/auth.py` | `POST /api/v1/auth/logout` | `sessions` table (`is_revoked`) | `tests/test_auth_endpoints.py` | **IMPLEMENTED** |
+| Current User & Profile | `backend/app/api/v1/endpoints/auth.py`, `users.py` | `GET /api/v1/auth/me`, `PUT /api/v1/users/me` | `users`, `user_profiles` | `tests/test_user_profile_security.py` | **IMPLEMENTED** |
+| Admin Governance & Safeguards | `backend/app/api/v1/endpoints/admin.py` | `PUT /api/v1/admin/users/{id}/role`, `/status` | Row locks on active admin count | `tests/test_admin_guardrails.py` | **IMPLEMENTED** |
+| Teacher Course Authorization | `backend/app/core/dependencies.py` | `require_teacher_assigned_to_course` | `course_teachers` junction | `tests/test_rbac_authorization.py` | **IMPLEMENTED** |
+| Security Event Auditing | `backend/app/models/security_audit_event.py` | Audit service on auth actions | `security_audit_events` | Live DB inspection & tests | **IMPLEMENTED** |
+| Frontend Auth Integration | `frontend/src/services/api/authApi.ts` | `SignInPage.tsx`, `CreateAccountPage.tsx`, `App.tsx` | Cookie credentials & session restore | Vitest (29 tests) & Vite build | **IMPLEMENTED** |

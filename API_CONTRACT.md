@@ -180,12 +180,20 @@ These are the ONLY endpoints currently existing and functional in the repository
 
 These endpoints represent the target FastAPI architecture planned across Phases 1 through 10. They are NOT yet implemented.
 
-### 3.1 Authentication & RBAC (`/api/v1/auth`) — Planned Phase 3
-- `POST /api/v1/auth/register` — Register new student or teacher account.
-- `POST /api/v1/auth/login` — Authenticate credentials; returns access & refresh JWTs.
-- `POST /api/v1/auth/refresh` — Issue fresh access token using valid refresh token.
-- `GET /api/v1/auth/me` — Return current authenticated user profile and roles.
-- `PUT /api/v1/auth/me` — Update current user profile and settings.
+> [!NOTE]
+> Phase 2 implements exclusively the underlying relational database models and migrations for D1 (User Accounts & Roles) and D2 (Courses, Curriculum & Resources). No REST API endpoints are activated in Phase 2. Authentication and profile endpoints are introduced in Phase 3; course and curriculum CRUD endpoints are introduced in Phase 4.
+
+### 3.1 Authentication & RBAC (`/api/v1/auth`, `/api/v1/users`, `/api/v1/admin`) — Planned Phase 3
+- `POST /api/v1/auth/register` — Register new student account (public self-registration strictly restricted to `student`).
+- `POST /api/v1/auth/login` — Authenticate credentials via bcrypt; returns short-lived access JWT (15 mins) and sets `HttpOnly, Secure, SameSite=Lax` refresh cookie (`learnova_refresh_token`).
+- `POST /api/v1/auth/refresh` — Rotate refresh token and issue fresh access token using valid session cookie.
+- `POST /api/v1/auth/logout` — Revoke active session in database (`is_revoked = True`) and clear refresh cookie.
+- `GET /api/v1/auth/me` — Return current authenticated user identity and profile.
+- `PUT /api/v1/users/me` — Update allowed current user profile fields (bio, department, avatar_url).
+- `PUT /api/v1/users/me/preferences` — Update current user UI preferences JSON.
+- `PUT /api/v1/users/me/password` — Rotate password (verifies current password, writes new bcrypt hash, revokes other active sessions).
+- `PUT /api/v1/admin/users/{id}/role` — Administrator changes user role (enforces no self-demotion and last-active-admin transactional lock).
+- `PUT /api/v1/admin/users/{id}/status` — Administrator toggles account active status (enforces no self-deactivation and last-active-admin lock).
 
 ### 3.2 Courses, Curriculum & Resources (`/api/v1/courses`) — Planned Phase 4
 - `GET /api/v1/courses` — List published courses (filterable by category, search).

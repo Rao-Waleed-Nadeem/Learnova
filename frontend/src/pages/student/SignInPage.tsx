@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Lock, Mail, ArrowRight, ShieldCheck } from 'lucide-react';
 import { StudentUser } from '../../types';
+import { authApi, mapUserResponseToStudentUser } from '../../services/api/authApi';
 
 interface SignInPageProps {
   onSignInSuccess: (user: StudentUser) => void;
@@ -15,13 +16,13 @@ export const SignInPage: React.FC<SignInPageProps> = ({
   onSwitchToTeacher,
   onSwitchToAdmin,
 }) => {
-  const [email, setEmail] = useState('a.rivera@learnova.edu');
-  const [password, setPassword] = useState('learnova2026!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -31,24 +32,24 @@ export const SignInPage: React.FC<SignInPageProps> = ({
     }
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-      // Validated student credentials
-      onSignInSuccess({
-        id: 'std-alex',
-        name: 'Alex Rivera',
+    try {
+      const response = await authApi.login({
         email: email.trim(),
-        avatar: 'AR',
-        role: 'student',
-        bio: 'Computer Science undergraduate passionate about systems software and algorithms.',
-        joinDate: '2026-09-15',
-        preferences: {
-          theme: 'light',
-          leaderboardOptIn: true,
-          emailNotifications: true,
-        },
+        password,
       });
-    }, 450);
+
+      if (response.user) {
+        const studentUser = mapUserResponseToStudentUser(response.user);
+        onSignInSuccess(studentUser);
+      } else {
+        const me = await authApi.getMe();
+        onSignInSuccess(mapUserResponseToStudentUser(me));
+      }
+    } catch (err: any) {
+      setError(err.message || 'Authentication failed. Please verify your credentials.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

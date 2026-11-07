@@ -8,6 +8,7 @@ from sqlalchemy import engine_from_config, pool
 
 from app.core.config import settings
 from app.db.base import Base
+import app.models  # noqa: F401 - Register all models with Base.metadata
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

@@ -5,6 +5,7 @@ import {
   ToastMessage,
 } from './components/teacher/TeacherLayout';
 import { storage, CURRENT_TEACHER } from './services/storageService';
+import { authApi, mapUserResponseToStudentUser } from './services/api/authApi';
 import {
   Course,
   Topic,
@@ -477,13 +478,40 @@ export default function App() {
     notify('success', `Examination submitted! +${res.xpAwarded} XP awarded.`);
   };
 
+  // Restore live session on mount if valid refresh cookie exists
+  useEffect(() => {
+    let isMounted = true;
+    authApi
+      .getMe()
+      .then((user) => {
+        if (isMounted && user.role === 'student') {
+          const student = mapUserResponseToStudentUser(user);
+          setCurrentStudent(student);
+          storage.saveStudentUser(student);
+        }
+      })
+      .catch(() => {
+        // Unauthenticated or expired session; keep existing state
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const handleUpdateStudentProfile = (updated: StudentUser) => {
     storage.saveStudentUser(updated);
     setCurrentStudent(updated);
     setLeaderboard(storage.getLeaderboard());
   };
 
-  const handleStudentSignOut = () => {
+  const handleStudentSignOut = async () => {
+    try {
+      await authApi.logout();
+    } catch {
+      // Ignore network errors during logout
+    }
+    storage.saveStudentUser(null as any);
     setCurrentStudent(null);
     setStudentPage('sign_in');
     notify('info', 'You have been signed out.');

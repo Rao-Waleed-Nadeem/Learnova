@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { StudentUser } from '../../types';
+import { authApi, mapUserResponseToStudentUser } from '../../services/api/authApi';
 
 interface CreateAccountPageProps {
   onRegisterSuccess: (user: StudentUser) => void;
@@ -19,7 +20,7 @@ export const CreateAccountPage: React.FC<CreateAccountPageProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -39,33 +40,25 @@ export const CreateAccountPage: React.FC<CreateAccountPageProps> = ({
     }
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-      const initials = fullName
-        .trim()
-        .split(' ')
-        .map((w) => w[0])
-        .join('')
-        .slice(0, 2)
-        .toUpperCase();
-
-      const newStudent: StudentUser = {
-        id: `std-${Date.now()}`,
-        name: fullName.trim(),
+    try {
+      const response = await authApi.register({
         email: email.trim().toLowerCase(),
-        avatar: initials,
-        role: 'student',
-        bio: 'Enthusiastic learner at Learnova.',
-        joinDate: new Date().toISOString().split('T')[0],
-        preferences: {
-          theme: 'light',
-          leaderboardOptIn: true,
-          emailNotifications: true,
-        },
-      };
+        password,
+        full_name: fullName.trim(),
+      });
 
-      onRegisterSuccess(newStudent);
-    }, 500);
+      if (response.user) {
+        const studentUser = mapUserResponseToStudentUser(response.user);
+        onRegisterSuccess(studentUser);
+      } else {
+        const me = await authApi.getMe();
+        onRegisterSuccess(mapUserResponseToStudentUser(me));
+      }
+    } catch (err: any) {
+      setError(err.message || 'Registration failed. Please check your details.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

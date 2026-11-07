@@ -3,6 +3,7 @@
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.core.config import settings
@@ -27,6 +28,14 @@ app = FastAPI(
     description="Backend API for the Learnova adaptive and gamified learning platform",
     version=settings.VERSION,
     lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 

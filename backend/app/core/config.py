@@ -1,7 +1,7 @@
 """Application configuration module using pydantic-settings."""
 
-from typing import Optional
-from pydantic import Field, field_validator
+from typing import List, Optional
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -37,6 +37,27 @@ class Settings(BaseSettings):
     DB_POOL_SIZE: int = Field(default=5, description="SQLAlchemy connection pool size")
     DB_MAX_OVERFLOW: int = Field(default=10, description="SQLAlchemy connection pool max overflow")
     DB_POOL_TIMEOUT: int = Field(default=30, description="Connection pool timeout in seconds")
+
+    # Security & JWT settings (Phase 3)
+    SECRET_KEY: str = Field(
+        default="learnova-insecure-dev-secret-key-change-in-production-2026",
+        description="Cryptographic secret key for signing JWT tokens",
+    )
+    ALGORITHM: str = Field(default="HS256", description="JWT signing algorithm")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
+        default=15,
+        description="Access token lifespan in minutes",
+    )
+    REFRESH_TOKEN_EXPIRE_DAYS: int = Field(
+        default=7,
+        description="Refresh token lifespan in days",
+    )
+
+    # Cross-Origin Resource Sharing (CORS)
+    CORS_ORIGINS: List[str] = Field(
+        default=["http://localhost:3000", "http://127.0.0.1:3000"],
+        description="Allowed origins for CORS requests with credentials",
+    )
 
     @property
     def sync_database_url(self) -> str:
