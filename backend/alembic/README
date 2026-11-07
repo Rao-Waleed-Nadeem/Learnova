@@ -1,0 +1,15 @@
+Learnova Alembic Database Migrations
+====================================
+
+This directory contains version-controlled database migrations managed by Alembic.
+The database URL is resolved dynamically from `app.core.config.settings`.
+Target metadata is bound to `app.db.base.Base.metadata`.
+
+To create a new migration:
+    alembic revision --autogenerate -m "description_of_change"
+
+To apply migrations:
+    alembic upgrade head
+
+To roll back one migration:
+    alembic downgrade -1

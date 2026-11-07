@@ -1,4 +1,3 @@
-
 FROM python:3.12-slim
 
 WORKDIR /app
@@ -9,7 +8,10 @@ ENV PYTHONUNBUFFERED=1
 COPY requirements.txt .
 RUN pip install --no-cache-dir --default-timeout=1000 --retries=10 -r requirements.txt
 
+COPY alembic.ini .
+COPY alembic ./alembic
 COPY app ./app
+COPY tests ./tests
 
 EXPOSE 8000
 

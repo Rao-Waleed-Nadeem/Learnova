@@ -20,7 +20,9 @@ Learnova is transitioning from a client-side mock/localStorage and Express archi
 
 These are the ONLY endpoints currently existing and functional in the repository:
 
-### 2.1 Backend Health Endpoint (FastAPI)
+### 2.1 Backend Health & Readiness Endpoints (FastAPI)
+
+#### 2.1.1 Root Health (Liveness) Endpoint
 - **Method & Path:** `GET /health`
 - **Host / Port:** `http://localhost:8000`
 - **Ownership:** FastAPI (`backend/app/main.py`)
@@ -32,6 +34,70 @@ These are the ONLY endpoints currently existing and functional in the repository
     "service": "learnova-api"
   }
   ```
+- **Note:** Preserved for 100% backward compatibility.
+
+#### 2.1.2 Root Readiness Endpoint
+- **Method & Path:** `GET /ready`
+- **Host / Port:** `http://localhost:8000`
+- **Ownership:** FastAPI (`backend/app/main.py`)
+- **Authentication:** None
+- **Response Format:**
+  - `200 OK` (Database connected):
+    ```json
+    {
+      "status": "ready",
+      "database": "connected",
+      "service": "learnova-api"
+    }
+    ```
+  - `503 Service Unavailable` (Database unavailable):
+    ```json
+    {
+      "status": "not_ready",
+      "database": "disconnected",
+      "service": "learnova-api"
+    }
+    ```
+
+#### 2.1.3 API v1 Liveness Endpoint
+- **Method & Path:** `GET /api/v1/health/liveness`
+- **Host / Port:** `http://localhost:8000`
+- **Ownership:** FastAPI (`backend/app/api/v1/endpoints/health.py`)
+- **Authentication:** None
+- **Response Format:** JSON (`200 OK`)
+  ```json
+  {
+    "status": "ok",
+    "service": "Learnova API",
+    "version": "0.1.0"
+  }
+  ```
+
+#### 2.1.4 API v1 Readiness Endpoint
+- **Method & Path:** `GET /api/v1/health/readiness`
+- **Host / Port:** `http://localhost:8000`
+- **Ownership:** FastAPI (`backend/app/api/v1/endpoints/health.py`)
+- **Authentication:** None
+- **Response Format:**
+  - `200 OK` (Database connected):
+    ```json
+    {
+      "status": "ready",
+      "database": "connected",
+      "service": "Learnova API",
+      "version": "0.1.0"
+    }
+    ```
+  - `503 Service Unavailable` (Database unavailable):
+    ```json
+    {
+      "status": "not_ready",
+      "database": "disconnected",
+      "service": "Learnova API",
+      "version": "0.1.0",
+      "error": "Database unavailable"
+    }
+    ```
 
 ---
 

@@ -75,10 +75,29 @@
 ---
 
 ### DEC-007: Reference Documentation Baseline Authority
-- **Context:** `Learnova_SRS_Final_Aligned_V2.docx` is not present in `docs/sources/`. However, `docs/sources/Readme.md` contains the exhaustive system diagram specification, all 18 use cases, 8 SSDs, DFDs, and business rules, and `Learnova_Master_Backend_Implementation_Blueprint.md` contains the verified architectural analysis.
-- **Options:**
-  1. Formally designate `docs/sources/Readme.md` and `docs/sources/Learnova_Master_Backend_Implementation_Blueprint.md` as the authoritative requirements baseline for backend implementation.
-  2. Halt work until `Learnova_SRS_Final_Aligned_V2.docx` is supplied by the project owner.
-- **Recommendation:** Option 1, subject to project owner confirmation.
+- **Context:** In Phase 0, `Learnova_SRS_Final_Aligned_V2.docx` was missing. In commit `abd879e`, the project owner provided `Learnova_SRS_Final_Aligned_V2 (1).docx` in `docs/sources/`.
+- **Resolution:** Requirements traceability is now verified directly against `Learnova_SRS_Final_Aligned_V2 (1).docx`, `Learnova_Final_SSDs_V2.xml`, `Readme.md`, and the Master Blueprint.
 - **Affected Phases:** All phases.
-- **Owner Status:** PENDING OWNER APPROVAL.
+- **Owner Status:** RESOLVED.
+
+---
+
+### DEC-P1-001: Synchronous SQLAlchemy with psycopg2-binary Driver Strategy
+- **Context:** Blueprint Section 5.10 and 16 recommend selecting one deliberate driver strategy without mixing async and sync drivers.
+- **Options:**
+  1. Synchronous SQLAlchemy 2.0+ with `psycopg2-binary`.
+  2. Asynchronous SQLAlchemy 2.0+ with `asyncpg`.
+- **Decision:** Option 1. Simplifies Alembic migrations (native sync execution), provides high stability in Python 3.12, eliminates async session bridge complexity, and performs with high throughput via FastAPI's threadpool execution for synchronous dependencies.
+- **Affected Files:** `backend/requirements.txt`, `backend/app/db/session.py`, `backend/alembic/env.py`.
+- **Owner Status:** APPROVED.
+
+---
+
+### DEC-P1-002: Liveness vs Readiness Endpoint Topology & Backwards Compatibility
+- **Context:** `PHASE-01_BACKEND_FOUNDATION.md` AC-3 requires distinguishing application availability from database readiness while preserving `/health` compatibility (AC-4).
+- **Options:**
+  1. Root `/health` remains backward-compatible returning `{"status": "ok", "service": "learnova-api"}`; Root `/ready` checks DB connectivity returning `200` (ready) or `503` (not ready). Additionally, `/api/v1/health/liveness` and `/api/v1/health/readiness` provide structured monitoring.
+  2. Change `/health` to fail if database is disconnected.
+- **Decision:** Option 1. Guarantees 100% backward compatibility with existing Docker Compose and external probes while providing precise readiness diagnostics.
+- **Affected Files:** `backend/app/main.py`, `backend/app/api/v1/endpoints/health.py`.
+- **Owner Status:** APPROVED.

@@ -10,10 +10,10 @@
 
 | Status | Count | Notes |
 |---|---|---|
-| **IMPLEMENTED** | 0 | No complete end-to-end backend persisted workflows currently exist. |
+| **IMPLEMENTED** | 1 | Phase 1 Backend Foundation (FastAPI environment configuration, synchronous SQLAlchemy session with `psycopg2-binary`, health/readiness endpoints, structured logging, Alembic migration scaffold, and 13 backend pytest tests). |
 | **PARTIAL** | 2 | Express AI endpoints (`POST /api/ai/generate-questions`, `POST /api/ai/simplify-lesson`) are live with Gemini integration & deterministic fallbacks, but lack FastAPI ownership and persistent database logging. |
 | **MOCK_ONLY** | 16 | All UI screens, navigation, assessment players, mastery logic, DAG validation, and admin actions function via in-memory and `localStorage` mock state in `frontend/src/services/storageService.ts`. |
-| **NOT_IMPLEMENTED** | 0 | (All target capabilities exist in at least mock UI form). |
+| **NOT_IMPLEMENTED** | 0 | (All domain capabilities exist in mock UI form). |
 | **BLOCKED/UNKNOWN** | 0 | All areas inspected and classified with direct code evidence. |
 
 ---
@@ -122,3 +122,17 @@
 2. **Client-Side Security:**
    - In the current frontend, role enforcement (`validateRoleChange`, `validateAccountStatusChange`) is performed inside React UI components using `frontend/src/utils/adminLogic.ts`.
    - **Target Resolution:** Must be enforced authoritatively on the FastAPI backend with JWT claims and database constraints (Phase 3).
+
+---
+
+## 6. Technical Foundation Services (`LAY-TECH`) — Phase 1 Verified
+
+| Capability | Component / Module | Endpoints | Persistence / Drivers | Verified Tests | Status |
+|:---|:---|:---|:---|:---|:---:|
+| Environment Settings | `backend/app/core/config.py` | N/A | Pydantic `BaseSettings`, `.env` | `tests/test_config.py` (4 tests) | **IMPLEMENTED** |
+| Structured Logging | `backend/app/core/logging.py` | N/A | Secret-scrubbing StreamHandler | Verified in startup logs | **IMPLEMENTED** |
+| Database Engine & Session | `backend/app/db/session.py` | N/A | SQLAlchemy 2.0+ & `psycopg2-binary` | `tests/test_db_connection.py` (3 tests) | **IMPLEMENTED** |
+| Process Liveness | `backend/app/main.py`, `backend/app/api/v1/endpoints/health.py` | `GET /health`, `GET /api/v1/health/liveness` | In-memory process status | `tests/test_health.py` (2 tests), live `curl` | **IMPLEMENTED** |
+| Database Readiness | `backend/app/main.py`, `backend/app/api/v1/endpoints/health.py` | `GET /ready`, `GET /api/v1/health/readiness` | PostgreSQL connection probe (`SELECT 1`) | `tests/test_health.py` (2 tests), live `curl` | **IMPLEMENTED** |
+| Alembic Migration Scaffold | `backend/alembic.ini`, `backend/alembic/env.py` | CLI (`alembic upgrade/downgrade`) | Dynamic URL from settings, `Base.metadata` | `tests/test_alembic_disposable.py` (2 tests) | **IMPLEMENTED** |
+| Docker Synchronization | `docker-compose.yml`, `backend/Dockerfile` | Ports 8000 & 5432 | Volume bind `./backend:/app` | Docker container build & execution | **IMPLEMENTED** |
