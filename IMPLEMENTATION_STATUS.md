@@ -11,7 +11,7 @@
 | Status | Count | Notes |
 |---|---|---|
 | **IMPLEMENTED** | 3 | Phase 1 Backend Foundation, Phase 2 Initial Domain Schema & Migrations, and Phase 3 Authentication & RBAC (FastAPI auth routes, bcrypt cost 12, JWT 15m, rotating refresh cookies 7d, admin safeguards, teacher course scoping, audit logging, 52 backend tests passing, live frontend student auth integration, 29 frontend tests passing). |
-| **IN_PROGRESS** | 0 | Phase 3 Stage B completed and verified; awaiting project owner review before commencing Phase 4. |
+| **IN_PROGRESS** | 1 | Phase 4 Curriculum, Enrollment, and Resources (Stage A Plan submitted for owner review). |
 | **PARTIAL** | 2 | Express AI endpoints (`POST /api/ai/generate-questions`, `POST /api/ai/simplify-lesson`) are live with Gemini integration & deterministic fallbacks, but lack FastAPI ownership and persistent database logging. |
 | **MOCK_ONLY** | 16 | All UI screens, navigation, assessment players, mastery logic, DAG validation, and admin actions function via in-memory and `localStorage` mock state in `frontend/src/services/storageService.ts`. |
 | **NOT_IMPLEMENTED** | 0 | (All domain capabilities exist in mock UI form). |
@@ -168,3 +168,19 @@
 | Teacher Course Authorization | `backend/app/core/dependencies.py` | `require_teacher_assigned_to_course` | `course_teachers` junction | `tests/test_rbac_authorization.py` | **IMPLEMENTED** |
 | Security Event Auditing | `backend/app/models/security_audit_event.py` | Audit service on auth actions | `security_audit_events` | Live DB inspection & tests | **IMPLEMENTED** |
 | Frontend Auth Integration | `frontend/src/services/api/authApi.ts` | `SignInPage.tsx`, `CreateAccountPage.tsx`, `App.tsx` | Cookie credentials & session restore | Vitest (29 tests) & Vite build | **IMPLEMENTED** |
+
+
+---
+
+## 9. Curriculum, Enrollment & Resources (`LAY-DOMAIN` / `LAY-TECH`) — Phase 4 Status
+
+| Capability | Component / Module | Scope / Endpoints | Persistence / Drivers | Verified Tests | Status |
+|:---|:---|:---|:---|:---|:---:|
+| Course Catalog & Details | `backend/app/api/v1/endpoints/courses.py` | `GET /courses`, `GET /courses/{id}` | `courses`, `topics`, `lessons` | Planned Phase 4 | **PLAN_SUBMITTED** |
+| Teacher Course Management | `backend/app/api/v1/endpoints/courses.py` | `POST /courses`, `PATCH /courses/{id}` | `courses`, `course_teachers` | Planned Phase 4 | **PLAN_SUBMITTED** |
+| Course Publication Gate | `backend/app/services/course_service.py` | `POST /courses/{id}/publish` | Validation rules & status change | Planned Phase 4 | **PLAN_SUBMITTED** |
+| Curriculum Hierarchy CRUD | `backend/app/api/v1/endpoints/topics.py`, `lessons.py` | Topics, lessons, and resources CRUD | `topics`, `lessons`, `resources` | Planned Phase 4 | **PLAN_SUBMITTED** |
+| Prerequisite DAG Validation | `backend/app/services/dag_service.py` | `PUT /topics/{id}/prerequisites` | DFS cycle detection & `topic_prerequisites` | Planned Phase 4 | **PLAN_SUBMITTED** |
+| Course Enrollment Lifecycle | `backend/app/api/v1/endpoints/enrollments.py` | `POST /courses/{id}/enrollments` | `enrollments` table (`UNIQUE` constraint) | Planned Phase 4 | **PLAN_SUBMITTED** |
+| Lesson Completion Tracking | `backend/app/api/v1/endpoints/lessons.py` | `POST /lessons/{id}/complete` | `lesson_completions` & progress recalculation | Planned Phase 4 | **PLAN_SUBMITTED** |
+| Learning Map & Readiness | `backend/app/api/v1/endpoints/enrollments.py` | `GET /courses/{id}/learning-map` | Topic readiness evaluation & DAG | Planned Phase 4 | **PLAN_SUBMITTED** |

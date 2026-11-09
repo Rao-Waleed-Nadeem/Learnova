@@ -170,7 +170,7 @@
   3. Server-side session table in PostgreSQL tracking hashed refresh tokens and revocation state.
 - **Decision:** Option 3. Short-lived access tokens (15 minutes) minimize the exposure window, while rotating refresh tokens tracked in `sessions` provide authoritative revocation on logout or security events.
 - **Affected Files:** `backend/app/models/session.py`, `backend/app/services/auth_service.py`.
-- **Owner Status:** PROPOSED IN PHASE 3 PLAN (Awaiting owner sign-off).
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 3).
 
 ---
 
@@ -181,7 +181,7 @@
   2. Store refresh token in `HttpOnly, SameSite=Lax, Secure` cookie; keep short-lived access token in frontend memory.
 - **Decision:** Option 2. Protects refresh tokens from XSS theft while keeping access tokens short-lived and ephemeral.
 - **Affected Files:** `backend/app/api/v1/endpoints/auth.py`, `frontend/src/services/api/authApi.ts`.
-- **Owner Status:** PROPOSED IN PHASE 3 PLAN (Awaiting owner sign-off).
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 3).
 
 ---
 
@@ -192,7 +192,7 @@
   2. Public registration provisions `student` accounts ONLY. Teachers are provisioned/invited by administrators. Initial administrator is created via secure bootstrap CLI.
 - **Decision:** Option 2. Eliminates privilege escalation vulnerabilities.
 - **Affected Files:** `backend/app/services/auth_service.py`.
-- **Owner Status:** PROPOSED IN PHASE 3 PLAN (Awaiting owner sign-off).
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 3).
 
 ---
 
@@ -204,7 +204,7 @@
   3. Transactional backend check with database row lock (`SELECT count(*) FROM users WHERE role_id = :admin_role_id AND is_active = true FOR UPDATE`).
 - **Decision:** Option 3. Guarantees that concurrent requests cannot demote or deactivate the last active administrator.
 - **Affected Files:** `backend/app/services/admin_service.py`.
-- **Owner Status:** PROPOSED IN PHASE 3 PLAN (Awaiting owner sign-off).
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 3).
 
 ---
 
@@ -215,4 +215,61 @@
   2. Service and query boundary checking `course_teachers` junction table on all course-specific teacher operations.
 - **Decision:** Option 2. Enforces multi-tenant course data isolation authoritatively in backend queries.
 - **Affected Files:** `backend/app/core/dependencies.py`.
-- **Owner Status:** PROPOSED IN PHASE 3 PLAN (Awaiting owner sign-off).
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 3).
+
+---
+
+### DEC-P4-001: Relational Normalization vs. Redundant `course_id`
+- **Context:** Frontend mock objects duplicate `courseId` inside `Lesson` and `LearningResource`. Relational normalization requires `lessons` to belong to `topics` and `resources` to belong to `lessons`. Redundant foreign keys create update anomaly risks.
+- **Options:**
+  1. Add redundant `course_id` columns with compound foreign keys on `lessons` and `learning_resources`.
+  2. Maintain strict 3NF in PostgreSQL (`lessons` references `topics.id`, `learning_resources` references `lessons.id`). Pydantic API response serializers dynamically synthesize `course_id` from the parent relationship.
+- **Decision:** Option 2. Preserves relational consistency while guaranteeing 100% backward compatibility with frontend contracts.
+- **Affected Files:** `backend/app/models/lesson.py`, `backend/app/schemas/curriculum.py`.
+- **Owner Status:** PROPOSED IN PHASE 4 PLAN (Awaiting owner sign-off).
+
+---
+
+### DEC-P4-002: Prerequisite DAG Cycle Detection Strategy
+- **Context:** Database constraint `CHECK (topic_id <> prerequisite_topic_id)` prevents direct self-edges. Multi-hop cycles ($A \rightarrow B \rightarrow C \rightarrow A$) cannot be prevented by simple column check constraints.
+- **Options:**
+  1. Rely on frontend cycle detection in `src/utils/dag.ts` only.
+  2. Implement database triggers with recursive CTEs.
+  3. Implement authoritative domain service cycle detection (`dag_service.py`) using Depth-First Search (DFS) with recursion stack tracking and Kahn's algorithm before persisting edges.
+- **Decision:** Option 3. Guarantees strict acyclicity at the application boundary, returning `400 Bad Request` with the exact cycle path if a cycle is attempted.
+- **Affected Files:** `backend/app/services/dag_service.py`, `backend/app/api/v1/endpoints/topics.py`.
+- **Owner Status:** PROPOSED IN PHASE 4 PLAN (Awaiting owner sign-off).
+
+---
+
+### DEC-P4-003: Course Publication Gate & Quality Invariants
+- **Context:** Publishing a course makes it publicly discoverable in the student catalog. Incomplete courses break the learning experience.
+- **Options:**
+  1. Allow publishing any course unconditionally.
+  2. Enforce a strict server-side validation gate verifying course readiness (>= 1 topic, every topic has >= 1 lesson, acyclic prerequisite DAG) before allowing publication.
+- **Decision:** Option 2. Ensures that only fully configured, structurally sound courses can be published.
+- **Affected Files:** `backend/app/services/course_service.py`, `backend/app/api/v1/endpoints/courses.py`.
+- **Owner Status:** PROPOSED IN PHASE 4 PLAN (Awaiting owner sign-off).
+
+---
+
+### DEC-P4-004: Enrollment Lifecycle & Idempotency
+- **Context:** Students enroll in courses via `POST /api/v1/courses/{course_id}/enrollments`. Repeated requests should not create duplicates or fail needlessly.
+- **Options:**
+  1. Return `400 Bad Request` / `409 Conflict` on duplicate enrollment.
+  2. Enforce unique database constraint `UNIQUE (student_id, course_id)`, but handle repeat enrollment idempotently in the service layer: if already enrolled with `active` status, return the existing enrollment with `200 OK`.
+- **Decision:** Option 2. Provides idempotency and a seamless user experience, while strictly prohibiting enrolling in draft courses.
+- **Affected Files:** `backend/app/services/enrollment_service.py`, `backend/app/api/v1/endpoints/enrollments.py`.
+- **Owner Status:** PROPOSED IN PHASE 4 PLAN (Awaiting owner sign-off).
+
+---
+
+### DEC-P4-005: Lesson Completion Tracking & Enrollment Progress Calculation
+- **Context:** As students complete lessons, their course progress percentage must be tracked.
+- **Options:**
+  1. Compute progress dynamically on every read query via `COUNT` aggregations.
+  2. Materialize `progress_percent` on the `enrollments` table, recalculated atomically within the lesson completion transaction:
+     $$\text{progress\_percent} = \left(\frac{\text{completed lessons}}{\text{total published lessons}}\right) \times 100$$
+- **Decision:** Option 2. Eliminates expensive multi-table joins on dashboard queries and provides an immediate milestone trigger for course completion (`status = 'completed'` when 100%).
+- **Affected Files:** `backend/app/services/enrollment_service.py`, `backend/app/models/enrollment.py`.
+- **Owner Status:** PROPOSED IN PHASE 4 PLAN (Awaiting owner sign-off).

@@ -195,16 +195,27 @@ These endpoints represent the target FastAPI architecture planned across Phases 
 - `PUT /api/v1/admin/users/{id}/role` — Administrator changes user role (enforces no self-demotion and last-active-admin transactional lock).
 - `PUT /api/v1/admin/users/{id}/status` — Administrator toggles account active status (enforces no self-deactivation and last-active-admin lock).
 
-### 3.2 Courses, Curriculum & Resources (`/api/v1/courses`) — Planned Phase 4
-- `GET /api/v1/courses` — List published courses (filterable by category, search).
-- `POST /api/v1/courses` — Teacher/Admin creates a course.
-- `GET /api/v1/courses/{id}` — Get course details and topic hierarchy.
-- `PUT /api/v1/courses/{id}` — Update course metadata and status.
+### 3.2 Courses, Curriculum, Enrollment & Resources — Planned Phase 4
+- `GET /api/v1/courses` — List published courses (students/public) or assigned/created courses (teachers/admins).
+- `POST /api/v1/courses` — Teacher/Admin creates a new course.
+- `GET /api/v1/courses/{id}` — Get course details and complete syllabus hierarchy (topics, lessons, resources).
+- `PATCH /api/v1/courses/{id}` — Update course title, description, or status (scoped to assigned teachers/admins).
+- `POST /api/v1/courses/{id}/publish` — Validate course structural integrity (>= 1 topic, acyclic DAG, topics have lessons) and transition to `published`.
+- `POST /api/v1/courses/{id}/enrollments` — Student enrolls in published course (enforces `UNIQUE (student_id, course_id)` with idempotent 200 return if active).
+- `GET /api/v1/students/me/enrollments` — List current authenticated student's active and completed course enrollments.
+- `GET /api/v1/courses/{id}/learning-map` — Topic prerequisite DAG graph nodes, edges, and topic readiness states for current student.
 - `POST /api/v1/courses/{id}/topics` — Add topic to course syllabus.
-- `PUT /api/v1/topics/{id}` — Update topic details and prerequisite dependencies.
-- `GET /api/v1/topics/{id}/prerequisites` — Get prerequisite DAG nodes and edges.
+- `PATCH /api/v1/topics/{id}` — Update topic metadata (title, description, order, mastery threshold).
+- `DELETE /api/v1/topics/{id}` — Delete topic and cascade lessons/prerequisites.
+- `PUT /api/v1/topics/{id}/prerequisites` — Update prerequisite edges after server-side DFS cycle detection.
 - `POST /api/v1/topics/{id}/lessons` — Add lesson to topic.
-- `POST /api/v1/lessons/{id}/resources` — Add learning resource (markdown, video, link).
+- `PATCH /api/v1/lessons/{id}` — Update lesson metadata (title, description, order).
+- `DELETE /api/v1/lessons/{id}` — Delete lesson and its resources.
+- `POST /api/v1/lessons/{id}/complete` — Record lesson completion for authenticated student and update enrollment progress.
+- `POST /api/v1/lessons/{id}/resources` — Add learning resource (markdown, video, link, code, document) to lesson.
+- `PATCH /api/v1/resources/{id}` — Update learning resource metadata or content.
+- `DELETE /api/v1/resources/{id}` — Delete learning resource.
+- `POST /api/v1/resources/{id}/activity` — Log resource interaction and study duration.
 
 ### 3.3 Question Bank & Assessments (`/api/v1/assessments`) — Planned Phase 5
 - `GET /api/v1/questions` — List questions filterable by course, topic, difficulty, type.
