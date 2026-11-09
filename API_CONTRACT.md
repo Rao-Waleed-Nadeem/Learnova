@@ -195,54 +195,70 @@ These endpoints represent the target FastAPI architecture planned across Phases 
 - `PUT /api/v1/admin/users/{id}/role` — Administrator changes user role (enforces no self-demotion and last-active-admin transactional lock).
 - `PUT /api/v1/admin/users/{id}/status` — Administrator toggles account active status (enforces no self-deactivation and last-active-admin lock).
 
-### 3.2 Courses, Curriculum, Enrollment & Resources — Planned Phase 4
+### 3.2 Courses, Curriculum, Enrollment & Resources — Implemented Phase 4 (Accepted)
 - `GET /api/v1/courses` — List published courses (students/public) or assigned/created courses (teachers/admins).
-- `POST /api/v1/courses` — Teacher/Admin creates a new course.
-- `GET /api/v1/courses/{id}` — Get course details and complete syllabus hierarchy (topics, lessons, resources).
+- `POST /api/v1/courses` — Teacher/Admin creates a new course in draft status.
+- `GET /api/v1/courses/{id}` — Get course details and complete syllabus hierarchy (topics, lessons, resources with synthesized course_id).
 - `PATCH /api/v1/courses/{id}` — Update course title, description, or status (scoped to assigned teachers/admins).
 - `POST /api/v1/courses/{id}/publish` — Validate course structural integrity (>= 1 topic, acyclic DAG, topics have lessons) and transition to `published`.
-- `POST /api/v1/courses/{id}/enrollments` — Student enrolls in published course (enforces `UNIQUE (student_id, course_id)` with idempotent 200 return if active).
-- `GET /api/v1/students/me/enrollments` — List current authenticated student's active and completed course enrollments.
-- `GET /api/v1/courses/{id}/learning-map` — Topic prerequisite DAG graph nodes, edges, and topic readiness states for current student.
+- `POST /api/v1/courses/{id}/enrollments` — Student enrolls in published course (enforces `UNIQUE (student_id, course_id)` with idempotent 200 return if active; 201 on new).
+- `GET /api/v1/students/me/enrollments` — List current authenticated student's active and completed course enrollments with real-time derived progress.
+- `GET /api/v1/courses/{id}/learning-map` — Topic prerequisite DAG graph nodes, edges, and topic readiness states for student.
 - `POST /api/v1/courses/{id}/topics` — Add topic to course syllabus.
 - `PATCH /api/v1/topics/{id}` — Update topic metadata (title, description, order, mastery threshold).
 - `DELETE /api/v1/topics/{id}` — Delete topic and cascade lessons/prerequisites.
-- `PUT /api/v1/topics/{id}/prerequisites` — Update prerequisite edges after server-side DFS cycle detection.
+- `PUT /api/v1/topics/{id}/prerequisites` — Update prerequisite edges after server-side DFS cycle detection (rejects self-edges and cycles with 400).
 - `POST /api/v1/topics/{id}/lessons` — Add lesson to topic.
+- `GET /api/v1/lessons/{id}` — Get lesson details with resources.
 - `PATCH /api/v1/lessons/{id}` — Update lesson metadata (title, description, order).
 - `DELETE /api/v1/lessons/{id}` — Delete lesson and its resources.
-- `POST /api/v1/lessons/{id}/complete` — Record lesson completion for authenticated student and update enrollment progress.
+- `POST /api/v1/lessons/{id}/complete` — Idempotently record lesson completion for authenticated student and update enrollment progress.
 - `POST /api/v1/lessons/{id}/resources` — Add learning resource (markdown, video, link, code, document) to lesson.
 - `PATCH /api/v1/resources/{id}` — Update learning resource metadata or content.
 - `DELETE /api/v1/resources/{id}` — Delete learning resource.
 - `POST /api/v1/resources/{id}/activity` — Log resource interaction and study duration.
 
-### 3.3 Question Bank & Assessments (`/api/v1/assessments`) — Planned Phase 5
-- `GET /api/v1/questions` — List questions filterable by course, topic, difficulty, type.
-- `POST /api/v1/questions` — Create question item.
-- `PUT /api/v1/questions/{id}` — Update question item.
-- `GET /api/v1/assessments` — List assessments (diagnostic, practice, final).
-- `POST /api/v1/assessments` — Create assessment with selected question items.
-- `PUT /api/v1/assessments/{id}/publish` — Publish assessment for student access.
+### 3.3 Question Bank & Assessments (`/api/v1/questions`, `/api/v1/assessments`) — Implemented (Phase 5)
+- `POST /api/v1/questions` — Teacher/Admin creates question across 5 formats (`multiple_choice`, `true_false`, `fill_blank`, `matching`, `short_answer`) with segregated payload and answer_key.
+- `GET /api/v1/questions` — List questions filterable by `course_id` (required), `topic_id`, `type`, `difficulty`, `status`.
+- `GET /api/v1/questions/{id}` — Get full question details including grading rubric and answer keys (teachers/admins only).
+- `PATCH /api/v1/questions/{id}` — Update question contents or status and increment its monotonic version.
+- `POST /api/v1/questions/{id}/archive` — Safely archive question from active bank without breaking assessment references.
+- `POST /api/v1/assessments` — Create assessment with selected question items, ordering, points, and pinned question version snapshots.
+- `GET /api/v1/assessments` — List assessments for course (scoped by role; students see only published).
+- `GET /api/v1/assessments/{id}` — Retrieve assessment (teachers receive full answer keys; students receive safe projection without secrets).
+- `PATCH /api/v1/assessments/{id}` — Update assessment configuration or question composition (locked once published).
+- `POST /api/v1/assessments/{id}/publish` — Transactionally validate publication gate (>= 1 question, total points > 0) and publish.
 
-### 3.4 Student Lifecycle & Adaptive Engine (`/api/v1/student`) — Planned Phases 6 & 7
-- `POST /api/v1/student/enrollments` — Enroll in course.
-- `GET /api/v1/student/enrollments/{course_id}/readiness/{topic_id}` — Check topic prerequisite readiness.
-- `GET /api/v1/student/learning-path/{course_id}` — Get personalized ordered learning path.
-- `POST /api/v1/student/assessments/start` — Start assessment attempt (returns session token & questions without answers).
-- `POST /api/v1/student/assessments/{session_id}/answer` — Record interim question response (does NOT update persisted mastery).
-- `POST /api/v1/student/assessments/{session_id}/submit` — Complete attempt; triggers authoritative grading, mastery recalculation, path regeneration, and gamification event.
+### 3.4 Assessment Attempts & Server-Authoritative Grading (`/api/v1/assessments`, `/api/v1/attempts`) — Implemented (Phase 6)
+- `POST /api/v1/assessments/{assessment_id}/attempts` — Enrolled student starts a new assessment attempt. Snapshots question deliverable content, points, and server answer keys; computes authoritative UTC `deadline_at`; enforces active enrollment and `max_attempts`.
+- `GET /api/v1/attempts/{id}` — Retrieve attempt state and deliverable questions (student receives questions with answer keys sanitized out; teacher/admin receives attempt metadata).
+- `PUT /api/v1/attempts/{id}/responses/{question_id}` — Save or update interim student response with client timing metadata. Idempotent upsert; rejected if past UTC `deadline_at` or if attempt is not `in_progress`.
+- `POST /api/v1/attempts/{id}/next-question` — Adaptive practice question selection. Returns next unpresented question in topic dynamically adjusted to session accuracy without persisting premature mastery (DEC-03).
+- `POST /api/v1/attempts/{id}/submit` — Submit assessment for authoritative server-side grading. Evaluates all 5 question types, handles auto-submit on expiry (DEC-07), transitions attempt status (`graded` or `pending_manual_review` per DEC-06), atomically writes transactional outbox event `assessment.completed` to `domain_outbox_events` (DEC-P6-003). Idempotent on retry (DEC-P6-004).
+- `GET /api/v1/attempts/{id}/result` — Retrieve completed assessment score, score percentage, pass status, and per-question evaluated feedback.
 
-### 3.5 AI Integration & Review (`/api/v1/ai`) — Planned Phase 9
+### 3.5 Student Knowledge Tracing & Mastery Engine (`/api/v1/courses/{id}/mastery`, `/api/v1/courses/{id}/learning-path`, `/api/v1/topics/{id}/readiness`, `/api/v1/mastery`) — Implemented Phase 7 (Accepted)
+- `GET /api/v1/courses/{course_id}/mastery` — Get complete topic mastery matrix and course syllabus progress for authenticated student (`student_topic_mastery`). (Alias: `GET /api/v1/students/me/mastery?course_id=...`).
+- `GET /api/v1/courses/{course_id}/learning-path` — Get dynamic, personalized ordered learning path regenerated from mastery states, lesson completions, and prerequisite gates, with sub-50ms execution SLA. (Alias: `GET /api/v1/students/me/learning-path?course_id=...`).
+- `GET /api/v1/topics/{topic_id}/readiness` — Inspect topic prerequisite DAG nodes and calculate student readiness score. If locked, surfaces direct link to diagnostic assessment for prerequisite bypass.
+- `POST /api/v1/mastery/recalculate/{attempt_id}` — Authoritatively recalculate student topic mastery from a completed assessment attempt using hybrid Bayesian Knowledge Tracing (BKT) and empirical weighting; idempotently updates mastery and records immutable audit ledger entry.
+
+### 3.6 Gamification & Event Processing (`/api/v1/gamification`) — Implemented Phase 8 (Accepted)
+- `GET /api/v1/gamification/profile` — Get authenticated student gamification profile (XP, level, level floor, next level XP threshold, progress percent, continuous daily streak, leaderboard opt-in status).
+- `PATCH /api/v1/gamification/profile` — Update gamification profile preferences (toggle leaderboard privacy opt-in).
+- `GET /api/v1/gamification/xp-history` — Paginated chronological XP audit ledger history for authenticated student.
+- `GET /api/v1/gamification/badges` — Badge catalog with student unlock status and earned timestamps.
+- `GET /api/v1/gamification/leaderboard` — Ranked academic leaderboard respecting privacy opt-in settings, returning student XP, level, earned badges count, and peer badge snippets.
+- `GET /api/v1/gamification/challenges` — Active learning challenges with current student progress tracking.
+- `POST /api/v1/gamification/process-events` — Worker dispatcher endpoint to drain and process pending domain outbox events (`domain_outbox_events`).
+
+### 3.7 AI Integration & Review (`/api/v1/ai`) — Planned Phase 9
 - `POST /api/v1/ai/generate-questions` — Backend-owned question generation via LLM adapter.
 - `GET /api/v1/ai/candidates` — List generated candidate questions pending review.
 - `PUT /api/v1/ai/candidates/{id}/approve` — Approve candidate question and promote to Question Bank.
 - `PUT /api/v1/ai/candidates/{id}/reject` — Reject candidate question.
 - `POST /api/v1/ai/simplify-lesson` — Backend-owned lesson tutoring with Redis/DB caching.
-
-### 3.6 Gamification (`/api/v1/gamification`) — Planned Phase 8
-- `GET /api/v1/gamification/profile` — Get current student XP, level, badges, streak.
-- `GET /api/v1/gamification/leaderboard` — Get course/global leaderboard.
 - `GET /api/v1/gamification/events` — Get student XP audit ledger.
 
 ### 3.7 Administration & Analytics (`/api/v1/admin`, `/api/v1/teacher`) — Planned Phase 10

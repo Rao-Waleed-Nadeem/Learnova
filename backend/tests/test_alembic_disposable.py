@@ -7,14 +7,22 @@ from alembic import command
 from sqlalchemy import create_engine, inspect
 
 
+def _get_alembic_config(db_url: str) -> Config:
+    backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    ini_path = os.path.join(backend_dir, "alembic.ini")
+    alembic_cfg = Config(ini_path)
+    alembic_cfg.set_main_option("script_location", os.path.join(backend_dir, "alembic"))
+    alembic_cfg.set_main_option("sqlalchemy.url", db_url)
+    return alembic_cfg
+
+
 def test_alembic_disposable_database_lifecycle():
     """Verify Alembic configuration and stamp against a disposable database."""
     with tempfile.TemporaryDirectory() as tmp_dir:
         test_db_path = os.path.join(tmp_dir, "disposable_stamp.db")
         db_url = f"sqlite:///{test_db_path}"
 
-        alembic_cfg = Config("alembic.ini")
-        alembic_cfg.set_main_option("sqlalchemy.url", db_url)
+        alembic_cfg = _get_alembic_config(db_url)
 
         engine = create_engine(db_url)
 
@@ -34,8 +42,7 @@ def test_alembic_migration_apply_and_rollback():
         test_db_path = os.path.join(tmp_dir, "test_migration.db")
         db_url = f"sqlite:///{test_db_path}"
 
-        alembic_cfg = Config("alembic.ini")
-        alembic_cfg.set_main_option("sqlalchemy.url", db_url)
+        alembic_cfg = _get_alembic_config(db_url)
 
         # Generate a test revision
         rev = command.revision(alembic_cfg, message="test_table_creation")

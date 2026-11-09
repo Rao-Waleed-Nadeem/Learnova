@@ -26,8 +26,11 @@ def disposable_pg_database():
     maintenance_url = settings.sync_database_url
     engine = create_engine(maintenance_url)
 
-    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
-        conn.execute(text(f'CREATE DATABASE "{disposable_db_name}"'))
+    try:
+        with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+            conn.execute(text(f'CREATE DATABASE "{disposable_db_name}"'))
+    except Exception as exc:
+        pytest.skip(f"PostgreSQL maintenance connection unavailable: {exc}")
 
     disposable_url = maintenance_url.rsplit("/", 1)[0] + f"/{disposable_db_name}"
 
@@ -85,6 +88,23 @@ def test_alembic_migrations_lifecycle_on_disposable_postgres(
             "learning_resources",
             "sessions",
             "security_audit_events",
+            "enrollments",
+            "lesson_completions",
+            "resource_activities",
+            "questions",
+            "assessments",
+            "assessment_questions",
+            "assessment_attempts",
+            "attempt_responses",
+            "domain_outbox_events",
+            "student_topic_mastery",
+            "mastery_audit_ledger",
+            "gamification_profiles",
+            "xp_ledger",
+            "badges",
+            "user_badges",
+            "challenges",
+            "user_challenges",
         }
         assert expected_tables.issubset(tables), f"Missing tables: {expected_tables - tables}"
 
@@ -92,6 +112,13 @@ def test_alembic_migrations_lifecycle_on_disposable_postgres(
         role_rows = conn.execute(text("SELECT name FROM roles ORDER BY name")).fetchall()
         role_names = [r[0] for r in role_rows]
         assert role_names == ["administrator", "student", "teacher"]
+
+        # Verify bulk-inserted badges in disposable DB
+        badge_rows = conn.execute(text("SELECT id FROM badges ORDER BY id")).fetchall()
+        badge_ids = [b[0] for b in badge_rows]
+        assert "badge-first-step" in badge_ids
+        assert "badge-diagnostic" in badge_ids
+        assert "badge-syntax-master" in badge_ids
 
         # Verify self-edge check constraint on topic_prerequisites
         topic_id = uuid.uuid4()
@@ -103,15 +130,37 @@ def test_alembic_migrations_lifecycle_on_disposable_postgres(
                 )
             )
 
-    # 3. Safe downgrade one revision (20261108_0005 -> 20261108_0004)
+    # 3. Safe downgrade one revision (20261109_0010 -> 20261109_0009)
     command.downgrade(alembic_cfg, "-1")
 
     with disposable_engine.connect() as conn:
         insp = sa.inspect(conn)
         tables_after_downgrade = set(insp.get_table_names())
-        # sessions and security_audit_events should be removed
-        assert "sessions" not in tables_after_downgrade
-        assert "security_audit_events" not in tables_after_downgrade
+        # Phase 8 tables should be removed
+        assert "gamification_profiles" not in tables_after_downgrade
+        assert "xp_ledger" not in tables_after_downgrade
+        assert "badges" not in tables_after_downgrade
+        assert "user_badges" not in tables_after_downgrade
+        assert "challenges" not in tables_after_downgrade
+        assert "user_challenges" not in tables_after_downgrade
+        # Phase 7 tables should remain
+        assert "student_topic_mastery" in tables_after_downgrade
+        assert "mastery_audit_ledger" in tables_after_downgrade
+        # Phase 6 tables should remain
+        assert "domain_outbox_events" in tables_after_downgrade
+        assert "attempt_responses" in tables_after_downgrade
+        assert "assessment_attempts" in tables_after_downgrade
+        # Phase 5 tables should remain
+        assert "assessment_questions" in tables_after_downgrade
+        assert "assessments" in tables_after_downgrade
+        assert "questions" in tables_after_downgrade
+        # Phase 4 tables should remain
+        assert "resource_activities" in tables_after_downgrade
+        assert "lesson_completions" in tables_after_downgrade
+        assert "enrollments" in tables_after_downgrade
+        # Phase 3 sessions and security_audit_events should remain
+        assert "sessions" in tables_after_downgrade
+        assert "security_audit_events" in tables_after_downgrade
         # earlier tables should still remain
         assert "learning_resources" in tables_after_downgrade
         assert "lessons" in tables_after_downgrade

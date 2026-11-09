@@ -10,9 +10,15 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 if TYPE_CHECKING:
+    from app.models.assessment import Assessment
+    from app.models.attempt import AssessmentAttempt
     from app.models.course import Course
     from app.models.course_teacher import CourseTeacher
+    from app.models.enrollment import Enrollment
+    from app.models.lesson_completion import LessonCompletion
+    from app.models.mastery import StudentTopicMastery
     from app.models.profile import UserProfile
+    from app.models.question import Question
     from app.models.role import Role
     from app.models.security_audit_event import SecurityAuditEvent
     from app.models.session import UserSession
@@ -94,6 +100,55 @@ class User(Base):
     audit_events: Mapped[List["SecurityAuditEvent"]] = relationship(
         "SecurityAuditEvent",
         back_populates="actor",
+    )
+    enrollments: Mapped[List["Enrollment"]] = relationship(
+        "Enrollment",
+        back_populates="student",
+        cascade="all, delete-orphan",
+    )
+    lesson_completions: Mapped[List["LessonCompletion"]] = relationship(
+        "LessonCompletion",
+        back_populates="student",
+        cascade="all, delete-orphan",
+    )
+    authored_questions: Mapped[List["Question"]] = relationship(
+        "Question",
+        back_populates="author",
+    )
+    created_assessments: Mapped[List["Assessment"]] = relationship(
+        "Assessment",
+        back_populates="creator",
+    )
+    assessment_attempts: Mapped[List["AssessmentAttempt"]] = relationship(
+        "AssessmentAttempt",
+        back_populates="student",
+        cascade="all, delete-orphan",
+    )
+    topic_masteries: Mapped[List["StudentTopicMastery"]] = relationship(
+        "StudentTopicMastery",
+        back_populates="student",
+        cascade="all, delete-orphan",
+    )
+    gamification_profile: Mapped[Optional["GamificationProfile"]] = relationship(
+        "GamificationProfile",
+        back_populates="student",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+    xp_ledger_entries: Mapped[List["XPLedger"]] = relationship(
+        "XPLedger",
+        back_populates="student",
+        cascade="all, delete-orphan",
+    )
+    user_badges: Mapped[List["UserBadge"]] = relationship(
+        "UserBadge",
+        back_populates="student",
+        cascade="all, delete-orphan",
+    )
+    user_challenges: Mapped[List["UserChallenge"]] = relationship(
+        "UserChallenge",
+        back_populates="student",
+        cascade="all, delete-orphan",
     )
 
     def __repr__(self) -> str:

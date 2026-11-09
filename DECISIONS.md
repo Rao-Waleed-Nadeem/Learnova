@@ -15,7 +15,7 @@
   2. Store `0` to `100` as `INTEGER` across both database and frontend API.
 - **Recommendation:** Option 1. Stores mathematically precise normalized decimals in PostgreSQL while preserving 100% compatibility with existing frontend display logic.
 - **Affected Phases:** Phase 2, Phase 6, Phase 7.
-- **Owner Status:** PENDING OWNER APPROVAL.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 7).
 
 ---
 
@@ -66,11 +66,11 @@
 ### DEC-006: Asynchronous Gamification Event Processing
 - **Context:** Source requirements demand that gamification (XP, leveling, badges, streaks) be decoupled from academic evaluation and mastery recalibration.
 - **Options:**
-  1. Transactional Outbox pattern: Assessment completion writes a domain event (`gamification_events` table) within the same database transaction; an asynchronous worker processes events idempotently.
+  1. Transactional Outbox pattern: Assessment completion writes a domain event (`gamification_events` / `domain_outbox_events` table) within the same database transaction; an asynchronous worker processes events idempotently.
   2. Direct synchronous function call in the assessment route.
 - **Recommendation:** Option 1 (Transactional Outbox). Guarantees zero academic rollbacks due to gamification errors, ensures idempotency, and eliminates race conditions.
 - **Affected Phases:** Phase 8.
-- **Owner Status:** PENDING OWNER APPROVAL.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 8).
 
 ---
 
@@ -226,7 +226,7 @@
   2. Maintain strict 3NF in PostgreSQL (`lessons` references `topics.id`, `learning_resources` references `lessons.id`). Pydantic API response serializers dynamically synthesize `course_id` from the parent relationship.
 - **Decision:** Option 2. Preserves relational consistency while guaranteeing 100% backward compatibility with frontend contracts.
 - **Affected Files:** `backend/app/models/lesson.py`, `backend/app/schemas/curriculum.py`.
-- **Owner Status:** PROPOSED IN PHASE 4 PLAN (Awaiting owner sign-off).
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 4).
 
 ---
 
@@ -238,7 +238,7 @@
   3. Implement authoritative domain service cycle detection (`dag_service.py`) using Depth-First Search (DFS) with recursion stack tracking and Kahn's algorithm before persisting edges.
 - **Decision:** Option 3. Guarantees strict acyclicity at the application boundary, returning `400 Bad Request` with the exact cycle path if a cycle is attempted.
 - **Affected Files:** `backend/app/services/dag_service.py`, `backend/app/api/v1/endpoints/topics.py`.
-- **Owner Status:** PROPOSED IN PHASE 4 PLAN (Awaiting owner sign-off).
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 4).
 
 ---
 
@@ -249,7 +249,7 @@
   2. Enforce a strict server-side validation gate verifying course readiness (>= 1 topic, every topic has >= 1 lesson, acyclic prerequisite DAG) before allowing publication.
 - **Decision:** Option 2. Ensures that only fully configured, structurally sound courses can be published.
 - **Affected Files:** `backend/app/services/course_service.py`, `backend/app/api/v1/endpoints/courses.py`.
-- **Owner Status:** PROPOSED IN PHASE 4 PLAN (Awaiting owner sign-off).
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 4).
 
 ---
 
@@ -260,16 +260,193 @@
   2. Enforce unique database constraint `UNIQUE (student_id, course_id)`, but handle repeat enrollment idempotently in the service layer: if already enrolled with `active` status, return the existing enrollment with `200 OK`.
 - **Decision:** Option 2. Provides idempotency and a seamless user experience, while strictly prohibiting enrolling in draft courses.
 - **Affected Files:** `backend/app/services/enrollment_service.py`, `backend/app/api/v1/endpoints/enrollments.py`.
-- **Owner Status:** PROPOSED IN PHASE 4 PLAN (Awaiting owner sign-off).
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 4).
 
 ---
 
-### DEC-P4-005: Lesson Completion Tracking & Enrollment Progress Calculation
-- **Context:** As students complete lessons, their course progress percentage must be tracked.
+### DEC-P4-005: Lesson Completion Tracking & Dynamic Progress Derivation
+- **Context:** As students complete lessons, their course progress percentage must be tracked. Materializing a stored progress_percent field without an invalidation strategy risks stale percentages when curriculum items are added or removed.
 - **Options:**
-  1. Compute progress dynamically on every read query via `COUNT` aggregations.
-  2. Materialize `progress_percent` on the `enrollments` table, recalculated atomically within the lesson completion transaction:
-     $$\text{progress\_percent} = \left(\frac{\text{completed lessons}}{\text{total published lessons}}\right) \times 100$$
-- **Decision:** Option 2. Eliminates expensive multi-table joins on dashboard queries and provides an immediate milestone trigger for course completion (`status = 'completed'` when 100%).
-- **Affected Files:** `backend/app/services/enrollment_service.py`, `backend/app/models/enrollment.py`.
-- **Owner Status:** PROPOSED IN PHASE 4 PLAN (Awaiting owner sign-off).
+  1. Persist source events (`LessonCompletion`) as authoritative and derive progress dynamically from the current lesson denominator on read. Honor DEC-09 by not equating all lessons completed with final course completion.
+  2. Materialize a static `progress_percent` column on the `enrollments` table updated by triggers or application logic.
+- **Decision:** Option 1. Guarantees 100% mathematical accuracy of derived progress as the course curriculum dynamically evolves.
+- **Affected Files:** `backend/app/models/lesson_completion.py`, `backend/app/services/enrollment_service.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 4).
+
+---
+
+### DEC-P5-001: Segregated Deliverable `payload` and Grading `answer_key`
+- **Context:** To satisfy FR-ASM-04 and eliminate any risk of answer leakage to students during exam delivery or catalog inspection.
+- **Options:**
+  1. Store all fields flat in the `questions` table and rely on Pydantic serializers to filter out answer keys.
+  2. In the PostgreSQL `questions` table, store student deliverable content in a `payload` JSONB column and all grading secrets in an `answer_key` JSONB column.
+- **Decision:** Option 2. Student projection serializers serialize ONLY `payload` and metadata, making answer leakage structurally impossible at the database and serialization layers.
+- **Affected Files:** `backend/app/models/question.py`, `backend/app/schemas/question.py`, `backend/app/services/question_service.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 5).
+
+---
+
+### DEC-P5-002: Short-Answer Grading Mode Governance (DEC-06 Alignment)
+- **Context:** DEC-06 mandates that automated grading must never implicitly invoke an external or unmonitored LLM.
+- **Options:**
+  1. Allow short answers to implicitly trigger LLM auto-grading in the background.
+  2. Require an explicit `grading_mode` field: `"manual_review"` (default, flagged for teacher evaluation against `expected_rubric`) or `"exact_match"` (deterministic evaluation against teacher-provided `accepted_answers`).
+- **Decision:** Option 2. Guarantees complete adherence to DEC-06, ensuring no implicit LLM costs or grading non-determinism.
+- **Affected Files:** `backend/app/models/question.py`, `backend/app/schemas/question.py`, `backend/app/services/question_service.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 5).
+
+---
+
+### DEC-P5-003: Assessment Publication Quality Gate & Composition Lock
+- **Context:** Students must not take unvalidated or empty assessments; historical assessment validity must be protected from post-publication modifications.
+- **Options:**
+  1. Allow publishing assessments with 0 questions or unvalidated question associations.
+  2. Enforce a strict server-side publication quality gate requiring >= 1 question, total points > 0, and course-scoping validation. Once published, lock question composition against direct alteration.
+- **Decision:** Option 2. Ensures that only structurally complete, valid assessments can be published, preventing corrupt assessment attempts.
+- **Affected Files:** `backend/app/models/assessment.py`, `backend/app/services/assessment_service.py`, `backend/app/api/v1/endpoints/assessments.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 5).
+
+---
+
+### DEC-P5-004: Monotonic Question Version Pinning
+- **Context:** Questions in the question bank evolve over time. Retroactively altering a published or completed exam's questions corrupts historical student attempts and scores.
+- **Options:**
+  1. Associate assessments with `question_id` only, pulling the live question state on every exam attempt.
+  2. Maintain a monotonic `version: int` on the `questions` table, incremented on every edit. Pin `question_version` on the `assessment_questions` junction table at composition time.
+- **Decision:** Option 2. Published assessments remain permanently pinned to the exact question snapshot configured at authoring time.
+- **Affected Files:** `backend/app/models/question.py`, `backend/app/models/assessment.py`, `backend/app/services/assessment_service.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 5).
+
+---
+
+### DEC-P6-001: Immutable Attempt Question Snapshotting
+- **Context:** Post-publication edits to questions in the Question Bank must not mutate active or historical student exam attempts, leak answers, or invalidate scored results.
+- **Options:**
+  1. Dynamically join with the `questions` table during the attempt and upon grading.
+  2. Snapshot deliverable question content, points, and server answer keys into `AssessmentAttempt.snapshot_data` upon attempt creation. Student projections serve sanitized questions exclusively from the snapshot.
+- **Decision:** Option 2. Guarantees complete immutability of assessment attempts and permanently isolates exams from concurrent teacher edits.
+- **Affected Files:** `backend/app/models/attempt.py`, `backend/app/services/attempt_service.py`, `backend/app/services/grading_service.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 6).
+
+---
+
+### DEC-P6-002: Authoritative Server UTC Deadlines and Auto-Submit on Expiry (DEC-07)
+- **Context:** Client clocks are untrusted. High-stakes timed examinations require fair, deterministic expiry enforcement.
+- **Options:**
+  1. Trust client-submitted completion timestamps or countdown timer states.
+  2. Compute authoritative UTC `deadline_at` on the server at attempt start (`started_at + timedelta(minutes=time_limit_minutes)`). Reject late responses or trigger auto-submission awarding 0 points to unanswered items on expiry.
+- **Decision:** Option 2. Server UTC clock is authoritative; client time manipulation is neutralized.
+- **Affected Files:** `backend/app/models/attempt.py`, `backend/app/services/attempt_service.py`, `backend/app/services/grading_service.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 6).
+
+---
+
+### DEC-P6-003: Transactional Outbox Pattern for Assessment Completion
+- **Context:** Assessment completion triggers downstream side-effects (topic mastery calculation in Phase 7 and gamification rewards in Phase 8). Directly coupling these within the grading transaction violates architectural phase boundaries and introduces distributed transaction failure risks.
+- **Options:**
+  1. Invoke Phase 7/8 logic synchronously inside the grading endpoint.
+  2. Persist a domain event in a durable `domain_outbox_events` table in the exact same database transaction as the attempt grading.
+- **Decision:** Option 2. Transactional outbox event with `event_type = 'assessment.completed'` and unique idempotency key decouples grading from downstream processing.
+- **Affected Files:** `backend/app/models/outbox.py`, `backend/alembic/versions/20261109_0008_d4_assessment_attempts_and_grading.py`, `backend/app/services/grading_service.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 6).
+
+---
+
+### DEC-P6-004: Idempotent Response Upsert and Submission
+- **Context:** Network retry loops, connection drops, or rapid user clicks can resend interim answers or submit calls multiple times.
+- **Options:**
+  1. Treat duplicate writes as errors or create duplicate records.
+  2. Upsert interim answers against unique constraint `(attempt_id, question_id)` with updated `received_at` timestamps. Return existing graded result on re-submission without re-running grading or duplicating outbox events.
+- **Decision:** Option 2. Eliminates duplicate processing and state inconsistencies under network retries.
+- **Affected Files:** `backend/app/models/attempt.py`, `backend/app/services/attempt_service.py`, `backend/app/services/grading_service.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 6).
+
+---
+
+### DEC-P7-001: Hybrid Bayesian Knowledge Tracing & Assessment Score Blending
+- **Context:** Pure classical BKT updates hidden mastery based on single item correctness, which can produce non-intuitive score jumps on comprehensive exams. Conversely, raw percentage scores ignore latent skill acquisition across longitudinal attempts.
+- **Options:**
+  1. Rely 100% on Corbett & Anderson BKT posterior probability.
+  2. Rely 100% on simple moving average of exam scores.
+  3. Hybrid weighted model combining 60% empirical assessment score ratio ($S / S_{\max}$) and 40% Corbett & Anderson BKT posterior $P(L_{\text{final}})$ ($0.60 \times \text{Score Ratio} + 0.40 \times P(L_{\text{final}})$).
+- **Decision:** Option 3. Balances empirical examination rigor with Bayesian latent state estimation, ensuring students receive intuitive mastery jumps on ace exams while preserving knowledge acquisition modeling.
+- **Affected Files:** `backend/app/services/mastery_service.py`, `backend/app/models/mastery.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 7).
+
+---
+
+### DEC-P7-002: Topic Readiness Gate & Prerequisite Diagnostic Bypass
+- **Context:** Students must not encounter topics whose prerequisite foundations are missing. However, advanced students need an avenue to test out of prerequisites without manually taking every prior lesson.
+- **Options:**
+  1. Strictly require manual completion of all prerequisite lessons before topic unlocking.
+  2. Evaluate student mastery across prerequisite topics against passing threshold ($\ge 0.7000$ or `Topic.mastery_threshold`). If prerequisites are unmet, provide a direct diagnostic assessment link (`diagnostic_assessment_id`) enabling the student to demonstrate competence and unlock the topic.
+- **Decision:** Option 2. Enforces academic rigor while enabling fast-track progression via diagnostic testing (`SSD-02`).
+- **Affected Files:** `backend/app/services/mastery_service.py`, `backend/app/api/v1/endpoints/mastery.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 7).
+
+---
+
+### DEC-P7-003: Deterministic DAG Kahn's Topological Sorting & Remediation Loops
+- **Context:** Generating an individualized, dynamic learning path (`SSD-03`) across arbitrary curriculum DAGs requires deterministic topic ordering and adaptive branch selection based on mastery status.
+- **Options:**
+  1. Recalculate learning paths via an external heuristics solver or asynchronous job.
+  2. In-memory Kahn's topological sort with tie-breaking on `topic.order`, sequencing uncompleted lessons in ready topics, routing to `adaptive_practice` remediation when mastery is developing ($< 0.7000$), accelerating past mastered topics ($\ge 0.8500$), and unlocking summative final exams when all topics achieve competence.
+- **Decision:** Option 2. Sub-50ms deterministic execution (well under the 1,000ms SLA) without external queue latency.
+- **Affected Files:** `backend/app/services/dag_service.py`, `backend/app/services/learning_path_service.py`, `backend/app/api/v1/endpoints/mastery.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 7).
+
+---
+
+### DEC-P7-004: Synchronous Recalculation with Durable Outbox Marking
+- **Context:** When a student submits an assessment attempt, they expect immediate feedback on updated topic mastery. However, gamification (XP/badges) must remain decoupled (Phase 8), and duplicate recalculations must be idempotent.
+- **Options:**
+  1. Defer mastery updates entirely to an asynchronous worker running on cron.
+  2. Execute authoritative mastery recalculation immediately within the submission pipeline, update `student_topic_mastery` and `mastery_audit_ledger`, and mark `domain_outbox_events.published_at` and `status = 'published'` to record the completion event durably for Phase 8 gamification consumption. Guard against Bayesian compounding via idempotency check on `last_attempt_id`.
+- **Decision:** Option 2. Delivers zero-latency user feedback on assessment submission while maintaining clean asynchronous decoupling for gamification.
+- **Affected Files:** `backend/app/services/grading_service.py`, `backend/app/services/mastery_service.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 7).
+
+---
+
+### DEC-P8-001: Strict Outbox Decoupling of Academic Scoring from Gamification
+- **Context:** SRS UC-16, Section 3.2.6, and Blueprint Section 3.3 mandate that gamification rewards (XP, levels, streaks, badges) must be completely decoupled from academic scoring and topic mastery recalculations.
+- **Options:**
+  1. Synchronously execute gamification reward calculations inside the attempt submission database transaction.
+  2. Emit domain events to `domain_outbox_events` and process them through decoupled consumer handlers. Gamification failures or ledger errors never cause academic grading transactions to roll back.
+- **Decision:** Option 2. Guarantees academic scoring purity and transaction isolation while providing durable gamification processing.
+- **Affected Files:** `backend/app/services/grading_service.py`, `backend/app/services/enrollment_service.py`, `backend/app/services/gamification_service.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 8).
+
+---
+
+### DEC-P8-002: Append-Only XP Ledger with Unique Idempotency Keys
+- **Context:** Network retries, duplicate submission requests, or event re-deliveries must never double-award XP or repeatedly bump student levels.
+- **Options:**
+  1. Maintain an aggregate `xp` counter only on `gamification_profiles`.
+  2. Maintain an append-only `xp_ledger` table with unique constraint on `idempotency_key` (`uq_xp_ledger_idempotency`), atomically incrementing profile XP and updating level on first insert, while treating re-submissions as safe idempotent no-ops.
+- **Decision:** Option 2. Provides full auditability, zero duplicate XP rewards, and resilience against race conditions.
+- **Affected Files:** `backend/app/models/gamification.py`, `backend/app/services/gamification_service.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 8).
+
+---
+
+### DEC-P8-003: Arithmetic Level Progression Conformance
+- **Context:** The frontend client (`studentLogic.ts`) uses an established level formula ($150 + \text{Level} \times 100$ XP per span). Any divergence in backend level arithmetic would cause visual state flickering between backend API responses and frontend renderers.
+- **Options:**
+  1. Define a new logarithmic or exponential level formula in backend.
+  2. Implement `GamificationService.calculate_level` using the exact identical progression formula: Level 1 (0–250 XP), Level 2 (250–600 XP), Level 3 (600–1050 XP), Level 4 (1050–1600 XP).
+- **Decision:** Option 2. Guarantees 100% mathematical parity across backend API responses and frontend components.
+- **Affected Files:** `backend/app/services/gamification_service.py`, `backend/tests/test_gamification_profile_and_level.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 8).
+
+---
+
+### DEC-P8-004: Privacy-Aware Leaderboard Anonymization
+- **Context:** Blueprint Section 8.6 requires student opt-in / privacy compliance on public leaderboards.
+- **Options:**
+  1. Disallow opting out of leaderboards.
+  2. Completely exclude opted-out students from leaderboard database queries.
+  3. Include opted-out students in ranking order but display their name as `"Anonymous Scholar"` with null avatar to peers, while allowing the student to view their own unmasked name and rank.
+- **Decision:** Option 3. Preserves global competitive rank accuracy while respecting personal privacy preferences.
+- **Affected Files:** `backend/app/models/gamification.py`, `backend/app/services/gamification_service.py`, `backend/app/api/v1/endpoints/gamification.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 8).

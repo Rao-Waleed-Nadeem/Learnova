@@ -10,7 +10,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 if TYPE_CHECKING:
+    from app.models.assessment import Assessment
     from app.models.course_teacher import CourseTeacher
+    from app.models.enrollment import Enrollment
+    from app.models.lesson_completion import LessonCompletion
+    from app.models.question import Question
     from app.models.topic import Topic
     from app.models.user import User
 
@@ -79,6 +83,26 @@ class Course(Base):
         back_populates="course",
         cascade="all, delete-orphan",
         order_by="Topic.order",
+    )
+    enrollments: Mapped[List["Enrollment"]] = relationship(
+        "Enrollment",
+        back_populates="course",
+        cascade="all, delete-orphan",
+    )
+    lesson_completions: Mapped[List["LessonCompletion"]] = relationship(
+        "LessonCompletion",
+        back_populates="course",
+        cascade="all, delete-orphan",
+    )
+    questions: Mapped[List["Question"]] = relationship(
+        "Question",
+        back_populates="course",
+        cascade="all, delete-orphan",
+    )
+    assessments: Mapped[List["Assessment"]] = relationship(
+        "Assessment",
+        back_populates="course",
+        cascade="all, delete-orphan",
     )
 
     def __repr__(self) -> str:

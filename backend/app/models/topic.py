@@ -11,8 +11,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 if TYPE_CHECKING:
+    from app.models.assessment import Assessment
     from app.models.course import Course
     from app.models.lesson import Lesson
+    from app.models.question import Question
     from app.models.topic_prerequisite import TopicPrerequisite
 
 
@@ -95,6 +97,15 @@ class Topic(Base):
         foreign_keys="[TopicPrerequisite.prerequisite_topic_id]",
         back_populates="prerequisite_topic",
         cascade="all, delete-orphan",
+    )
+    questions: Mapped[List["Question"]] = relationship(
+        "Question",
+        back_populates="topic",
+        cascade="all, delete-orphan",
+    )
+    assessments: Mapped[List["Assessment"]] = relationship(
+        "Assessment",
+        back_populates="topic",
     )
 
     def __repr__(self) -> str:
