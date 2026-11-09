@@ -4,6 +4,7 @@ Exposes all models so that Alembic and SQLAlchemy metadata
 automatically registers all tables.
 """
 
+from app.models.ai import AICandidateQuestion, AIContentCache
 from app.models.assessment import Assessment, AssessmentQuestion
 from app.models.attempt import AssessmentAttempt, AttemptResponse
 from app.models.course import Course
@@ -60,4 +61,6 @@ __all__ = [
     "UserBadge",
     "Challenge",
     "UserChallenge",
+    "AICandidateQuestion",
+    "AIContentCache",
 ]

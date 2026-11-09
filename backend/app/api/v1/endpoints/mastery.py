@@ -10,6 +10,7 @@ from app.core.dependencies import get_current_user
 from app.db.session import get_db
 from app.models.attempt import AssessmentAttempt
 from app.models.course import Course
+from app.models.course_teacher import CourseTeacher
 from app.models.enrollment import Enrollment
 from app.models.topic import Topic
 from app.models.user import User
@@ -104,6 +105,7 @@ def get_course_learning_path(
 @router.get("/topics/{topic_id}/readiness", response_model=TopicReadinessResponse)
 def get_topic_readiness(
     topic_id: uuid.UUID,
+    student_id: Optional[uuid.UUID] = Query(None, description="Target student UUID (teachers/admins only)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -117,10 +119,16 @@ def get_topic_readiness(
 
     user_role = current_user.role.name if current_user.role else "student"
     if user_role == "student":
+        if student_id and student_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Forbidden: Students can only inspect their own topic readiness.",
+            )
+        target_student_id = current_user.id
         enrollment = (
             db.query(Enrollment)
             .filter(
-                Enrollment.student_id == current_user.id,
+                Enrollment.student_id == target_student_id,
                 Enrollment.course_id == topic.course_id,
                 Enrollment.status.in_(("active", "completed")),
             )
@@ -131,11 +139,57 @@ def get_topic_readiness(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Student is not actively enrolled in the course for this topic.",
             )
+    elif user_role == "teacher":
+        assignment = (
+            db.query(CourseTeacher)
+            .filter(
+                CourseTeacher.course_id == topic.course_id,
+                CourseTeacher.teacher_id == current_user.id,
+            )
+            .first()
+        )
+        if not assignment:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Teacher is not assigned to this course.",
+            )
+        if not student_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="student_id query parameter is required when checking readiness as an instructor.",
+            )
+        target_student_id = student_id
+        enrollment = (
+            db.query(Enrollment)
+            .filter(
+                Enrollment.student_id == target_student_id,
+                Enrollment.course_id == topic.course_id,
+                Enrollment.status.in_(("active", "completed")),
+            )
+            .first()
+        )
+        if not enrollment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Specified student is not enrolled in this course.",
+            )
+    elif user_role == "administrator":
+        if not student_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="student_id query parameter is required when checking readiness as an administrator.",
+            )
+        target_student_id = student_id
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Role not authorized to access topic readiness.",
+        )
 
     return MasteryService.get_topic_readiness(
         db=db,
         topic_id=topic_id,
-        student_id=current_user.id,
+        student_id=target_student_id,
     )
 
 

@@ -369,9 +369,9 @@
   1. Rely 100% on Corbett & Anderson BKT posterior probability.
   2. Rely 100% on simple moving average of exam scores.
   3. Hybrid weighted model combining 60% empirical assessment score ratio ($S / S_{\max}$) and 40% Corbett & Anderson BKT posterior $P(L_{\text{final}})$ ($0.60 \times \text{Score Ratio} + 0.40 \times P(L_{\text{final}})$).
-- **Decision:** Option 3. Balances empirical examination rigor with Bayesian latent state estimation, ensuring students receive intuitive mastery jumps on ace exams while preserving knowledge acquisition modeling.
+- **Decision:** Option 3. Balances empirical examination rigor with Bayesian latent state estimation, ensuring students receive intuitive mastery jumps on ace exams while preserving knowledge acquisition modeling. Numerical parameters ($P(L_0)=0.10, P(T)=0.20, P(G)=0.20, P(S)=0.10, 60/40$) are locked in code to prevent regressions, but are classified as provisional pending explicit academic faculty sign-off.
 - **Affected Files:** `backend/app/services/mastery_service.py`, `backend/app/models/mastery.py`.
-- **Owner Status:** APPROVED & IMPLEMENTED (Phase 7).
+- **Owner Status:** IMPLEMENTED (PROVISIONAL PENDING FORMAL ACADEMIC SIGN-OFF).
 
 ---
 
@@ -379,7 +379,7 @@
 - **Context:** Students must not encounter topics whose prerequisite foundations are missing. However, advanced students need an avenue to test out of prerequisites without manually taking every prior lesson.
 - **Options:**
   1. Strictly require manual completion of all prerequisite lessons before topic unlocking.
-  2. Evaluate student mastery across prerequisite topics against passing threshold ($\ge 0.7000$ or `Topic.mastery_threshold`). If prerequisites are unmet, provide a direct diagnostic assessment link (`diagnostic_assessment_id`) enabling the student to demonstrate competence and unlock the topic.
+  2. Evaluate student mastery across prerequisite topics against passing threshold (`Topic.mastery_threshold`, default 0.7500). If prerequisites are unmet, provide a direct diagnostic assessment link (`diagnostic_assessment_id`) enabling the student to demonstrate competence and unlock the topic.
 - **Decision:** Option 2. Enforces academic rigor while enabling fast-track progression via diagnostic testing (`SSD-02`).
 - **Affected Files:** `backend/app/services/mastery_service.py`, `backend/app/api/v1/endpoints/mastery.py`.
 - **Owner Status:** APPROVED & IMPLEMENTED (Phase 7).
@@ -397,14 +397,58 @@
 
 ---
 
-### DEC-P7-004: Synchronous Recalculation with Durable Outbox Marking
-- **Context:** When a student submits an assessment attempt, they expect immediate feedback on updated topic mastery. However, gamification (XP/badges) must remain decoupled (Phase 8), and duplicate recalculations must be idempotent.
+### DEC-P7-004: Synchronous Recalculation with Outbox Ownership Decoupling (P7-FIX-01)
+- **Context:** In initial Phase 7 implementation, `MasteryService.recalculate_from_attempt()` prematurely marked `domain_outbox_events.published_at` and `status = 'published'`, which hijacked delivery state ownership and broke retries if downstream gamification failed.
 - **Options:**
-  1. Defer mastery updates entirely to an asynchronous worker running on cron.
-  2. Execute authoritative mastery recalculation immediately within the submission pipeline, update `student_topic_mastery` and `mastery_audit_ledger`, and mark `domain_outbox_events.published_at` and `status = 'published'` to record the completion event durably for Phase 8 gamification consumption. Guard against Bayesian compounding via idempotency check on `last_attempt_id`.
-- **Decision:** Option 2. Delivers zero-latency user feedback on assessment submission while maintaining clean asynchronous decoupling for gamification.
-- **Affected Files:** `backend/app/services/grading_service.py`, `backend/app/services/mastery_service.py`.
-- **Owner Status:** APPROVED & IMPLEMENTED (Phase 7).
+  1. Allow `MasteryService` to mutate `domain_outbox_events`.
+  2. Restrict `MasteryService` strictly to updating `student_topic_mastery` and `mastery_audit_ledger`. Outbox event delivery status (`pending -> published / failed`) belongs strictly to the Phase 8 gamification consumer.
+- **Decision:** Option 2. `MasteryService` no longer reads or mutates `DomainOutboxEvent`. The event remains `pending` until the gamification processor successfully commits XP and badges.
+- **Affected Files:** `backend/app/services/mastery_service.py`, `backend/tests/test_mastery_outbox_integration.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 7 Corrective Stabilization).
+
+---
+
+### DEC-P7-005: Accurate Topic Attribution for Multi-Topic Assessments (P7-FIX-03)
+- **Context:** When `Assessment.topic_id` was `None` (e.g. comprehensive exams or diagnostic baseline tests), previous code fell back to the first question's topic or the first topic in the course syllabus, attributing the entire exam wholesale to a single topic.
+- **Options:**
+  1. Fall back to the first topic in the course.
+  2. Group graded responses by each question's actual `topic_id` (from immutable attempt snapshot with database fallback). Calculate score ratios and BKT sequences independently per topic, updating each topic's mastery and audit ledger separately. If no question topic metadata exists, emit a controlled diagnostic and leave mastery unchanged.
+- **Decision:** Option 2. Guarantees that multi-topic exams accurately distribute knowledge evidence across topics without fabrication.
+- **Affected Files:** `backend/app/services/mastery_service.py`, `backend/app/services/attempt_service.py`, `backend/tests/test_mastery_bkt.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 7 Corrective Stabilization).
+
+---
+
+### DEC-P7-006: Topic Mastery Threshold Enforcement (P7-FIX-02)
+- **Context:** In `get_topic_readiness()`, prerequisite satisfaction used `cur_mastery >= req_mastery or cur_status in ("competent", "mastered")`. Because `Topic.mastery_threshold` defaults to `0.7500` in the schema while status `competent` begins at `0.7000`, a score of 0.7000 bypassed a configured threshold of 0.7500.
+- **Options:**
+  1. Allow status labels to override numerical thresholds or change the database default threshold from 0.75 to 0.70.
+  2. Strictly enforce numerical threshold: `is_satisfied = current_mastery >= required_mastery` (`Topic.mastery_threshold`, default 0.7500). A categorical status label must never override a higher configured numerical threshold.
+- **Decision:** Option 2. Preserves database schema defaults and per-topic configuration integrity without silent bypass.
+- **Affected Files:** `backend/app/services/mastery_service.py`, `backend/tests/test_topic_readiness.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 7 Corrective Stabilization).
+
+---
+
+### DEC-P7-007: Course Completion Criteria (Open Decision Record - P7-OPEN-01)
+- **Context:** The Master Backend Blueprint identifies course completion criteria as an open decision requiring academic governance sign-off. The current implementation in `LearningPathService` emits `type: "course_completed"` when all topics are competent/mastered and all lessons are finished, or upon passing the final exam.
+- **Options Under Consideration:**
+  1. Require passing the course final summative exam with $\ge 70\%$ score in addition to all topic mastery thresholds.
+  2. Require passing all topic mastery thresholds only.
+  3. Require both topic mastery thresholds, 100% lesson completions, and passing the final exam.
+- **Current Baseline Preserved:** Option 1/3 hybrid baseline preserved in `learning_path_service.py`.
+- **Owner Status:** OPEN DECISION (Recorded for formal owner/academic sign-off; existing code preserved).
+
+---
+
+### DEC-P7-008: Remediation Loop Termination Criteria (Open Decision Record - P7-OPEN-01)
+- **Context:** When a student struggles on a topic ($< 0.7000$ mastery), the dynamic learning path routes them to `adaptive_practice`. Without termination bounds, a struggling student could experience an infinite remediation loop.
+- **Options Under Consideration:**
+  1. Unbounded adaptive practice until mastery threshold is achieved.
+  2. Cap remediation at $N$ consecutive failed practice attempts (e.g. 3 attempts), after which the system escalates to an assigned course instructor for manual intervention.
+  3. Dynamic difficulty dampening with minimum floor before teacher alert.
+- **Current Baseline Preserved:** Option 1 unbounded adaptive practice preserved during stabilization to prevent premature regression.
+- **Owner Status:** OPEN DECISION (Recorded for formal owner/academic sign-off; existing code preserved).
 
 ---
 
@@ -450,3 +494,69 @@
 - **Decision:** Option 3. Preserves global competitive rank accuracy while respecting personal privacy preferences.
 - **Affected Files:** `backend/app/models/gamification.py`, `backend/app/services/gamification_service.py`, `backend/app/api/v1/endpoints/gamification.py`.
 - **Owner Status:** APPROVED & IMPLEMENTED (Phase 8).
+
+---
+
+### DEC-P8-005: Outbox Decoupling from Synchronous Request Path (P8-FIX-01)
+- **Context:** In original Phase 8 implementation, `submit_attempt` in `GradingService` and `record_lesson_completion` in `EnrollmentService` directly invoked `GamificationService.process_outbox_event()` on the synchronous HTTP request path, and `record_lesson_completion` pre-emptively inserted the event with `status = "published"`.
+- **Options:**
+  1. Retain synchronous execution of outbox consumer handlers during HTTP requests.
+  2. Strictly insert domain events with `status = "pending"` within the domain transaction, commit, and delegate consumption solely to the asynchronous worker / dispatcher.
+- **Decision:** Option 2. Eliminates latency overhead on critical student submissions, eliminates race conditions, and guarantees reliable transactional outbox semantics.
+- **Affected Files:** `backend/app/services/grading_service.py`, `backend/app/services/enrollment_service.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 8 Reliability Corrections).
+
+---
+
+### DEC-P8-006: Outbox Retry Metadata, Dead-Lettering, and Concurrent Claiming (P8-FIX-02)
+- **Context:** `domain_outbox_events` lacked retry counters, error logging, and next-attempt scheduling. If a downstream consumer failed, the event was either stuck or retried endlessly without exponential backoff or dead-letter limits.
+- **Options:**
+  1. Keep outbox table minimal and handle retries purely in memory.
+  2. Add `retry_count`, `last_error`, and `next_attempt_at` columns via additive migration `20261109_0011`. Implement exponential backoff ($2^{\text{retry\_count}} \times 5$ seconds), cap retries at 5 with dead-lettering (`status = "failed"`), isolate per-event execution with `db.begin_nested()`, and use `with_for_update(skip_locked=True)` on PostgreSQL. Restrict dispatcher triggering to administrators and dedicated background workers.
+- **Decision:** Option 2. Provides enterprise-grade resilience, prevents poison pills from blocking event batches, and enables safe concurrent workers.
+- **Affected Files:** `backend/app/models/outbox.py`, `backend/alembic/versions/20261109_0011_d4_outbox_retry_and_leaderboard_privacy.py`, `backend/app/services/gamification_service.py`, `backend/app/workers/outbox_worker.py`, `backend/app/api/v1/endpoints/gamification.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 8 Reliability Corrections).
+
+---
+
+### DEC-P8-007: Affirmative Consent Default for Leaderboard Privacy (P8-FIX-03)
+- **Context:** Student privacy guidelines require affirmative consent (opt-in) before exposing student identity to peers on public or course leaderboards. The previous schema default of `is_opted_in_leaderboard = True` defaulted students to public exposure.
+- **Options:**
+  1. Retain `is_opted_in_leaderboard = True` default.
+  2. Change default and server_default to `False` (`"false"`). Newly created profiles remain opted out until the student explicitly toggles opt-in via `PATCH /api/v1/gamification/profile`. Existing opted-out students are preserved.
+- **Decision:** Option 2. Enforces affirmative privacy consent by default across ORM, migrations, and service layers.
+- **Affected Files:** `backend/app/models/gamification.py`, `backend/alembic/versions/20261109_0011_d4_outbox_retry_and_leaderboard_privacy.py`, `backend/app/services/gamification_service.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 8 Reliability Corrections).
+
+---
+
+### DEC-P9-001: Quarantined AI Candidate Question Governance
+- **Context:** Blueprint Section 3.4 and SRS Section 3.2.7 mandate strict teacher oversight before AI-generated content can enter curriculum assessments. AI-generated questions must never be automatically promoted into the active question bank or presented to students on tests without explicit teacher review.
+- **Options:**
+  1. Store generated questions directly in the `questions` table with `status = "draft"`.
+  2. Quarantine generated items in a separate physical table `ai_question_candidates` with `status = "pending_review"`. Require assigned course teachers or administrators to audit, edit, and approve candidates, which promotes them through authoritative `QuestionService` validation into `questions` with `source = "ai_generated"`. Rejections are recorded with reasons and never enter the question bank.
+- **Decision:** Option 2. Guarantees 100% academic containment, ensures zero unreviewed questions appear in assessment authoring pickers, and maintains clear audit trails.
+- **Affected Files:** `backend/app/models/ai.py`, `backend/app/services/ai_candidate_service.py`, `backend/app/api/v1/endpoints/ai.py`, `backend/alembic/versions/20261109_0012_d5_ai_governance_and_cache.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 9).
+
+---
+
+### DEC-P9-002: Durable PostgreSQL Content Cache for Lesson Explanations
+- **Context:** Lesson simplification and tutoring explanations in `frontend/server.ts` previously relied on an in-memory process-local JavaScript `Map` (`lessonAICache`). Cache entries were lost on server restart, could not be shared across backend replicas, and lacked TTL management.
+- **Options:**
+  1. Retain in-memory process cache or introduce a Redis dependency.
+  2. Store explanations in a dedicated `ai_content_cache` table in PostgreSQL with deterministic SHA-256 keys (`c:{course}::t:{topic}::l:{lesson}::m:{mode}::p:{prompt}::v:{version}`), TTL expiration, and prompt versioning.
+- **Decision:** Option 2. Eliminates process-restart cache loss, preserves the modular monolith constraint without introducing Redis, and ensures multi-tenant cache isolation.
+- **Affected Files:** `backend/app/models/ai.py`, `backend/app/services/ai_service.py`, `backend/alembic/versions/20261109_0012_d5_ai_governance_and_cache.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 9).
+
+---
+
+### DEC-P9-003: Thin Express Proxy Cutover & Monolith Integration
+- **Context:** AI generation and tutoring routes originally resided on Port 3000 (`frontend/server.ts`) directly invoking `@google/genai`. All AI capabilities must transition to FastAPI (`/api/v1/ai`) without disrupting the Vite dev server, Docker topology, or frontend navigation.
+- **Options:**
+  1. Maintain dual AI implementations in both Express and FastAPI.
+  2. Implement all AI domain logic, validation, caching, and Gemini adapter in FastAPI. Convert Express routes (`/api/ai/*`) into a thin proxy forwarding requests to FastAPI, retiring process-local `@google/genai` and providing graceful deterministic fallbacks if the backend is unreachable.
+- **Decision:** Option 2. Centralizes all AI logic in FastAPI behind `ILLMServiceAdapter`, eliminates duplicate provider code, and guarantees zero downtime cutover.
+- **Affected Files:** `frontend/server.ts`, `frontend/src/services/api/aiApi.ts`, `backend/app/ai/adapter.py`, `backend/app/api/v1/endpoints/ai.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 9).

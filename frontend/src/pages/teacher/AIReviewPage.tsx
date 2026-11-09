@@ -29,6 +29,7 @@ import {
   QuestionType,
   Difficulty,
 } from '../../types';
+import { aiApi } from '../../services/api/aiApi';
 
 interface AIReviewPageProps {
   courses: Course[];
@@ -118,37 +119,69 @@ export const AIReviewPage: React.FC<AIReviewPageProps> = ({
         count: questionCount,
       };
 
-      const res = await fetch('/api/ai/generate-questions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      let generatedList: AICandidateQuestion[] = [];
 
-      if (!res.ok) {
-        throw new Error(`Generation service error (${res.status})`);
-      }
-
-      const data = await res.json();
-      const generatedList: AICandidateQuestion[] = (data.candidates || []).map(
-        (cand: any, idx: number) => ({
-          id: cand.id || `cand-${Date.now()}-${idx + 1}`,
-          courseId: selectedCourseId,
-          topicId: selectedTopicId,
+      try {
+        const backendCandidates = await aiApi.generateQuestions({
+          course_id: selectedCourseId,
+          topic_id: selectedTopicId,
+          source_content: customContext || activeResource?.contentOrUrl || activeTopic?.description || '',
+          question_types: selectedTypes,
+          difficulty,
+          count: questionCount,
+        });
+        generatedList = backendCandidates.map((cand) => ({
+          id: cand.id,
+          courseId: cand.course_id,
+          topicId: cand.topic_id,
           prompt: cand.prompt,
-          type: cand.type,
-          difficulty: cand.difficulty || difficulty,
-          points: cand.points || 2,
+          type: cand.type as QuestionType,
+          difficulty: cand.difficulty,
+          points: cand.points,
           explanation: cand.explanation || '',
-          sourceContext: cand.sourceContext || `Curriculum topic: ${activeTopic?.title}`,
-          options: cand.options,
-          correctBool: cand.correctBool,
-          acceptedAnswers: cand.acceptedAnswers,
-          matchingPairs: cand.matchingPairs,
-          expectedRubric: cand.expectedRubric,
+          sourceContext: cand.source_context || `Curriculum topic: ${activeTopic?.title}`,
+          options: cand.payload?.options,
+          correctBool: cand.answer_key?.correct_bool,
+          acceptedAnswers: cand.answer_key?.accepted_answers,
+          matchingPairs: cand.payload?.matching_pairs,
+          expectedRubric: cand.answer_key?.expected_rubric,
           status: 'pending_review',
-          createdAt: new Date().toISOString(),
-        })
-      );
+          createdAt: cand.created_at,
+        }));
+      } catch (fastApiErr) {
+        // Fallback: Call legacy Express proxy route
+        const res = await fetch('/api/ai/generate-questions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          throw new Error(`Generation service error (${res.status})`);
+        }
+
+        const data = await res.json();
+        generatedList = (data.candidates || []).map(
+          (cand: any, idx: number) => ({
+            id: cand.id || `cand-${Date.now()}-${idx + 1}`,
+            courseId: selectedCourseId,
+            topicId: selectedTopicId,
+            prompt: cand.prompt,
+            type: cand.type,
+            difficulty: cand.difficulty || difficulty,
+            points: cand.points || 2,
+            explanation: cand.explanation || '',
+            sourceContext: cand.sourceContext || `Curriculum topic: ${activeTopic?.title}`,
+            options: cand.options,
+            correctBool: cand.correctBool,
+            acceptedAnswers: cand.acceptedAnswers,
+            matchingPairs: cand.matchingPairs,
+            expectedRubric: cand.expectedRubric,
+            status: 'pending_review',
+            createdAt: new Date().toISOString(),
+          })
+        );
+      }
 
       onSaveGeneratedCandidates(generatedList);
       onNotify('success', `Generated ${generatedList.length} candidate questions for review.`);
@@ -160,13 +193,25 @@ export const AIReviewPage: React.FC<AIReviewPageProps> = ({
     }
   };
 
-  const handleApprove = (candId: string) => {
+  const handleApprove = async (candId: string) => {
+    try {
+      await aiApi.approveCandidate(candId);
+    } catch (err) {
+      // Non-blocking fallback for local mock questions
+      console.warn('Backend approval sync notice:', err);
+    }
     onUpdateCandidateStatus(candId, 'approved');
     onNotify('success', 'Question approved and added to Question Bank.');
   };
 
-  const handleRejectConfirm = () => {
+  const handleRejectConfirm = async () => {
     if (rejectModalId) {
+      try {
+        await aiApi.rejectCandidate(rejectModalId, rejectReason);
+      } catch (err) {
+        // Non-blocking fallback for local mock questions
+        console.warn('Backend rejection sync notice:', err);
+      }
       onUpdateCandidateStatus(rejectModalId, 'rejected', rejectReason);
       setRejectModalId(null);
       setRejectReason('');

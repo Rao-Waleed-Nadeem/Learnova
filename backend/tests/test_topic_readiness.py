@@ -11,12 +11,14 @@ from sqlalchemy.orm import Session
 from app.core.security import create_access_token
 from app.models.assessment import Assessment
 from app.models.course import Course
+from app.models.course_teacher import CourseTeacher
 from app.models.enrollment import Enrollment
 from app.models.mastery import StudentTopicMastery
 from app.models.role import Role
 from app.models.topic import Topic
 from app.models.topic_prerequisite import TopicPrerequisite
 from app.models.user import User
+from app.services.mastery_service import MasteryService
 
 
 @pytest.fixture
@@ -197,3 +199,152 @@ def test_unenrolled_student_cannot_access_readiness(client_with_db: TestClient, 
     res = client_with_db.get(f"/api/v1/topics/{topic_a.id}/readiness", headers=hdr2)
     assert res.status_code == 403
     assert "not actively enrolled" in res.json()["detail"]
+
+
+def test_topic_readiness_threshold_075_with_score_070_remains_unmet(
+    client_with_db: TestClient, db_session: Session, seed_readiness_context
+):
+    """P7-FIX-02, P7-C06: Configured threshold 0.75 with score 0.70 ('competent') remains unmet."""
+    ctx = seed_readiness_context
+    student1 = ctx["student1"]
+    course = ctx["course"]
+    topic_a = ctx["topic_a"]
+    topic_b = ctx["topic_b"]
+    hdr1 = auth_header(student1)
+
+    # Set topic_a mastery_threshold strictly to 0.7500
+    topic_a.mastery_threshold = Decimal("0.7500")
+    db_session.commit()
+
+    # Student achieves 0.7000 (status is 'competent' since >= 0.70)
+    mastery_a = (
+        db_session.query(StudentTopicMastery)
+        .filter(
+            StudentTopicMastery.student_id == student1.id,
+            StudentTopicMastery.topic_id == topic_a.id,
+        )
+        .first()
+    )
+    if mastery_a:
+        mastery_a.mastery_score = Decimal("0.7000")
+        mastery_a.score_percent = 70
+        mastery_a.status = "competent"
+    else:
+        mastery_a = StudentTopicMastery(
+            student_id=student1.id,
+            course_id=course.id,
+            topic_id=topic_a.id,
+            mastery_score=Decimal("0.7000"),
+            score_percent=70,
+            status="competent",
+            attempts_count=1,
+        )
+        db_session.add(mastery_a)
+    db_session.commit()
+
+    # Now inspect Topic B readiness: because 0.7000 < 0.7500, it MUST NOT unlock
+    res = client_with_db.get(f"/api/v1/topics/{topic_b.id}/readiness", headers=hdr1)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["is_ready"] is False
+    assert len(data["unmet_prerequisites"]) == 1
+    unmet = data["unmet_prerequisites"][0]
+    assert unmet["prerequisite_topic_id"] == str(topic_a.id)
+    assert unmet["required_mastery"] == 0.75
+    assert unmet["current_mastery"] == 0.70
+    assert unmet["status"] == "competent"
+    assert unmet["is_satisfied"] is False
+
+
+def test_unassigned_teacher_cannot_access_readiness(
+    client_with_db: TestClient, db_session: Session, seed_readiness_context
+):
+    """P7-FIX-05, P7-C12: Teacher not assigned to course cannot access topic readiness."""
+    ctx = seed_readiness_context
+    student1 = ctx["student1"]
+    topic_a = ctx["topic_a"]
+    teacher_role = db_session.query(Role).filter(Role.name == "teacher").first()
+
+    unassigned_teacher = User(
+        email=f"unassigned_teacher_{uuid.uuid4().hex[:6]}@learnova.test",
+        hashed_password="hashed_pw_dummy",
+        full_name="Unassigned Teacher",
+        is_active=True,
+        role_id=teacher_role.id,
+    )
+    db_session.add(unassigned_teacher)
+    db_session.commit()
+
+    hdr = auth_header(unassigned_teacher)
+    res = client_with_db.get(
+        f"/api/v1/topics/{topic_a.id}/readiness?student_id={student1.id}",
+        headers=hdr,
+    )
+    assert res.status_code == 403
+    assert "Teacher is not assigned to this course" in res.json()["detail"]
+
+
+def test_assigned_teacher_can_access_student_readiness(
+    client_with_db: TestClient, db_session: Session, seed_readiness_context
+):
+    """P7-FIX-05: Assigned teacher can access student readiness with student_id parameter."""
+    ctx = seed_readiness_context
+    teacher = ctx["teacher"]
+    student1 = ctx["student1"]
+    course = ctx["course"]
+    topic_a = ctx["topic_a"]
+
+    # Assign teacher to course
+    ct = CourseTeacher(course_id=course.id, teacher_id=teacher.id)
+    db_session.add(ct)
+    db_session.commit()
+
+    hdr = auth_header(teacher)
+    res = client_with_db.get(
+        f"/api/v1/topics/{topic_a.id}/readiness?student_id={student1.id}",
+        headers=hdr,
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["is_ready"] is True
+
+
+def test_prerequisite_different_course_raises_400(
+    db_session: Session, seed_readiness_context
+):
+    """P7-FIX-05: Topic and prerequisite topic must belong to the same course."""
+    ctx = seed_readiness_context
+    teacher = ctx["teacher"]
+    student1 = ctx["student1"]
+    topic_b = ctx["topic_b"]
+
+    # Create separate course and foreign topic
+    course_other = Course(
+        title=f"Other Course {uuid.uuid4().hex[:6]}",
+        status="published",
+        creator_id=teacher.id,
+    )
+    db_session.add(course_other)
+    db_session.commit()
+
+    foreign_topic = Topic(
+        course_id=course_other.id,
+        title="Foreign Topic",
+        order=1,
+    )
+    db_session.add(foreign_topic)
+    db_session.commit()
+
+    # Link cross-course prerequisite
+    edge = TopicPrerequisite(
+        topic_id=topic_b.id,
+        prerequisite_topic_id=foreign_topic.id,
+    )
+    db_session.add(edge)
+    db_session.commit()
+
+    from fastapi import HTTPException
+    with pytest.raises(HTTPException) as exc_info:
+        MasteryService.get_topic_readiness(db_session, topic_b.id, student1.id)
+    assert exc_info.value.status_code == 400
+    assert "does not belong to the same course" in exc_info.value.detail

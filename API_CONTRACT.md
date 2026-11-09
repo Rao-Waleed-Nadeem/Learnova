@@ -238,28 +238,29 @@ These endpoints represent the target FastAPI architecture planned across Phases 
 - `POST /api/v1/attempts/{id}/submit` — Submit assessment for authoritative server-side grading. Evaluates all 5 question types, handles auto-submit on expiry (DEC-07), transitions attempt status (`graded` or `pending_manual_review` per DEC-06), atomically writes transactional outbox event `assessment.completed` to `domain_outbox_events` (DEC-P6-003). Idempotent on retry (DEC-P6-004).
 - `GET /api/v1/attempts/{id}/result` — Retrieve completed assessment score, score percentage, pass status, and per-question evaluated feedback.
 
-### 3.5 Student Knowledge Tracing & Mastery Engine (`/api/v1/courses/{id}/mastery`, `/api/v1/courses/{id}/learning-path`, `/api/v1/topics/{id}/readiness`, `/api/v1/mastery`) — Implemented Phase 7 (Accepted)
+### 3.5 Student Knowledge Tracing & Mastery Engine (`/api/v1/courses/{id}/mastery`, `/api/v1/courses/{id}/learning-path`, `/api/v1/topics/{id}/readiness`, `/api/v1/mastery`) — Phase 7 Stabilized
 - `GET /api/v1/courses/{course_id}/mastery` — Get complete topic mastery matrix and course syllabus progress for authenticated student (`student_topic_mastery`). (Alias: `GET /api/v1/students/me/mastery?course_id=...`).
 - `GET /api/v1/courses/{course_id}/learning-path` — Get dynamic, personalized ordered learning path regenerated from mastery states, lesson completions, and prerequisite gates, with sub-50ms execution SLA. (Alias: `GET /api/v1/students/me/learning-path?course_id=...`).
-- `GET /api/v1/topics/{topic_id}/readiness` — Inspect topic prerequisite DAG nodes and calculate student readiness score. If locked, surfaces direct link to diagnostic assessment for prerequisite bypass.
-- `POST /api/v1/mastery/recalculate/{attempt_id}` — Authoritatively recalculate student topic mastery from a completed assessment attempt using hybrid Bayesian Knowledge Tracing (BKT) and empirical weighting; idempotently updates mastery and records immutable audit ledger entry.
+- `GET /api/v1/topics/{topic_id}/readiness` — Inspect topic prerequisite DAG nodes and calculate student readiness score. Students can only inspect their own readiness; teachers assigned to the course via `course_teachers` and administrators can pass `?student_id={id}` to inspect enrolled student readiness. Prerequisites strictly require `current_mastery >= required_mastery` (`Topic.mastery_threshold`, default 0.7500); status labels do not bypass configured thresholds. All prerequisites must belong to the same course. If locked, surfaces direct link to diagnostic assessment for prerequisite bypass.
+- `POST /api/v1/mastery/recalculate/{attempt_id}` — Authoritatively recalculate topic mastery from a completed assessment attempt using hybrid Bayesian Knowledge Tracing (BKT) and empirical weighting; idempotently updates mastery and records immutable audit ledger entry. If `assessment.topic_id` is set, all responses attribute to that topic; if null, responses group by each question's actual `topic_id`, updating mastery per topic independently (`updated_topics`). If no reliable topic metadata exists, emits controlled diagnostic without mutating mastery. Never mutates `DomainOutboxEvent` status.
 
-### 3.6 Gamification & Event Processing (`/api/v1/gamification`) — Implemented Phase 8 (Accepted)
-- `GET /api/v1/gamification/profile` — Get authenticated student gamification profile (XP, level, level floor, next level XP threshold, progress percent, continuous daily streak, leaderboard opt-in status).
-- `PATCH /api/v1/gamification/profile` — Update gamification profile preferences (toggle leaderboard privacy opt-in).
+### 3.6 Gamification & Event Processing (`/api/v1/gamification`) — Phase 8 Corrected & Verified
+- `GET /api/v1/gamification/profile` — Get authenticated student gamification profile (XP, level, level floor, next level XP threshold, progress percent, continuous daily streak, leaderboard opt-in status; defaults to `is_opted_in_leaderboard: false` under affirmative privacy consent policy).
+- `PATCH /api/v1/gamification/profile` — Update gamification profile preferences (explicitly grant or revoke affirmative consent for leaderboard privacy opt-in).
 - `GET /api/v1/gamification/xp-history` — Paginated chronological XP audit ledger history for authenticated student.
 - `GET /api/v1/gamification/badges` — Badge catalog with student unlock status and earned timestamps.
-- `GET /api/v1/gamification/leaderboard` — Ranked academic leaderboard respecting privacy opt-in settings, returning student XP, level, earned badges count, and peer badge snippets.
+- `GET /api/v1/gamification/leaderboard` — Ranked academic leaderboard respecting privacy opt-in settings, returning student XP, level, earned badges count, and peer badge snippets. Opted-out students are displayed to peers as "Anonymous Scholar" with null avatars.
 - `GET /api/v1/gamification/challenges` — Active learning challenges with current student progress tracking.
-- `POST /api/v1/gamification/process-events` — Worker dispatcher endpoint to drain and process pending domain outbox events (`domain_outbox_events`).
+- `POST /api/v1/gamification/process-events` — Worker dispatcher endpoint to drain and process pending domain outbox events (`domain_outbox_events`). Requires `administrator` role (`require_role("administrator")`); processes events with row locking (`FOR UPDATE SKIP LOCKED` on PostgreSQL), retry tracking, exponential backoff, and dead-lettering at 5 retries. Standalone CLI worker entrypoint available at `python -m app.workers.outbox_worker`.
 
-### 3.7 AI Integration & Review (`/api/v1/ai`) — Planned Phase 9
-- `POST /api/v1/ai/generate-questions` — Backend-owned question generation via LLM adapter.
-- `GET /api/v1/ai/candidates` — List generated candidate questions pending review.
-- `PUT /api/v1/ai/candidates/{id}/approve` — Approve candidate question and promote to Question Bank.
-- `PUT /api/v1/ai/candidates/{id}/reject` — Reject candidate question.
-- `POST /api/v1/ai/simplify-lesson` — Backend-owned lesson tutoring with Redis/DB caching.
-- `GET /api/v1/gamification/events` — Get student XP audit ledger.
+### 3.7 AI Integration & Review (`/api/v1/ai`) — Phase 9 Verified & Implemented
+- `POST /api/v1/ai/simplify-lesson` — Student and teacher lesson tutoring, analogies, worked examples, and contextual clarifications with PII scrubbing and durable PostgreSQL content caching (`ai_content_cache`).
+- `POST /api/v1/ai/generate-questions` — Course-scoped candidate question generation for assigned teachers and administrators (`require_role("teacher", "administrator")`); outputs are strictly quarantined in `ai_question_candidates` with `status = "pending_review"` and never appear on assessments without review.
+- `GET /api/v1/ai/candidates` — List quarantined candidate questions filtered by `course_id`, `topic_id`, and `status`.
+- `GET /api/v1/ai/candidates/{id}` — Detailed candidate question inspection for teacher audit.
+- `PATCH /api/v1/ai/candidates/{id}` — Edit candidate question prompt, difficulty, points, options, or rubric prior to approval.
+- `POST /api/v1/ai/candidates/{id}/approve` — Authoritatively promote candidate to official `Question` in the Question Bank via `QuestionService` with `source = "ai_generated"`, `status = "approved"`, linking `approved_question_id`. Idempotent.
+- `POST /api/v1/ai/candidates/{id}/reject` — Reject candidate question with recorded reason and security audit log. Idempotent.
 
 ### 3.7 Administration & Analytics (`/api/v1/admin`, `/api/v1/teacher`) — Planned Phase 10
 - `GET /api/v1/teacher/analytics/{course_id}` — Class performance and mastery heatmap.

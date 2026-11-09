@@ -105,6 +105,7 @@ def seed_outbox_mastery_context(client_with_db: TestClient, db_session: Session)
         "topic": topic,
         "q1": q1,
         "assessment": assessment,
+        "enrollment": enrollment,
     }
 
 
@@ -147,10 +148,10 @@ def test_interim_answers_do_not_mutate_mastery(client_with_db: TestClient, db_se
     assert mastery is None
 
 
-def test_submit_attempt_triggers_mastery_and_marks_outbox(
+def test_submit_attempt_triggers_mastery_and_leaves_outbox_pending(
     client_with_db: TestClient, db_session: Session, seed_outbox_mastery_context
 ):
-    """Submitting attempt updates topic mastery and transitions domain_outbox_events.processed_at."""
+    """P7-FIX-01, P7-C05: Submitting attempt updates mastery but leaves DomainOutboxEvent pending for worker."""
     ctx = seed_outbox_mastery_context
     student = ctx["student"]
     topic = ctx["topic"]
@@ -185,7 +186,7 @@ def test_submit_attempt_triggers_mastery_and_marks_outbox(
     assert mastery is not None
     assert mastery.score_percent >= 70
 
-    # 2. Outbox event was marked processed
+    # 2. Outbox event was created in transaction but remains strictly pending (P7-FIX-01)
     outbox = (
         db_session.query(DomainOutboxEvent)
         .filter(
@@ -195,8 +196,65 @@ def test_submit_attempt_triggers_mastery_and_marks_outbox(
         .first()
     )
     assert outbox is not None
-    assert outbox.published_at is not None
-    assert outbox.status == "published"
+    assert outbox.status == "pending"
+    assert outbox.published_at is None
+
+
+def test_direct_mastery_recalculation_leaves_outbox_pending(
+    db_session: Session, seed_outbox_mastery_context
+):
+    """P7-C05: Direct MasteryService.recalculate_from_attempt does not mutate DomainOutboxEvent status."""
+    ctx = seed_outbox_mastery_context
+    student = ctx["student"]
+    assessment = ctx["assessment"]
+    q1 = ctx["q1"]
+
+    # Create graded attempt directly
+    attempt = AssessmentAttempt(
+        assessment_id=assessment.id,
+        student_id=student.id,
+        enrollment_id=ctx["enrollment"].id,
+        attempt_number=1,
+        status="graded",
+        score=2,
+        max_score=2,
+        passed=True,
+    )
+    db_session.add(attempt)
+    db_session.commit()
+
+    resp = AttemptResponse(
+        attempt_id=attempt.id,
+        question_id=q1.id,
+        question_version=1,
+        student_response={"text": "True"},
+        is_correct=True,
+        points_awarded=Decimal("2.00"),
+        points_possible=2,
+    )
+    db_session.add(resp)
+
+    # Pending outbox event
+    outbox = DomainOutboxEvent(
+        event_type="assessment.completed",
+        aggregate_type="AssessmentAttempt",
+        aggregate_id=str(attempt.id),
+        idempotency_key=f"assessment_completed_{attempt.id}",
+        payload={"attempt_id": str(attempt.id)},
+        status="pending",
+    )
+    db_session.add(outbox)
+    db_session.commit()
+
+    # Recalculate mastery
+    from app.services.mastery_service import MasteryService
+
+    MasteryService.recalculate_from_attempt(db_session, attempt.id, actor=student)
+
+    # Verify event remains strictly pending
+    db_session.refresh(outbox)
+    assert outbox.status == "pending"
+    assert outbox.published_at is None
 
 
 def test_recalculate_idempotency(client_with_db: TestClient, db_session: Session, seed_outbox_mastery_context):

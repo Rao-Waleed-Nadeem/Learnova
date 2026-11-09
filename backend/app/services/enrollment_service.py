@@ -309,7 +309,7 @@ class EnrollmentService:
                 progress_percent=prog,
             )
 
-        # Atomic Outbox Event Insertion & Gamification Dispatch
+        # Atomic Outbox Event Insertion (P8-FIX-01: Gamification processed asynchronously by outbox worker)
         outbox_event = DomainOutboxEvent(
             event_type="lesson.completed",
             aggregate_type="lesson_completion",
@@ -326,15 +326,6 @@ class EnrollmentService:
             status="pending",
         )
         db.add(outbox_event)
-        try:
-            from app.services.gamification_service import GamificationService
-
-            GamificationService.process_outbox_event(db, outbox_event)
-            outbox_event.status = "published"
-            outbox_event.published_at = datetime.now(timezone.utc)
-        except Exception:
-            # Gamification decoupled: failure never rolls back lesson completion
-            pass
         db.commit()
 
         _, _, prog = cls.calculate_course_progress(db, student.id, course_id)

@@ -286,15 +286,8 @@ class GradingService:
                 # Failure in mastery recalculation does not fail attempt grading
                 pass
 
-        # Trigger Phase 8 Gamification Outbox Consumer (DEC-006)
-        try:
-            from app.services.gamification_service import GamificationService
-
-            GamificationService.process_outbox_event(db=db, event=outbox_event)
-            db.commit()
-        except Exception:
-            # Decoupled gamification: failure in gamification never fails attempt grading
-            pass
+        # P8-FIX-01: Gamification is fully decoupled; the outbox event remains pending
+        # and will be processed asynchronously by the outbox event worker.
 
         log_audit_event(
             db=db,

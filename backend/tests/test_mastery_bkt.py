@@ -284,3 +284,212 @@ def test_recalculate_rejected_on_in_progress_attempt(client_with_db: TestClient,
     res_recalc = client_with_db.post(f"/api/v1/mastery/recalculate/{att_id}", headers=hdr)
     assert res_recalc.status_code == 400
     assert "only permitted on completed assessment attempts" in res_recalc.json()["detail"]
+
+
+def test_multi_topic_assessment_attribution(
+    client_with_db: TestClient, db_session: Session, seed_mastery_context
+):
+    """P7-FIX-03, P7-C09: Assessment without topic_id groups responses and calculates mastery per topic."""
+    ctx = seed_mastery_context
+    teacher = ctx["teacher"]
+    student = ctx["student"]
+    course = ctx["course"]
+    topic_1 = ctx["topic"]
+    q1 = ctx["q1"]  # belongs to topic_1
+    hdr = auth_header(student)
+
+    # 1. Create a second topic in the course
+    topic_2 = Topic(
+        course_id=course.id,
+        title="Thermodynamics",
+        order=2,
+        mastery_threshold=Decimal("0.7000"),
+    )
+    db_session.add(topic_2)
+    db_session.commit()
+
+    # 2. Create question belonging to topic_2
+    q_topic2 = Question(
+        course_id=course.id,
+        topic_id=topic_2.id,
+        author_id=teacher.id,
+        type="true_false",
+        difficulty="medium",
+        points=2,
+        version=1,
+        status="approved",
+        prompt="Entropy never decreases in an isolated system.",
+        payload={},
+        answer_key={"correct_bool": True},
+    )
+    db_session.add(q_topic2)
+    db_session.commit()
+
+    # 3. Create comprehensive multi-topic exam (Assessment.topic_id = None)
+    midterm = Assessment(
+        course_id=course.id,
+        topic_id=None,  # Multi-topic!
+        creator_id=teacher.id,
+        title="Physics Midterm Exam",
+        type="summative",
+        total_points=4,
+        passing_score_percent=50,
+        status="published",
+    )
+    db_session.add(midterm)
+    db_session.commit()
+
+    aq1 = AssessmentQuestion(assessment_id=midterm.id, question_id=q1.id, question_version=1, order=1, points=2)
+    aq2 = AssessmentQuestion(assessment_id=midterm.id, question_id=q_topic2.id, question_version=1, order=2, points=2)
+    db_session.add_all([aq1, aq2])
+    db_session.commit()
+
+    # 4. Start attempt
+    res_start = client_with_db.post(f"/api/v1/assessments/{midterm.id}/attempts", headers=hdr)
+    assert res_start.status_code == 201
+    att_id = res_start.json()["id"]
+
+    # 5. Answer q1 (Topic 1) correctly, answer q_topic2 (Topic 2) incorrectly
+    client_with_db.put(
+        f"/api/v1/attempts/{att_id}/responses/{q1.id}",
+        json={"student_response": "opt_f"},
+        headers=hdr,
+    )
+    client_with_db.put(
+        f"/api/v1/attempts/{att_id}/responses/{q_topic2.id}",
+        json={"student_response": False},  # Wrong!
+        headers=hdr,
+    )
+
+    # 6. Submit attempt
+    res_sub = client_with_db.post(f"/api/v1/attempts/{att_id}/submit", headers=hdr)
+    assert res_sub.status_code == 200
+
+    # 7. Verify Topic 1 mastery was updated independently with correct answer
+    m_topic1 = (
+        db_session.query(StudentTopicMastery)
+        .filter(
+            StudentTopicMastery.student_id == student.id,
+            StudentTopicMastery.topic_id == topic_1.id,
+        )
+        .first()
+    )
+    assert m_topic1 is not None
+    assert m_topic1.score_percent >= 70
+    assert m_topic1.status in ("competent", "mastered")
+
+    # 8. Verify Topic 2 mastery was updated independently with incorrect answer
+    m_topic2 = (
+        db_session.query(StudentTopicMastery)
+        .filter(
+            StudentTopicMastery.student_id == student.id,
+            StudentTopicMastery.topic_id == topic_2.id,
+        )
+        .first()
+    )
+    assert m_topic2 is not None
+    assert m_topic2.score_percent < 50
+    assert m_topic2.status == "developing"
+
+    # 9. Verify separate audit ledger rows for both topics
+    ledger1 = (
+        db_session.query(MasteryAuditLedger)
+        .filter(
+            MasteryAuditLedger.student_id == student.id,
+            MasteryAuditLedger.topic_id == topic_1.id,
+            MasteryAuditLedger.attempt_id == uuid.UUID(att_id),
+        )
+        .first()
+    )
+    ledger2 = (
+        db_session.query(MasteryAuditLedger)
+        .filter(
+            MasteryAuditLedger.student_id == student.id,
+            MasteryAuditLedger.topic_id == topic_2.id,
+            MasteryAuditLedger.attempt_id == uuid.UUID(att_id),
+        )
+        .first()
+    )
+    assert ledger1 is not None
+    assert ledger2 is not None
+    assert ledger1.new_status != ledger2.new_status
+
+
+def test_missing_topic_metadata_leaves_mastery_unmutated(
+    db_session: Session, seed_mastery_context
+):
+    """P7-FIX-03, P7-C10: Assessment without topic metadata raises controlled diagnostic; leaves mastery unchanged."""
+    from sqlalchemy import text
+
+    ctx = seed_mastery_context
+    teacher = ctx["teacher"]
+    student = ctx["student"]
+    course = ctx["course"]
+
+    # 1. Create Enrollment
+    enrollment = (
+        db_session.query(Enrollment)
+        .filter(Enrollment.student_id == student.id, Enrollment.course_id == course.id)
+        .first()
+    )
+
+    # 2. Create Assessment with NO topic_id
+    orphan_exam = Assessment(
+        course_id=course.id,
+        topic_id=None,
+        creator_id=teacher.id,
+        title="Untyped Exam",
+        type="summative",
+        total_points=1,
+        status="published",
+    )
+    db_session.add(orphan_exam)
+    db_session.commit()
+
+    # 3. Create completed attempt with question snapshot lacking topic_id and unresolvable question_id
+    unresolvable_q_id = uuid.uuid4()
+    attempt = AssessmentAttempt(
+        assessment_id=orphan_exam.id,
+        student_id=student.id,
+        enrollment_id=enrollment.id,
+        attempt_number=1,
+        status="graded",
+        score=1,
+        max_score=1,
+        passed=True,
+        snapshot_data={"questions": [{"id": str(unresolvable_q_id), "topic_id": None}]},
+    )
+    db_session.add(attempt)
+    db_session.commit()
+
+    # Temporarily disable foreign keys in SQLite to insert orphan response simulating legacy corrupted data
+    db_session.execute(text("PRAGMA foreign_keys = OFF"))
+    resp = AttemptResponse(
+        attempt_id=attempt.id,
+        question_id=unresolvable_q_id,
+        question_version=1,
+        student_response={"text": "True"},
+        is_correct=True,
+        points_awarded=Decimal("1.00"),
+        points_possible=1,
+    )
+    db_session.add(resp)
+    db_session.commit()
+    db_session.execute(text("PRAGMA foreign_keys = ON"))
+
+    # 4. Attempt mastery recalculation
+    from fastapi import HTTPException
+    with pytest.raises(HTTPException) as exc_info:
+        MasteryService.recalculate_from_attempt(db_session, attempt.id, actor=student)
+
+    assert exc_info.value.status_code == 400
+    assert "Controlled diagnostic" in exc_info.value.detail
+    assert "Mastery left unchanged" in exc_info.value.detail
+
+    # 5. Verify zero mastery records created
+    m_count = (
+        db_session.query(StudentTopicMastery)
+        .filter(StudentTopicMastery.student_id == student.id)
+        .count()
+    )
+    assert m_count == 0

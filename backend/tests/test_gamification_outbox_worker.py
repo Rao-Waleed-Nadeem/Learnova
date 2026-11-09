@@ -18,6 +18,8 @@ from app.services.gamification_service import GamificationService
 @pytest.fixture
 def seed_outbox_context(client_with_db: TestClient, db_session: Session) -> Dict:
     student_role = db_session.query(Role).filter(Role.name == "student").first()
+    admin_role = db_session.query(Role).filter(Role.name == "administrator").first()
+
     student = User(
         email=f"outbox_student_{uuid.uuid4().hex[:6]}@learnova.test",
         hashed_password="pw",
@@ -25,12 +27,27 @@ def seed_outbox_context(client_with_db: TestClient, db_session: Session) -> Dict
         is_active=True,
         role_id=student_role.id,
     )
-    db_session.add(student)
+    admin = User(
+        email=f"outbox_admin_{uuid.uuid4().hex[:6]}@learnova.test",
+        hashed_password="pw",
+        full_name="Outbox Admin",
+        is_active=True,
+        role_id=admin_role.id,
+    )
+    db_session.add_all([student, admin])
     db_session.commit()
     db_session.refresh(student)
+    db_session.refresh(admin)
 
-    token = create_access_token(str(student.id), role="student")
-    return {"student": student, "token": token, "client": client_with_db}
+    student_token = create_access_token(str(student.id), role="student")
+    admin_token = create_access_token(str(admin.id), role="administrator")
+    return {
+        "student": student,
+        "admin": admin,
+        "token": student_token,
+        "admin_token": admin_token,
+        "client": client_with_db,
+    }
 
 
 def test_outbox_assessment_completed_processing(
@@ -121,7 +138,7 @@ def test_outbox_dispatcher_batch_drain_and_retry(
 ):
     """Verify process_pending_outbox_events processes pending events and updates status to published."""
     client: TestClient = seed_outbox_context["client"]
-    token = seed_outbox_context["token"]
+    admin_token = seed_outbox_context["admin_token"]
     student = seed_outbox_context["student"]
 
     # Create 2 pending events
@@ -152,10 +169,10 @@ def test_outbox_dispatcher_batch_drain_and_retry(
     db_session.add_all([ev1, ev2])
     db_session.commit()
 
-    # Call POST /api/v1/gamification/process-events endpoint
+    # Call POST /api/v1/gamification/process-events endpoint with admin token
     resp = client.post(
         "/api/v1/gamification/process-events?limit=50",
-        headers={"Authorization": f"Bearer {token}"},
+        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 200
     data = resp.json()
@@ -166,3 +183,58 @@ def test_outbox_dispatcher_batch_drain_and_retry(
     db_session.expire_all()
     assert db_session.get(DomainOutboxEvent, ev1.id).status == "published"
     assert db_session.get(DomainOutboxEvent, ev2.id).status == "published"
+
+
+def test_student_invoking_worker_endpoint_is_denied(seed_outbox_context: Dict):
+    """P8-C09: Student invoking POST /gamification/process-events is rejected with 403 Forbidden."""
+    client: TestClient = seed_outbox_context["client"]
+    student_token = seed_outbox_context["token"]
+
+    resp = client.post(
+        "/api/v1/gamification/process-events?limit=50",
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    assert resp.status_code == 403
+    assert "Operation not permitted" in resp.json()["detail"] or "Forbidden" in resp.json()["detail"]
+
+
+def test_worker_persists_retry_metadata_and_dead_letters(
+    seed_outbox_context: Dict, db_session: Session
+):
+    """P8-C03, P8-C07: Handler exceptions persist retry_count, last_error, and dead-letter at retry limit."""
+    student = seed_outbox_context["student"]
+
+    # Create event with payload that causes processing error (invalid student UUID format)
+    malformed_event = DomainOutboxEvent(
+        event_type="assessment.completed",
+        aggregate_type="assessment_attempt",
+        aggregate_id=str(uuid.uuid4()),
+        idempotency_key=f"outbox_err_{uuid.uuid4().hex}",
+        payload={"student_id": "invalid-uuid-value", "assessment_type": "quiz"},
+        status="pending",
+    )
+    db_session.add(malformed_event)
+    db_session.commit()
+
+    # 1. Process batch: should fail gracefully, record retry_count=1, last_error, and remain pending
+    res1 = GamificationService.process_pending_outbox_events(db_session, limit=10)
+    assert res1["failed_count"] >= 1
+
+    db_session.refresh(malformed_event)
+    assert malformed_event.status == "pending"
+    assert malformed_event.retry_count == 1
+    assert malformed_event.last_error is not None
+    assert malformed_event.next_attempt_at is not None
+
+    # 2. Advance retry_count to 4 and trigger next retry
+    malformed_event.retry_count = 4
+    malformed_event.next_attempt_at = None
+    db_session.commit()
+
+    res2 = GamificationService.process_pending_outbox_events(db_session, limit=10)
+    assert res2["failed_count"] >= 1
+
+    # 3. Verify event is dead-lettered to 'failed' at 5 retries
+    db_session.refresh(malformed_event)
+    assert malformed_event.status == "failed"
+    assert malformed_event.retry_count == 5

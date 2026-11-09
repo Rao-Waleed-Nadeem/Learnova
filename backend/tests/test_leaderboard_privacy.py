@@ -173,3 +173,85 @@ def test_challenges_progress_and_completion(
     assert updated_explorer["current_progress"] >= 3
     assert updated_explorer["is_completed"] is True
     assert updated_explorer["completed_at"] is not None
+
+
+def test_new_profile_defaults_to_opted_out_affirmative_consent(
+    client_with_db: TestClient, db_session: Session
+):
+    """P8-C11 / DEC-P8-007: Newly created student profile defaults to is_opted_in_leaderboard=False."""
+    student_role = db_session.query(Role).filter(Role.name == "student").first()
+    new_student = User(
+        email=f"privacy_default_{uuid.uuid4().hex[:6]}@learnova.test",
+        hashed_password="pw",
+        full_name="Dave Privacy",
+        is_active=True,
+        role_id=student_role.id,
+    )
+    db_session.add(new_student)
+    db_session.commit()
+
+    # 1. Via GamificationService.get_or_create_profile
+    profile = GamificationService.get_or_create_profile(db_session, new_student.id)
+    assert profile.is_opted_in_leaderboard is False
+
+    # 2. Via GET /api/v1/gamification/profile API
+    token = create_access_token(str(new_student.id), role="student")
+    resp = client_with_db.get(
+        "/api/v1/gamification/profile",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["is_opted_in_leaderboard"] is False
+
+
+def test_student_can_toggle_leaderboard_opt_in(
+    seed_leaderboard_students: Dict, db_session: Session
+):
+    """P8-C10 / DEC-P8-007: Student can explicitly grant affirmative consent and revoke it via PATCH /profile."""
+    client: TestClient = seed_leaderboard_students["client"]
+    token_bob = seed_leaderboard_students["token_bob"]
+    token_charlie = seed_leaderboard_students["token_charlie"]
+    s2 = seed_leaderboard_students["s2"]
+
+    # Bob initially opted out: Charlie sees Anonymous Scholar
+    resp1 = client.get(
+        "/api/v1/gamification/leaderboard",
+        headers={"Authorization": f"Bearer {token_charlie}"},
+    )
+    bob_entry1 = next(e for e in resp1.json()["entries"] if e["student_id"] == str(s2.id))
+    assert bob_entry1["display_name"] == "Anonymous Scholar"
+
+    # Bob grants affirmative consent to be on leaderboard
+    patch_res1 = client.patch(
+        "/api/v1/gamification/profile",
+        json={"is_opted_in_leaderboard": True},
+        headers={"Authorization": f"Bearer {token_bob}"},
+    )
+    assert patch_res1.status_code == 200
+    assert patch_res1.json()["is_opted_in_leaderboard"] is True
+
+    # Charlie now sees Bob's real name
+    resp2 = client.get(
+        "/api/v1/gamification/leaderboard",
+        headers={"Authorization": f"Bearer {token_charlie}"},
+    )
+    bob_entry2 = next(e for e in resp2.json()["entries"] if e["student_id"] == str(s2.id))
+    assert bob_entry2["display_name"] == "Bob Privacy"
+
+    # Bob revokes consent (opts out again)
+    patch_res2 = client.patch(
+        "/api/v1/gamification/profile",
+        json={"is_opted_in_leaderboard": False},
+        headers={"Authorization": f"Bearer {token_bob}"},
+    )
+    assert patch_res2.status_code == 200
+    assert patch_res2.json()["is_opted_in_leaderboard"] is False
+
+    # Charlie sees Anonymous Scholar again
+    resp3 = client.get(
+        "/api/v1/gamification/leaderboard",
+        headers={"Authorization": f"Bearer {token_charlie}"},
+    )
+    bob_entry3 = next(e for e in resp3.json()["entries"] if e["student_id"] == str(s2.id))
+    assert bob_entry3["display_name"] == "Anonymous Scholar"
+

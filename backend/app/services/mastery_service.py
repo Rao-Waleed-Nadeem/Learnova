@@ -1,5 +1,6 @@
 """Knowledge Tracing & Dynamic Mastery Service for Learnova (FR-MAS-01 - FR-MAS-08, SSD-02, SSD-04)."""
 
+import logging
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -9,14 +10,11 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.topic_prerequisite import TopicPrerequisite
-from app.models.user import User
-from app.services.audit_service import log_audit_event
 from app.models.assessment import Assessment
 from app.models.attempt import AssessmentAttempt, AttemptResponse
 from app.models.course import Course
 from app.models.mastery import MasteryAuditLedger, StudentTopicMastery
-from app.models.outbox import DomainOutboxEvent
+from app.models.question import Question
 from app.models.topic import Topic
 from app.models.topic_prerequisite import TopicPrerequisite
 from app.models.user import User
@@ -24,9 +22,13 @@ from app.schemas.mastery import (
     CourseMasteryResponse,
     MasteryRecalculateResponse,
     TopicMasteryItem,
+    TopicMasteryRecalculateItem,
     TopicPrerequisiteStatus,
     TopicReadinessResponse,
 )
+from app.services.audit_service import log_audit_event
+
+logger = logging.getLogger(__name__)
 
 
 class MasteryService:
@@ -141,30 +143,6 @@ class MasteryService:
         student_id = attempt.student_id
         course_id = assessment.course_id
 
-        # Determine target topic(s)
-        # 1. Assessment-level topic if defined
-        # 2. Or topic associated with the snapshot/responses
-        topic_id = assessment.topic_id
-        if not topic_id:
-            # Check if questions in attempt have topic_id
-            first_resp = db.query(AttemptResponse).filter(AttemptResponse.attempt_id == attempt.id).first()
-            if first_resp and first_resp.question and first_resp.question.topic_id:
-                topic_id = first_resp.question.topic_id
-
-        if not topic_id:
-            # Fallback to first topic in course
-            first_topic = db.query(Topic).filter(Topic.course_id == course_id).order_by(Topic.order).first()
-            if first_topic:
-                topic_id = first_topic.id
-            else:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Cannot recalibrate mastery: No topic associated with assessment or course",
-                )
-
-        target_topic = db.get(Topic, topic_id)
-        topic_title = target_topic.title if target_topic else "Unknown Topic"
-
         # Gather item responses for this attempt
         responses = (
             db.query(AttemptResponse)
@@ -172,137 +150,196 @@ class MasteryService:
             .all()
         )
 
-        total_pts = sum(float(r.points_awarded or 0.0) for r in responses)
-        max_pts = float(attempt.max_score or sum(float(r.max_points or 1.0) for r in responses) or 1.0)
-        score_ratio = total_pts / max_pts if max_pts > 0 else 0.0
+        # P7-FIX-03: Attribution resolution
+        # 1. If Assessment.topic_id is set, it is authoritative.
+        # 2. Otherwise, inspect attempt snapshot / question metadata and group responses by question topic_id.
+        responses_by_topic: Dict[uuid.UUID, List[AttemptResponse]] = {}
 
-        observations = [bool(r.is_correct) for r in responses]
-
-        # Prior selection: if diagnostic test, start with baseline 0.10; if prior exists, use it
-        existing_mastery = (
-            db.query(StudentTopicMastery)
-            .filter(
-                StudentTopicMastery.student_id == student_id,
-                StudentTopicMastery.topic_id == topic_id,
-            )
-            .first()
-        )
-
-        if existing_mastery and existing_mastery.last_attempt_id == attempt.id:
-            # Idempotent re-calculation of already processed attempt
-            return MasteryRecalculateResponse(
-                topic_id=topic_id,
-                topic_title=topic_title,
-                previous_score=float(existing_mastery.mastery_score),
-                new_score=float(existing_mastery.mastery_score),
-                previous_status=existing_mastery.status,
-                new_status=existing_mastery.status,
-                score_percent=existing_mastery.score_percent,
-                bkt_probability=float(existing_mastery.bkt_probability) if existing_mastery.bkt_probability is not None else None,
-                attempts_count=existing_mastery.attempts_count,
-                message="Topic cognitive mastery already up-to-date for this attempt.",
-            )
-
-        prior = float(existing_mastery.bkt_probability) if existing_mastery and existing_mastery.bkt_probability is not None else cls.DEFAULT_PRIOR
-        if assessment.type == "diagnostic":
-            # Diagnostic test: prior starts fresh at baseline 0.10
-            prior = cls.DEFAULT_PRIOR
-
-        final_bkt = cls.compute_bkt_sequence(observations, initial_prior=prior)
-        new_score, new_percent, new_status = cls.compute_hybrid_mastery(score_ratio, final_bkt)
-
-        prev_score: Optional[float] = None
-        prev_status: Optional[str] = None
-
-        if existing_mastery:
-            prev_score = float(existing_mastery.mastery_score)
-            prev_status = existing_mastery.status
-            existing_mastery.mastery_score = new_score
-            existing_mastery.score_percent = new_percent
-            existing_mastery.status = new_status
-            existing_mastery.bkt_probability = Decimal(str(final_bkt))
-            existing_mastery.attempts_count += 1
-            existing_mastery.last_attempt_id = attempt.id
-            existing_mastery.last_assessed_at = datetime.now(timezone.utc)
-            existing_mastery.updated_at = datetime.now(timezone.utc)
+        if assessment.topic_id:
+            responses_by_topic[assessment.topic_id] = list(responses)
         else:
-            new_record = StudentTopicMastery(
-                student_id=student_id,
-                course_id=course_id,
-                topic_id=topic_id,
-                mastery_score=new_score,
-                score_percent=new_percent,
-                status=new_status,
-                bkt_probability=Decimal(str(final_bkt)),
-                attempts_count=1,
-                last_attempt_id=attempt.id,
-                last_assessed_at=datetime.now(timezone.utc),
+            # Multi-topic assessment or assessment without explicit topic:
+            # Map snapshot questions to topic_ids
+            snap_questions = attempt.snapshot_data.get("questions", []) if attempt.snapshot_data else []
+            snap_q_topic_map: Dict[uuid.UUID, uuid.UUID] = {}
+            for sq in snap_questions:
+                sq_id = sq.get("id")
+                sq_tid = sq.get("topic_id")
+                if sq_id and sq_tid:
+                    try:
+                        snap_q_topic_map[uuid.UUID(str(sq_id))] = uuid.UUID(str(sq_tid))
+                    except (ValueError, TypeError):
+                        pass
+
+            for r in responses:
+                t_id = snap_q_topic_map.get(r.question_id)
+                if not t_id:
+                    # Fallback to current question record in DB if snapshot lacks topic_id
+                    q_row = db.get(Question, r.question_id)
+                    if q_row and q_row.topic_id:
+                        t_id = q_row.topic_id
+                if t_id:
+                    responses_by_topic.setdefault(t_id, []).append(r)
+
+        # P7-FIX-03: Never fallback to first question topic or first course topic.
+        # If no reliable topic mapping exists, do not fabricate mastery; log controlled diagnostic and raise 400.
+        if not responses_by_topic:
+            logger.warning(
+                "Controlled diagnostic: Cannot recalculate mastery for attempt %s. "
+                "Assessment has no topic_id and questions contain no topic metadata. Mastery unchanged.",
+                attempt.id,
             )
-            db.add(new_record)
-
-        # Record chronological audit ledger
-        ledger_entry = MasteryAuditLedger(
-            student_id=student_id,
-            topic_id=topic_id,
-            attempt_id=attempt.id,
-            previous_score=Decimal(str(prev_score)) if prev_score is not None else None,
-            new_score=new_score,
-            previous_status=prev_status,
-            new_status=new_status,
-            assessment_type=assessment.type,
-            algorithm_used="BKT_HYBRID_V1",
-        )
-        db.add(ledger_entry)
-
-        # Mark domain_outbox_events as published if exists
-        outbox_event = (
-            db.query(DomainOutboxEvent)
-            .filter(
-                DomainOutboxEvent.event_type == "assessment.completed",
-                DomainOutboxEvent.aggregate_id == str(attempt.id),
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Controlled diagnostic: Cannot recalibrate mastery. No reliable topic metadata associated with assessment questions. Mastery left unchanged.",
             )
-            .first()
-        )
-        if outbox_event and outbox_event.status == "pending":
-            outbox_event.status = "published"
-            outbox_event.published_at = datetime.now(timezone.utc)
 
-        # Audit logging
+        updated_items: List[TopicMasteryRecalculateItem] = []
+        now = datetime.now(timezone.utc)
         actor_id = actor.id if actor else student_id
         actor_email = actor.email if actor else None
         actor_role = actor.role.name if actor and actor.role else "student"
-        log_audit_event(
-            db=db,
-            action="mastery.recalculated",
-            outcome="success",
-            actor_id=actor_id,
-            actor_email=actor_email,
-            actor_role=actor_role,
-            target_type="topic_mastery",
-            target_id=str(topic_id),
-            details={
-                "attempt_id": str(attempt.id),
-                "previous_score": prev_score,
-                "new_score": float(new_score),
-                "status": new_status,
-                "score_percent": new_percent,
-                "bkt_probability": final_bkt,
-            },
-        )
+
+        for t_id, topic_responses in responses_by_topic.items():
+            target_topic = db.get(Topic, t_id)
+            topic_title = target_topic.title if target_topic else "Unknown Topic"
+
+            topic_total_pts = sum(float(r.points_awarded or 0.0) for r in topic_responses)
+            topic_max_pts = sum(float(r.points_possible or 1.0) for r in topic_responses)
+            score_ratio = topic_total_pts / topic_max_pts if topic_max_pts > 0 else 0.0
+            observations = [bool(r.is_correct) for r in topic_responses]
+
+            existing_mastery = (
+                db.query(StudentTopicMastery)
+                .filter(
+                    StudentTopicMastery.student_id == student_id,
+                    StudentTopicMastery.topic_id == t_id,
+                )
+                .first()
+            )
+
+            # Idempotency check: if this attempt was already processed for this topic, skip mutation
+            if existing_mastery and existing_mastery.last_attempt_id == attempt.id:
+                updated_items.append(
+                    TopicMasteryRecalculateItem(
+                        topic_id=t_id,
+                        topic_title=topic_title,
+                        previous_score=float(existing_mastery.mastery_score),
+                        new_score=float(existing_mastery.mastery_score),
+                        previous_status=existing_mastery.status,
+                        new_status=existing_mastery.status,
+                        score_percent=existing_mastery.score_percent,
+                        bkt_probability=float(existing_mastery.bkt_probability) if existing_mastery.bkt_probability is not None else None,
+                        attempts_count=existing_mastery.attempts_count,
+                    )
+                )
+                continue
+
+            prior = float(existing_mastery.bkt_probability) if existing_mastery and existing_mastery.bkt_probability is not None else cls.DEFAULT_PRIOR
+            if assessment.type == "diagnostic":
+                prior = cls.DEFAULT_PRIOR
+
+            final_bkt = cls.compute_bkt_sequence(observations, initial_prior=prior)
+            new_score, new_percent, new_status = cls.compute_hybrid_mastery(score_ratio, final_bkt)
+
+            prev_score: Optional[float] = None
+            prev_status: Optional[str] = None
+
+            if existing_mastery:
+                prev_score = float(existing_mastery.mastery_score)
+                prev_status = existing_mastery.status
+                existing_mastery.mastery_score = new_score
+                existing_mastery.score_percent = new_percent
+                existing_mastery.status = new_status
+                existing_mastery.bkt_probability = Decimal(str(final_bkt))
+                existing_mastery.attempts_count += 1
+                existing_mastery.last_attempt_id = attempt.id
+                existing_mastery.last_assessed_at = now
+                existing_mastery.updated_at = now
+                current_attempts_count = existing_mastery.attempts_count
+            else:
+                new_record = StudentTopicMastery(
+                    student_id=student_id,
+                    course_id=course_id,
+                    topic_id=t_id,
+                    mastery_score=new_score,
+                    score_percent=new_percent,
+                    status=new_status,
+                    bkt_probability=Decimal(str(final_bkt)),
+                    attempts_count=1,
+                    last_attempt_id=attempt.id,
+                    last_assessed_at=now,
+                )
+                db.add(new_record)
+                current_attempts_count = 1
+
+            # Chronological audit ledger (P7-FIX-04: algorithm_used="BKT_HYBRID_V1")
+            ledger_entry = MasteryAuditLedger(
+                student_id=student_id,
+                topic_id=t_id,
+                attempt_id=attempt.id,
+                previous_score=Decimal(str(prev_score)) if prev_score is not None else None,
+                new_score=new_score,
+                previous_status=prev_status,
+                new_status=new_status,
+                assessment_type=assessment.type,
+                algorithm_used="BKT_HYBRID_V1",
+            )
+            db.add(ledger_entry)
+
+            # Audit logging
+            log_audit_event(
+                db=db,
+                action="mastery.recalculated",
+                outcome="success",
+                actor_id=actor_id,
+                actor_email=actor_email,
+                actor_role=actor_role,
+                target_type="topic_mastery",
+                target_id=str(t_id),
+                details={
+                    "attempt_id": str(attempt.id),
+                    "previous_score": prev_score,
+                    "new_score": float(new_score),
+                    "status": new_status,
+                    "score_percent": new_percent,
+                    "bkt_probability": final_bkt,
+                },
+            )
+
+            updated_items.append(
+                TopicMasteryRecalculateItem(
+                    topic_id=t_id,
+                    topic_title=topic_title,
+                    previous_score=prev_score,
+                    new_score=float(new_score),
+                    previous_status=prev_status,
+                    new_status=new_status,
+                    score_percent=new_percent,
+                    bkt_probability=final_bkt,
+                    attempts_count=current_attempts_count,
+                )
+            )
+
+        # P7-FIX-01: Note that DomainOutboxEvent is NOT mutated here.
+        # Outbox event status ownership belongs strictly to the Phase 8 gamification consumer.
 
         db.commit()
 
+        # Build response (primary topic summary with optional updated_topics list)
+        primary = updated_items[0]
         return MasteryRecalculateResponse(
-            topic_id=topic_id,
-            topic_title=topic_title,
-            previous_score=prev_score,
-            new_score=float(new_score),
-            previous_status=prev_status,
-            new_status=new_status,
-            score_percent=new_percent,
-            bkt_probability=final_bkt,
-            attempts_count=(existing_mastery.attempts_count if existing_mastery else 1),
-            message="Topic cognitive mastery successfully recalibrated.",
+            topic_id=primary.topic_id,
+            topic_title=primary.topic_title,
+            previous_score=primary.previous_score,
+            new_score=primary.new_score,
+            previous_status=primary.previous_status,
+            new_status=primary.new_status,
+            score_percent=primary.score_percent,
+            bkt_probability=primary.bkt_probability,
+            attempts_count=primary.attempts_count,
+            message=f"Cognitive mastery recalculated successfully for {len(updated_items)} topic(s).",
+            updated_topics=updated_items,
         )
 
     @classmethod
@@ -440,6 +477,14 @@ class MasteryService:
         prereq_topics = db.query(Topic).filter(Topic.id.in_(prereq_topic_ids)).all()
         prereq_topic_map = {t.id: t for t in prereq_topics}
 
+        # P7-FIX-05: Enforce that all prerequisite topics belong to the same course as the dependent topic
+        for p_topic in prereq_topics:
+            if p_topic.course_id != topic.course_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Prerequisite topic {p_topic.id} does not belong to the same course as topic {topic_id}.",
+                )
+
         mastery_rows = (
             db.query(StudentTopicMastery)
             .filter(
@@ -454,14 +499,15 @@ class MasteryService:
         for p_id in prereq_topic_ids:
             p_topic = prereq_topic_map.get(p_id)
             title = p_topic.title if p_topic else "Prerequisite Topic"
-            req_mastery = float(p_topic.mastery_threshold) if p_topic else 0.7000
+            req_mastery = float(p_topic.mastery_threshold) if p_topic and p_topic.mastery_threshold is not None else 0.7500
 
             m = mastery_map.get(p_id)
             cur_mastery = float(m.mastery_score) if m else 0.0
             cur_status = m.status if m else "not_assessed"
 
-            # Satisfied if score >= required threshold or status is competent/mastered
-            is_sat = cur_mastery >= req_mastery or cur_status in ("competent", "mastered")
+            # P7-FIX-02: Strictly require numeric threshold to be satisfied.
+            # A status label must NOT bypass a higher configured numerical threshold.
+            is_sat = cur_mastery >= req_mastery
             if not is_sat:
                 unmet.append(
                     TopicPrerequisiteStatus(

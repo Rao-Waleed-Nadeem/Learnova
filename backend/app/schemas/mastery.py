@@ -95,6 +95,22 @@ class CourseLearningPathResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class TopicMasteryRecalculateItem(BaseModel):
+    """Result of mastery recalculation for a single topic."""
+
+    topic_id: uuid.UUID
+    topic_title: str
+    previous_score: Optional[float] = None
+    new_score: float = Field(..., ge=0.0, le=1.0)
+    previous_status: Optional[str] = None
+    new_status: str
+    score_percent: int = Field(..., ge=0, le=100)
+    bkt_probability: Optional[float] = None
+    attempts_count: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class MasteryRecalculateResponse(BaseModel):
     """Result of an assessment-triggered mastery recalculation."""
 
@@ -108,5 +124,6 @@ class MasteryRecalculateResponse(BaseModel):
     bkt_probability: Optional[float] = None
     attempts_count: int
     message: str
+    updated_topics: Optional[List[TopicMasteryRecalculateItem]] = None
 
     model_config = ConfigDict(from_attributes=True)

@@ -146,19 +146,19 @@ def test_gamification_profile_endpoints(
     assert data["level"] == 1
     assert data["progress_percent"] == 50
     assert data["next_level_xp"] == 250
-    assert data["is_opted_in_leaderboard"] is True
+    assert data["is_opted_in_leaderboard"] is False
 
-    # PATCH profile (toggle leaderboard opt-in to False)
+    # PATCH profile (toggle leaderboard opt-in to True)
     patch_resp = client.patch(
         "/api/v1/gamification/profile",
         headers={"Authorization": f"Bearer {token}"},
-        json={"is_opted_in_leaderboard": False},
+        json={"is_opted_in_leaderboard": True},
     )
     assert patch_resp.status_code == 200
     patch_data = patch_resp.json()
-    assert patch_data["is_opted_in_leaderboard"] is False
+    assert patch_data["is_opted_in_leaderboard"] is True
 
     # Confirm persisted
     db_session.expire_all()
     prof = db_session.query(GamificationProfile).filter_by(student_id=student.id).one()
-    assert prof.is_opted_in_leaderboard is False
+    assert prof.is_opted_in_leaderboard is True

@@ -2,78 +2,47 @@ import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import dotenv from 'dotenv';
-import { GoogleGenAI } from '@google/genai';
 
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000';
 
 app.use(express.json());
 
-// API endpoint for AI-assisted question generation
+// Thin backward-compatibility proxy for question generation (SSD-08, Phase 9)
 app.post('/api/ai/generate-questions', async (req, res) => {
   const { courseTitle, topicTitle, sourceContent, questionTypes, difficulty, count = 3 } = req.body;
 
-  const apiKey = process.env.GEMINI_API_KEY;
-
-  if (apiKey && apiKey !== 'MY_GEMINI_API_KEY') {
-    try {
-      const ai = new GoogleGenAI({ apiKey });
-      const prompt = `You are an educational assessment expert for Learnova Teacher Portal.
-Generate ${count} candidate assessment questions based on the following context.
-Course: "${courseTitle || 'Computer Science'}"
-Topic: "${topicTitle || 'Core Concepts'}"
-Source Learning Resource: "${sourceContent || 'Standard curriculum concepts'}"
-Allowed Question Types: ${(questionTypes || ['multiple_choice']).join(', ')}
-Difficulty: "${difficulty || 'medium'}"
-
-Return ONLY a valid JSON array of objects with the following schema for each question:
-[
-  {
-    "id": "ai-gen-" + random number,
-    "prompt": "Question text",
-    "type": "multiple_choice" | "true_false" | "fill_blank" | "matching" | "short_answer",
-    "difficulty": "easy" | "medium" | "hard",
-    "points": number,
-    "explanation": "Detailed explanation of correct answer and educational rationale",
-    "sourceContext": "Excerpt or topic context used",
-    // if multiple_choice:
-    "options": [
-      { "id": "1", "text": "Option text", "isCorrect": boolean }
-    ],
-    // if true_false:
-    "correctBool": boolean,
-    // if fill_blank:
-    "acceptedAnswers": ["answer 1", "answer 2"],
-    // if matching:
-    "matchingPairs": [
-      { "id": "p1", "left": "Term 1", "right": "Definition 1" }
-    ],
-    // if short_answer:
-    "expectedRubric": "Rubric or expected keywords"
-  }
-]
-`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-        },
-      });
-
-      const responseText = response.text?.trim() || '[]';
-      const parsed = JSON.parse(responseText);
-      return res.json({ success: true, candidates: parsed, source: 'gemini' });
-    } catch (err: any) {
-      console.warn('Gemini API call failed or timed out, using intelligent academic fallback:', err?.message || err);
-      // Fallback gracefully below
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (req.headers.authorization) {
+      headers['Authorization'] = req.headers.authorization as string;
     }
+
+    const backendRes = await fetch(`${backendUrl}/api/v1/ai/generate-questions`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        course_id: req.body.course_id || req.body.courseId,
+        topic_id: req.body.topic_id || req.body.topicId,
+        source_content: sourceContent || '',
+        question_types: questionTypes || ['multiple_choice'],
+        difficulty: difficulty || 'medium',
+        count: Number(count) || 3,
+      }),
+    });
+
+    if (backendRes.ok) {
+      const candidates = await backendRes.json();
+      return res.json({ success: true, candidates, source: 'fastapi' });
+    }
+  } catch (err: any) {
+    console.warn('FastAPI question proxy notice, falling back to local deterministic engine:', err?.message || err);
   }
 
-  // High-quality deterministic educational fallback
+  // High-quality deterministic educational fallback (offline/standalone resilience)
   const safeTypes: string[] = questionTypes && questionTypes.length > 0 ? questionTypes : ['multiple_choice'];
   const generatedCandidates = [];
   const diff = difficulty || 'medium';
@@ -150,13 +119,10 @@ Return ONLY a valid JSON array of objects with the following schema for each que
     }
   }
 
-  return res.json({ success: true, candidates: generatedCandidates, source: 'deterministic_engine' });
+  return res.json({ success: true, candidates: generatedCandidates, source: 'deterministic_fallback' });
 });
 
-// Cache for AI lesson explanations (SSD-05 caching requirement)
-const lessonAICache = new Map<string, string>();
-
-// API endpoint for Student Module: AI Lesson Simplification, Analogies & Custom Questions (STU-08, SSD-05)
+// Thin backward-compatibility proxy for lesson simplification (SSD-05, Phase 9)
 app.post('/api/ai/simplify-lesson', async (req, res) => {
   const {
     lessonTitle = 'Lesson',
@@ -164,68 +130,41 @@ app.post('/api/ai/simplify-lesson', async (req, res) => {
     courseTitle = 'Course',
     lessonContent = '',
     customPrompt = '',
-    mode = 'simplify', // 'simplify' | 'analogy' | 'example' | 'custom'
+    mode = 'simplify',
   } = req.body;
 
-  const cacheKey = `${courseTitle}::${topicTitle}::${lessonTitle}::${mode}::${customPrompt.trim().toLowerCase()}`;
-  if (lessonAICache.has(cacheKey)) {
-    return res.json({
-      success: true,
-      explanation: lessonAICache.get(cacheKey),
-      source: 'gemini_cache',
-      isCached: true,
-      promptUsed: customPrompt || mode,
-    });
-  }
-
-  const apiKey = process.env.GEMINI_API_KEY;
-
-  if (apiKey && apiKey !== 'MY_GEMINI_API_KEY') {
-    try {
-      const ai = new GoogleGenAI({ apiKey });
-      let instructions = '';
-
-      if (mode === 'analogy') {
-        instructions = `Explain the following educational topic using a vivid, memorable real-world analogy. Keep it clear, friendly, and grounded in everyday experience.`;
-      } else if (mode === 'example') {
-        instructions = `Provide a concrete, step-by-step worked example with annotated code or problem breakdown for this lesson concept.`;
-      } else if (mode === 'custom' && customPrompt) {
-        instructions = `Answer the student's specific question: "${customPrompt}" within the exact context of this lesson.`;
-      } else {
-        instructions = `Provide a clear, simplified explanation of the core concept in plain language. Use 2-3 short paragraphs, bullet points for key takeaways, and highlight why this concept matters.`;
-      }
-
-      const prompt = `You are Learnova's Academic AI Assistant.
-Context:
-- Course: "${courseTitle}"
-- Topic: "${topicTitle}"
-- Lesson: "${lessonTitle}"
-- Lesson Content Excerpt: "${lessonContent ? lessonContent.slice(0, 1500) : 'Foundational curriculum concepts'}"
-
-Task:
-${instructions}
-
-Format your output in clean Markdown with headings (###), bullet points, and code snippets where appropriate. Maintain an encouraging, academically rigorous tone.`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-      });
-
-      const explanation = response.text?.trim() || '';
-      if (explanation) {
-        lessonAICache.set(cacheKey, explanation);
-        return res.json({
-          success: true,
-          explanation,
-          source: 'gemini',
-          isCached: false,
-          promptUsed: customPrompt || mode,
-        });
-      }
-    } catch (err: any) {
-      console.warn('Gemini simplification call failed or timed out, using academic fallback:', err?.message || err);
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (req.headers.authorization) {
+      headers['Authorization'] = req.headers.authorization as string;
     }
+
+    const backendRes = await fetch(`${backendUrl}/api/v1/ai/simplify-lesson`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        course_title: courseTitle,
+        topic_title: topicTitle,
+        lesson_title: lessonTitle,
+        lesson_content: lessonContent,
+        mode,
+        custom_prompt: customPrompt,
+        lesson_id: req.body.lesson_id || req.body.lessonId,
+      }),
+    });
+
+    if (backendRes.ok) {
+      const data = await backendRes.json();
+      return res.json({
+        success: true,
+        explanation: data.explanation,
+        source: data.source,
+        isCached: data.is_cached,
+        promptUsed: data.prompt_used || customPrompt || mode,
+      });
+    }
+  } catch (err: any) {
+    console.warn('FastAPI simplification proxy notice, falling back to local template:', err?.message || err);
   }
 
   // Academic High-Quality Fallback (SSD-05 fallback requirement)
@@ -275,12 +214,10 @@ Format your output in clean Markdown with headings (###), bullet points, and cod
       `> *Pro-tip:* When practicing ${lessonTitle}, start with the simplest edge case first, then scale to complex input scenarios!`;
   }
 
-  lessonAICache.set(cacheKey, fallbackText);
-
   return res.json({
     success: true,
     explanation: fallbackText,
-    source: 'academic_cache',
+    source: 'deterministic_fallback',
     isCached: false,
     promptUsed: customPrompt || mode,
   });

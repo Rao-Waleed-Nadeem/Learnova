@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Sparkles, X, Send, BookOpen, Lightbulb, Code2, HelpCircle, RefreshCw, Layers } from 'lucide-react';
+import { aiApi } from '../../services/api/aiApi';
 
 interface AIHelperPanelProps {
   isOpen: boolean;
@@ -34,31 +35,51 @@ export const AIHelperPanel: React.FC<AIHelperPanelProps> = ({
     setMode(selectedMode);
 
     try {
-      const res = await fetch('/api/ai/simplify-lesson', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      // Primary: Call FastAPI /api/v1/ai/simplify-lesson via aiApi
+      let explanationText = '';
+      let sourceVal: any = null;
+      let cachedFlag = false;
+
+      try {
+        const data = await aiApi.simplifyLesson({
           lessonTitle,
           topicTitle,
           courseTitle,
           lessonContent,
           mode: selectedMode,
           customPrompt: promptOverride !== undefined ? promptOverride : customPrompt,
-        }),
-      });
-
-      if (!res.ok) {
-        throw new Error('Failed to generate response. Please try again.');
+        });
+        if (data.success) {
+          explanationText = data.explanation;
+          sourceVal = data.source;
+          cachedFlag = Boolean(data.is_cached);
+        }
+      } catch (fastApiErr) {
+        // Fallback: Call legacy/proxy route
+        const res = await fetch('/api/ai/simplify-lesson', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            lessonTitle,
+            topicTitle,
+            courseTitle,
+            lessonContent,
+            mode: selectedMode,
+            customPrompt: promptOverride !== undefined ? promptOverride : customPrompt,
+          }),
+        });
+        if (!res.ok) {
+          throw new Error('Failed to generate response. Please try again.');
+        }
+        const fallbackData = await res.json();
+        explanationText = fallbackData.explanation;
+        sourceVal = fallbackData.source;
+        cachedFlag = Boolean(fallbackData.isCached);
       }
 
-      const data = await res.json();
-      if (data.success) {
-        setResponse(data.explanation);
-        setSource(data.source);
-        setIsCached(Boolean(data.isCached));
-      } else {
-        throw new Error(data.message || 'Error occurred while contacting academic tutor.');
-      }
+      setResponse(explanationText);
+      setSource(sourceVal);
+      setIsCached(cachedFlag);
     } catch (err: any) {
       setError(err?.message || 'Could not connect to AI service. Using cached concepts.');
     } finally {

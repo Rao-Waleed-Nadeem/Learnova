@@ -221,7 +221,8 @@ def test_outbox_event_emitted_on_completion(client_with_db: TestClient, db_sessi
     assert outbox_event is not None
     assert outbox_event.event_type == "assessment.completed"
     assert outbox_event.idempotency_key == f"asm_completed_{att_id}"
-    assert outbox_event.status in ("pending", "published")
+    assert outbox_event.status == "pending"
+    assert outbox_event.published_at is None
 
     # Verify payload contents
     payload = outbox_event.payload

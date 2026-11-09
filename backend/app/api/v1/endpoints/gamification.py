@@ -270,8 +270,8 @@ def get_student_challenges(
 def process_outbox_events(
     limit: int = Query(50, ge=1, le=500, description="Max events to drain"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("administrator")),
 ):
-    """Worker endpoint to drain and process pending domain outbox events."""
+    """Worker endpoint to drain and process pending domain outbox events (admin only)."""
     result = GamificationService.process_pending_outbox_events(db=db, limit=limit)
     return OutboxProcessResultResponse(**result)

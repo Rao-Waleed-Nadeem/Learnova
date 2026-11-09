@@ -79,7 +79,7 @@ class GamificationService:
                 level=1,
                 streak_days=0,
                 last_active_date=None,
-                is_opted_in_leaderboard=True,
+                is_opted_in_leaderboard=False,
             )
             db.add(profile)
             db.flush()
@@ -625,32 +625,50 @@ class GamificationService:
     def process_pending_outbox_events(
         db: Session, limit: int = 50
     ) -> Dict[str, Any]:
-        """Worker dispatcher draining pending domain outbox events with retry backoff."""
-        events = (
+        """Worker dispatcher draining pending domain outbox events with retry backoff and concurrency locking."""
+        now = datetime.now(timezone.utc)
+        query = (
             db.query(DomainOutboxEvent)
-            .filter(DomainOutboxEvent.status == "pending")
+            .filter(
+                DomainOutboxEvent.status == "pending",
+                (DomainOutboxEvent.next_attempt_at.is_(None) | (DomainOutboxEvent.next_attempt_at <= now)),
+            )
             .order_by(DomainOutboxEvent.created_at)
             .limit(limit)
-            .all()
         )
+
+        # Concurrency safety: use PostgreSQL FOR UPDATE SKIP LOCKED
+        try:
+            bind = db.get_bind()
+            if bind and bind.dialect.name == "postgresql":
+                query = query.with_for_update(skip_locked=True)
+        except Exception:
+            pass
+
+        events = query.all()
 
         processed = 0
         failed = 0
 
         for ev in events:
             try:
-                success = GamificationService.process_outbox_event(db, ev)
-                if success:
-                    ev.status = "published"
-                    ev.published_at = datetime.now(timezone.utc)
-                    db.flush()
-                    processed += 1
+                # Process inside isolated nested savepoint so failure rolls back partial writes
+                with db.begin_nested():
+                    success = GamificationService.process_outbox_event(db, ev)
+                    if success:
+                        ev.status = "published"
+                        ev.published_at = datetime.now(timezone.utc)
+                        ev.last_error = None
+                        processed += 1
             except Exception as exc:
-                ev.retry_count += 1
-                ev.last_error = str(exc)
+                # db.begin_nested() rollback guarantees no partial XP/badge writes persist
+                ev.retry_count = (ev.retry_count or 0) + 1
+                ev.last_error = str(exc)[:500]
                 if ev.retry_count >= 5:
                     ev.status = "failed"
-                db.flush()
+                    ev.next_attempt_at = None
+                else:
+                    ev.next_attempt_at = datetime.now(timezone.utc) + timedelta(seconds=(2 ** ev.retry_count) * 5)
                 failed += 1
 
         db.commit()

@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from sqlalchemy import CheckConstraint, DateTime, String, UniqueConstraint, Uuid
+from sqlalchemy import CheckConstraint, DateTime, Integer, String, Text, UniqueConstraint, Uuid
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
@@ -63,6 +63,20 @@ class DomainOutboxEvent(Base):
         default="pending",
         nullable=False,
         index=True,
+    )
+    retry_count: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        server_default="0",
+        nullable=False,
+    )
+    last_error: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    next_attempt_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

@@ -1,136 +1,81 @@
-# Universal Antigravity Prompt — Learnova Phases 4, 5, and 6
+# Universal Antigravity Prompt — Phase 7 Stabilization, Phase 8 Reliability, Phase 9 AI
 
-**Repository:** `Rao-Waleed-Nadeem/Learnova`  
-**Baseline reference:** commit `eb7fd2d77d0c57dc1e3df163ddde606f7dab957d` (`Phase 3 completed`, 2026-11-09). This is a reference only; inspect the actual current branch/HEAD before work.
+```text
+PROJECT: LEARNOVA
+REPOSITORY: Rao-Waleed-Nadeem/Learnova
+BASELINE COMMIT REVIEWED: 3b3a6d52775ac972026a5f22dd1353e51a0d4783
 
-## Role
+ROLE
+Act as the senior engineer continuing an existing implementation. Preserve architecture, behavior, contracts and visual design unless a specific defect or source requirement requires a narrow correction. Do not redesign the platform.
 
-Act as a senior software engineer, backend architect, frontend integration engineer, security reviewer, and test lead for the existing Learnova product. Implement the approved requirements without rewriting the application or silently changing academic/product behavior.
+AUTHORITATIVE SOURCES
+1. docs/sources/Learnova_SRS_Final_Aligned_V2 (1).docx
+2. docs/sources/Learnova_Final_SSDs_V2.xml
+3. docs/sources/Readme.md
+4. docs/sources/Learnova_Master_Backend_Implementation_Blueprint.md
+5. API_CONTRACT.md, IMPLEMENTATION_STATUS.md, DECISIONS.md
+6. Current source, migrations, tests, and phase records.
 
-## Mandatory source authority
+MANDATORY SEQUENCE
+A. Phase 7 corrective stabilization.
+B. Stop and present evidence. Wait for owner acceptance.
+C. Phase 8 outbox/privacy corrections.
+D. Stop and present evidence. Wait for owner acceptance.
+E. Phase 9 AI integration.
+F. Stop. Do not start Phase 10 or 11.
 
-Read the current repository versions of:
+STAGE A — PLAN ONLY
+For each phase, inspect branch/status/diff, current implementation and relevant source docs. Create its PLAN.md, exact file ledger proposal, API/DB impact, test matrix, data safety plan and rollback. Do not edit code until owner approval.
 
-1. `docs/sources/Learnova_SRS_Final_Aligned_V2.docx`
-2. `docs/sources/Learnova_Final_SSDs_V2.xml`
-3. `docs/sources/Readme.md`
-4. `docs/sources/Learnova_Master_Backend_Implementation_Blueprint.md`
-5. `API_CONTRACT.md`, `IMPLEMENTATION_STATUS.md`, `DECISIONS.md`
-6. `docs/antigravity-bible/README_FIRST.md`, `AGENT_OPERATING_RULES.md`
-7. The relevant phase file in `docs/phases/` and all relevant implementation/tests.
+ARCHITECTURE LOCK
+- Keep the existing FastAPI modular monolith, PostgreSQL, synchronous SQLAlchemy, Alembic, `/api/v1`, current Docker topology and React frontend.
+- No microservices, Kafka, mandatory Redis, wholesale rewrite, replacement ORM, duplicate domain models or database reset.
+- Preserve existing routes and payloads unless an approved compatibility change is required.
+- Never remove an Express AI handler until FastAPI replacement and frontend cutover are verified.
+- Never change mastery formula, scoring, XP values, streak rules or badge criteria as an incidental refactor.
 
-Authority order is defined by `docs/antigravity-bible/README_FIRST.md`. The repository proves current implementation, not product correctness. Do not silently reconcile source conflicts. Mark each statement as source requirement, verified current behavior, recommendation, or decision required.
+PHASE 7 — CORRECTIVE STABILIZATION
+- Preserve the current BKT/hybrid implementation for this narrow correction; record algorithm approval as unresolved if no explicit academic approval is evidenced.
+- Mastery recalculation must remain restricted to valid completed/graded attempts. Interim, invalid, aborted and expired-without-valid-submission attempts do not update persisted mastery.
+- MasteryService must not mark the gamification outbox event published or otherwise own its delivery state.
+- Respect each topic's configured `mastery_threshold` exactly. A status label must not bypass a higher configured numeric threshold. Do not silently change the Phase 2 default 0.75 to 0.70.
+- Use Assessment.topic_id when explicitly set. If absent, attribute responses by their own question topic and calculate per topic where valid. Never assign a multi-topic attempt wholesale to the first question topic or first course topic. If reliable topic attribution is unavailable, do not fabricate mastery; record a controlled issue.
+- Verify topic/course/enrollment ownership and readiness authorization.
+- Record course-completion and remediation-loop termination as explicit decisions if still unresolved. Preserve existing behavior until approved; do not invent a new policy.
 
-## Baseline facts to re-verify (do not assume)
+PHASE 8 — OUTBOX RELIABILITY AND PRIVACY
+- Assessment and lesson-completion request handlers persist outbox events in the same transaction as their academic/completion records.
+- Request handlers do not directly award XP or synchronously run gamification as the normal path.
+- The pending-event consumer owns event status transitions. A successful consumer marks an event published only after XP/badge/challenge updates commit. A failed event remains retryable and records persistent retry metadata.
+- Verify DomainOutboxEvent ORM and migrations. Add an additive Alembic migration for missing retry metadata if required; do not rewrite migration history.
+- Use safe row claiming/locking for concurrent workers and bounded retry/dead-letter behavior. Preserve the modular monolith; a small worker command/process is acceptable, not a new distributed platform.
+- Keep XP ledger idempotency and badge uniqueness.
+- Apply explicit leaderboard opt-in consistent with sources. If current default True lacks affirmative consent evidence, propose a safe migration to default false and explain treatment of existing records; obtain approval before changing production data.
+- Emit qualifying resource-review events only if the source workflow and current endpoint semantics support them. Do not invent rewards.
+- Do not expose an unauthenticated public worker trigger.
 
-At the reference commit, Phase 2/3 models include users/roles/profiles/sessions/audit, courses/course-teacher assignments/topics/prerequisites/lessons/resources. Authentication/RBAC and teacher-course authorization are present. The v1 router includes health/auth/users/admin. Enrollment, lesson completion, resource activity, question bank, assessments, attempts, and responses were not verified in the model registry. Latest commit message is `Phase 3 completed`.
+PHASE 9 — AI INTEGRATION AND GOVERNANCE
+- Read and preserve current `frontend/server.ts` behavior/contracts and AI-consuming React components before editing.
+- Implement `ILLMServiceAdapter` in the existing FastAPI architecture, with Gemini as the first provider; additional providers are out of scope unless required.
+- Keep API keys server-side using existing settings/config patterns.
+- Implement validated request/response schemas, provider timeout, bounded retry/rate protection, controlled errors and explicit source attribution.
+- Add persistent AI candidate/review records and cache only where required by the sources. Prefer existing PostgreSQL; do not add Redis merely for this phase.
+- Generated candidates remain pending review and distinct from official Question records until an authorized teacher edits/approves. Approval must use existing QuestionService/Assessment contracts and be idempotent/audited.
+- Simplification/explanation caching must have deterministic keys, expiry/versioning and invalidation rules. Avoid storing unnecessary student personal data.
+- Keep short-answer grading policy unchanged; never silently invoke an LLM to grade.
+- Keep legacy Express routes working until the new FastAPI routes and frontend consumers pass integration tests. Then remove old handlers or leave only a documented thin compatibility proxy—not two independent implementations.
+- Deterministic fallback must be labeled as fallback, never represented as successful Gemini output.
 
-The uploaded `Learnova-main.zip` is not the authority for current code if it differs from GitHub HEAD. Inspect GitHub working branch/HEAD, `git status`, uncommitted changes, and live files. `IMPLEMENTATION_STATUS.md` may lag behind commits; reconcile it with code and phase records.
+TESTING AND EVIDENCE
+- Run focused tests, full backend suite, frontend Vitest, frontend build, migration lifecycle on disposable PostgreSQL, and Docker config/runtime checks as relevant.
+- Add failure-path tests: gamification handler failure leaves event retryable; retry awards XP once; concurrent workers do not double-process; configured mastery threshold is honored; multi-topic assessment attribution is correct; no answer/secret leakage; AI approval workflow is enforced.
+- Record exact commands, workdir, exit code and actual output. Do not claim tests passed if not run.
+- Inspect full git diff, reconcile every path with FILE_CHANGE_LEDGER.md, scan secrets, preserve DB volume.
+- Update API_CONTRACT.md, IMPLEMENTATION_STATUS.md and DECISIONS.md truthfully.
+- Keep the original Phase 7/8 historical records. Add corrective records in new correction folders.
+- Only the project owner marks a phase ACCEPTED.
 
-## Non-negotiable architecture
-
-- Preserve modular monolith: React/TypeScript presentation, FastAPI `/api/v1`, PostgreSQL, SQLAlchemy 2.x, Alembic.
-- Reuse Phase 1–3 foundations: single SQLAlchemy `Base`, DB session factory, settings, Alembic env, auth/session/RBAC/audit services, existing models and route conventions.
-- Do not create duplicate users/roles/courses/topics/lessons/resources, DB sessions, auth, or authorization abstractions.
-- Keep routers thin; put domain logic in cohesive services.
-- Preserve Express frontend/Vite server and existing AI routes until Phase 9.
-- Preserve existing UI and migrate one feature slice at a time. `storageService.ts` is a migration boundary, not a file to replace wholesale.
-- Never silently fall back to mock data when a backend call fails.
-- Do not add microservices, Kafka, Redis, or unrelated dependencies without measured need and approval.
-
-## Execution sequence — strict
-
-1. **Phase 4** — `phases/PHASE-04_CURRICULUM_ENROLLMENT_RESOURCES.md`
-2. Stop; complete evidence, handoff, and wait for owner acceptance.
-3. **Phase 5** — `phases/PHASE-05_QUESTION_BANK_ASSESSMENT_AUTHORING.md`
-4. Stop; complete evidence, handoff, and wait for owner acceptance.
-5. **Phase 6** — `phases/PHASE-06_ASSESSMENT_ATTEMPTS_GRADING.md`
-6. Stop; complete evidence and wait for owner acceptance.
-
-Do not implement all three phases in one pass. Do not proceed to the next phase because the previous phase's code appears complete. The project owner must accept each phase.
-
-## Required workflow for EACH phase
-
-### Stage A — inspect and plan only
-
-1. Inspect branch, HEAD, `git status`, staged/unstaged/untracked files, and recent commits.
-2. Read the phase instruction and exact SRS/SSD/Blueprint sections.
-3. Inspect existing backend models, migrations, routers, schemas, services, authorization, tests, frontend pages/types/storage/services/utilities, Docker/database setup, and current API contract.
-4. Verify whether any target functionality already exists. Reuse it; do not duplicate it.
-5. Reconcile `IMPLEMENTATION_STATUS.md` and prior phase records against code. Do not assume the status document is fresh.
-6. Identify requirements, current behavior, exact gaps, dependencies, risks, data migration impact, and unresolved decisions.
-7. Create/update `docs/antigravity-bible/phase-records/PHASE-XX/PLAN.md` with exact repository-relative file list and CREATE/MODIFY/RENAME/DELETE actions, purpose, traceability, API/DB/frontend impact, test plan, and rollback.
-8. Update the proposed phase-specific `DECISIONS.md` entries only as proposals until approved.
-9. Submit the plan and STOP. No source/configuration implementation edits before explicit project-owner approval.
-
-### Stage B — implement only after approval
-
-1. Implement only the approved phase scope and file list.
-2. If another file or scope is required, stop, explain, update the plan, and obtain approval.
-3. Add additive Alembic migrations. Never reset persistent data or rewrite migration history.
-4. Use a disposable PostgreSQL database for destructive migration lifecycle tests.
-5. Enforce backend role, course assignment, enrollment ownership, and attempt ownership at service/query boundaries.
-6. Keep API schemas explicit; do not expose internal answer keys, credentials, or private student data.
-7. Preserve frontend behavior and use typed API services.
-8. Add unit, API, database integration, and relevant frontend regression tests.
-9. Update `API_CONTRACT.md`, `IMPLEMENTATION_STATUS.md`, and `DECISIONS.md` truthfully.
-10. Reconcile complete Git diff with `FILE_CHANGE_LEDGER.md`.
-
-### Stage C — handoff and stop
-
-Complete all six records under `docs/antigravity-bible/phase-records/PHASE-XX/`:
-
-- `PLAN.md`
-- `EXECUTION_LOG.md`
-- `FILE_CHANGE_LEDGER.md`
-- `TEST_AND_EVALUATION.md`
-- `ISSUES_AND_DECISIONS.md`
-- `PHASE_SUMMARY.md`
-
-Record exact commands, work directory, exit codes, test environment, actual outputs, skipped tests, migration revision, files changed, residual risks, and acceptance criteria as PASS/FAIL/NOT RUN/BLOCKED. Inspect complete Git diff and check secrets/generated files. End with `READY_FOR_REVIEW`, `BLOCKED`, or `NOT_ACCEPTED`. Never self-mark `ACCEPTED`. Stop and wait.
-
-## Cross-phase domain invariants
-
-- **Enrollment:** unique student/course; active duplicate request idempotent; students enroll only in published courses.
-- **Teacher scope:** teacher access limited to assigned/owned courses using existing Phase 3 policy; role checks alone are insufficient.
-- **Curriculum DAG:** server-side cycle validation; frontend DAG checks are UX only.
-- **Progress:** lesson completion is persisted; do not equate all lessons completed with course completion until DEC-09 is approved.
-- **Mastery:** interim responses do not update persisted mastery. Aborted/invalid attempts do not update mastery. Only valid complete submission reaches the approved mastery boundary. Do not invent algorithm/threshold; Phase 7 owns the full policy.
-- **Adaptive practice:** session-local selection may use server-recorded interim answers; it is not persisted mastery. Formal exams follow configured order/rules.
-- **Question security:** correct answers, accepted-answer keys, matching keys, and private rubrics stay server-side until grading is complete and disclosure is appropriate.
-- **Question history:** attempts must use immutable assessment/question snapshots; teacher edits cannot mutate an active/historical attempt.
-- **Grading:** browser sends answers, never score/correctness/mastery/XP. Server grades from stored answer configuration.
-- **Short answer:** follow approved DEC-06; never implicitly use an LLM to grade.
-- **Timeout:** server clock/deadline authoritative; follow approved DEC-07/SSD-06 auto-submit policy.
-- **Idempotency:** duplicate enrollment/response/submit and concurrent retries cannot duplicate results or completion events.
-- **Transactions:** attempt result/response grading/completion outbox event must commit atomically.
-- **Gamification:** Phase 6 may persist a durable qualifying event; Phase 8 owns processing and XP.
-- **AI:** Express AI routes remain untouched until Phase 9; AI-generated questions cannot bypass teacher review.
-
-## Phase-specific scope locks
-
-### Phase 4
-
-Implement course catalog/detail and teacher course CRUD; topics/lessons/resources; enrollment; prerequisite DAG persistence/validation; lesson completion and resource activity; student learning-map structure. Do not implement assessment authoring/attempts, mastery/path generation, XP, AI migration, or analytics. Keep resource file storage provider-neutral unless DEC-11 is approved.
-
-### Phase 5
-
-Implement all five question formats (MCQ, True/False, Fill Blank, Matching, Short Answer), question bank, assessment composition/order/configuration, draft/publish validation, teacher authorization/audit, and safe student projections. Do not implement attempts/grading. Preserve current Express AI generation/review; persistent AI governance remains Phase 9.
-
-### Phase 6
-
-Implement attempt state machine, server deadlines, immutable attempt snapshots, response persistence, session-local adaptive selection, server grading, results, expiry/duplicate-submit safety, and one durable completion outbox event. Do not implement the full mastery/path algorithm (Phase 7) or XP processing (Phase 8).
-
-## Data and security safety
-
-- Never run `docker compose down -v`, delete volumes, drop/truncate persistent tables, or reset production-like data.
-- Never run destructive migrations on a non-disposable DB.
-- Never commit `.env`, passwords, raw tokens, API keys, answer keys in logs, or production credentials.
-- Preserve existing `/health` behavior and Docker topology unless approved.
-- Validate Compose changes with `docker compose config`.
-- Do not claim tests pass unless run and inspected.
-- Do not claim zero bugs or zero regressions.
-
-## Required final response from Antigravity
-
-Provide: phase and baseline commit; summary of verified existing functionality; exact files changed; migrations; API contracts; tests with commands/results; frontend regression; security/authorization checks; data safety; decisions resolved/unresolved; known issues; evidence file paths; acceptance checklist; Git commit/hash; and explicit status. Then STOP.
+STOP RULE
+After each phase, provide the summary, changed files, migration impact, test evidence, known gaps and commit SHA. Stop and wait. Never start the next phase automatically.
+```
+also read README_FIRST.md, REPO_INTEGRATION_NOTES.md.

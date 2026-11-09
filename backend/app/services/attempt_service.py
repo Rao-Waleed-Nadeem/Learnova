@@ -177,6 +177,7 @@ class AttemptService:
                 "prompt": q.prompt,
                 "payload": q.payload or {},
                 "answer_key": q.answer_key or {},  # Stored in server snapshot for grading
+                "topic_id": str(q.topic_id) if q.topic_id else None,
             })
             total_max_score += aq.points
 
@@ -454,6 +455,7 @@ class AttemptService:
             "prompt": target_q.prompt,
             "payload": target_q.payload or {},
             "answer_key": target_q.answer_key or {},
+            "topic_id": str(target_q.topic_id) if target_q.topic_id else None,
         })
         attempt.snapshot_data["questions"] = snap_questions
         attempt.current_difficulty = next_diff

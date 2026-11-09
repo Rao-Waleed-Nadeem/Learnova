@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
     admin,
+    ai,
     assessments,
     attempts,
     auth,
@@ -31,3 +32,4 @@ api_router.include_router(assessments.router, prefix="/assessments", tags=["asse
 api_router.include_router(attempts.router, prefix="/attempts", tags=["attempts"])
 api_router.include_router(mastery.router, prefix="", tags=["mastery", "learning-path"])
 api_router.include_router(gamification.router, prefix="", tags=["gamification"])
+api_router.include_router(ai.router, prefix="/ai", tags=["ai"])

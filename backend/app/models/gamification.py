@@ -52,7 +52,7 @@ class GamificationProfile(Base):
         Date, nullable=True
     )
     is_opted_in_leaderboard: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True, server_default="true"
+        Boolean, nullable=False, default=False, server_default="false"
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
