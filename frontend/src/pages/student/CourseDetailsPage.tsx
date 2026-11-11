@@ -52,14 +52,17 @@ export const CourseDetailsPage: React.FC<CourseDetailsPageProps> = ({
     );
   }
 
-  const handleEnrollClick = () => {
+  const handleEnrollClick = async () => {
     if (isEnrolling || isEnrolled) return;
     setIsEnrolling(true);
-    setTimeout(() => {
-      onEnroll(course.id);
-      setIsEnrolling(false);
+    try {
+      await onEnroll(course.id);
       onNavigate('course_map', { courseId: course.id });
-    }, 450);
+    } catch {
+      // Error handled by onEnroll notification
+    } finally {
+      setIsEnrolling(false);
+    }
   };
 
   return (

@@ -16,7 +16,7 @@ import { UserAccount } from '../../types';
 interface AdminProfileSecurityPageProps {
   currentAdmin: UserAccount;
   onUpdateAdminProfile: (updated: UserAccount) => void;
-  onUpdatePassword: (newPass: string) => Promise<{ success: boolean; error?: string }>;
+  onUpdatePassword: (newPass: string, currentPass?: string) => Promise<{ success: boolean; error?: string }>;
   onSignOut: () => void;
   onNotify: (type: 'success' | 'error' | 'info', message: string) => void;
 }
@@ -67,7 +67,7 @@ export const AdminProfileSecurityPage: React.FC<AdminProfileSecurityPageProps> =
 
     setIsUpdatingPassword(true);
     try {
-      const res = await onUpdatePassword(newPassword);
+      const res = await onUpdatePassword(newPassword, currentPassword);
       if (res.success) {
         onNotify('success', 'Administrative password updated. Recorded in security audit log.');
         setCurrentPassword('');

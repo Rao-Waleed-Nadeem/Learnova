@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Course,
   Topic,
@@ -23,6 +23,11 @@ import {
 } from 'lucide-react';
 import { StudentNavigationPage } from '../../components/student/StudentLayout';
 import { determineTopicReadiness } from '../../utils/studentLogic';
+import {
+  learningPathApi,
+  LearningMapResponse,
+  CourseLearningPathResponse,
+} from '../../services/api/learningPathApi';
 
 interface CourseLearningMapPageProps {
   courseId: string;
@@ -64,6 +69,35 @@ export const CourseLearningMapPage: React.FC<CourseLearningMapPageProps> = ({
   const toggleTopic = (id: string) => {
     setExpandedTopics((prev) => ({ ...prev, [id]: !prev[id] }));
   };
+
+  const [learningMap, setLearningMap] = useState<LearningMapResponse | null>(null);
+  const [learningPath, setLearningPath] = useState<CourseLearningPathResponse | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (course?.id) {
+      learningPathApi
+        .getLearningMap(course.id)
+        .then((map) => {
+          if (isMounted) setLearningMap(map);
+        })
+        .catch(() => {
+          // Graceful fallback to client DAG
+        });
+
+      learningPathApi
+        .getLearningPath(course.id)
+        .then((path) => {
+          if (isMounted) setLearningPath(path);
+        })
+        .catch(() => {
+          // Graceful fallback
+        });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [course?.id]);
 
   // Build topic mastery lookup map
   const masteryMap: Record<string, { status: any; scorePercent: number }> = {};
@@ -133,11 +167,21 @@ export const CourseLearningMapPage: React.FC<CourseLearningMapPageProps> = ({
             {courseTopics.map((topic, index) => {
               const isExpanded = Boolean(expandedTopics[topic.id]);
               const topicLessons = lessons.filter((l) => l.topicId === topic.id).sort((a, b) => a.order - b.order);
-              const readiness = determineTopicReadiness(topic.prerequisiteTopicIds, masteryMap);
+              const serverNode = learningMap?.nodes.find((n) => n.id === topic.id);
+              const localReadiness = determineTopicReadiness(topic.prerequisiteTopicIds, masteryMap);
+              const isTopicReady = serverNode
+                ? serverNode.readiness === 'ready' || serverNode.readiness === 'in_progress'
+                : localReadiness.isReady;
+              const readiness = {
+                isReady: isTopicReady,
+                unmetPrerequisites: serverNode ? serverNode.unmet_prerequisites : localReadiness.unmetPrerequisites,
+              };
               const mastery = masteryMap[topic.id];
 
               // Prerequisite titles
-              const prereqTopics = courseTopics.filter((t) => topic.prerequisiteTopicIds.includes(t.id));
+              const prereqTopics = courseTopics.filter((t) =>
+                serverNode ? serverNode.prerequisite_ids.includes(t.id) : topic.prerequisiteTopicIds.includes(t.id)
+              );
 
               return (
                 <div
@@ -286,6 +330,43 @@ export const CourseLearningMapPage: React.FC<CourseLearningMapPageProps> = ({
 
         {/* Right: Assessment Availability & Next Action (4 cols) */}
         <div className="lg:col-span-4 space-y-5">
+          {/* Dynamic Personalized Recommended Next Step */}
+          {learningPath?.recommended_next_step && (
+            <div className="p-5 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Recommended Next Step</span>
+                </span>
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 uppercase">
+                  {learningPath.recommended_next_step.type.replace('_', ' ')}
+                </span>
+              </div>
+              <h3 className="text-sm font-bold text-gray-900 dark:text-white">
+                {learningPath.recommended_next_step.title}
+              </h3>
+              <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+                {learningPath.recommended_next_step.reason}
+              </p>
+              {learningPath.recommended_next_step.lesson_id && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onNavigate('lesson', {
+                      courseId: course?.id || '',
+                      topicId: learningPath.recommended_next_step.topic_id,
+                      lessonId: learningPath.recommended_next_step.lesson_id!,
+                    })
+                  }
+                  className="w-full py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs"
+                >
+                  <span>Start Recommended Lesson</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Diagnostic Baseline Card */}
           {diagnostic && (
             <div className="p-5 rounded-2xl bg-white dark:bg-[#181C24] border border-[#D9DEE7] dark:border-[#2D3545] shadow-xs space-y-3">

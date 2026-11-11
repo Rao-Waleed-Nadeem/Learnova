@@ -1,3 +1,20 @@
+/**
+ * @deprecated [Phase 11 Mock Retirement / Slice 10]
+ * StorageService has been superseded by live REST API clients:
+ * - authApi: Authentication & Profile Security (Slice 1)
+ * - coursesApi: Course Catalog & Enrollments (Slice 2)
+ * - learningPathApi: Learning Map & DAG Readiness (Slice 3)
+ * - curriculumApi: Lessons & Resource Activity (Slice 4)
+ * - assessmentApi: Assessment Attempts & Grading (Slice 5)
+ * - gamificationApi: Gamification Profile, XP & Badges (Slice 6)
+ * - masteryApi: BKT Mastery Matrix (Slice 6)
+ * - teacherApi: Curriculum Authoring, Question Bank & Assessment Publishing (Slices 7-8)
+ * - adminApi: Platform Overview, User Governance, Audit Logs & System Health (Slice 9)
+ *
+ * This service is retained solely as an offline fallback and isolated test fixture.
+ * Direct persistence mutations here are strictly non-authoritative when a backend session is active.
+ */
+
 import {
   Course,
   Topic,

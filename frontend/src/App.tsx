@@ -7,6 +7,38 @@ import {
 import { storage, CURRENT_TEACHER } from './services/storageService';
 import { authApi, mapUserResponseToStudentUser } from './services/api/authApi';
 import {
+  coursesApi,
+  mapBackendCourseToCourse,
+  mapBackendEnrollmentToEnrollment,
+  mapBackendCourseDetailToCurriculum,
+} from './services/api/coursesApi';
+import {
+  curriculumApi,
+  mapBackendCompletionToCompletion,
+} from './services/api/curriculumApi';
+import {
+  gamificationApi,
+  mapBackendProfileToProfile,
+  mapBackendBadgeToBadge,
+  mapBackendXPToXPEvent,
+  mapBackendLeaderboardToLeaderboard,
+} from './services/api/gamificationApi';
+import {
+  masteryApi,
+  mapBackendMasteryToMasteryState,
+} from './services/api/masteryApi';
+import {
+  teacherApi,
+  mapBackendQuestionToQuestionData,
+  mapBackendAssessmentToAssessment,
+} from './services/api/teacherApi';
+import {
+  adminApi,
+  mapBackendUserToUserAccount,
+  mapBackendAuditToAuditEvent,
+  mapBackendHealthToServiceHealth,
+} from './services/api/adminApi';
+import {
   Course,
   Topic,
   Lesson,
@@ -173,6 +205,23 @@ export default function App() {
   };
 
   const handleConfirmRoleChange = async (targetUserId: string, newRole: UserRole, reason: string) => {
+    try {
+      if (authApi.getAccessToken()) {
+        await adminApi.changeUserRole(targetUserId, newRole as any);
+        const [usersRes, auditRes] = await Promise.all([
+          adminApi.listUsers({ page_size: 100 }),
+          adminApi.getAuditLogs({ page_size: 100 }),
+        ]);
+        if (usersRes?.items) setAllUsers(usersRes.items.map(mapBackendUserToUserAccount));
+        if (auditRes?.items) setAuditEvents(auditRes.items.map(mapBackendAuditToAuditEvent));
+        notify('success', `Role successfully updated to "${newRole}". Audit event recorded.`);
+        return { success: true };
+      }
+    } catch (err: any) {
+      notify('error', err.message || 'Failed to modify user role.');
+      return { success: false, error: err.message };
+    }
+
     const res = storage.changeUserRole(currentAdmin?.id || 'adm-sarah', targetUserId, newRole, reason);
     if (res.success) {
       setAllUsers(storage.getUsers());
@@ -185,6 +234,23 @@ export default function App() {
   };
 
   const handleConfirmStatusChange = async (targetUserId: string, nextStatus: boolean, reason: string) => {
+    try {
+      if (authApi.getAccessToken()) {
+        await adminApi.toggleUserStatus(targetUserId, nextStatus);
+        const [usersRes, auditRes] = await Promise.all([
+          adminApi.listUsers({ page_size: 100 }),
+          adminApi.getAuditLogs({ page_size: 100 }),
+        ]);
+        if (usersRes?.items) setAllUsers(usersRes.items.map(mapBackendUserToUserAccount));
+        if (auditRes?.items) setAuditEvents(auditRes.items.map(mapBackendAuditToAuditEvent));
+        notify('success', `Account ${nextStatus ? 'reactivated' : 'deactivated'} successfully.`);
+        return { success: true };
+      }
+    } catch (err: any) {
+      notify('error', err.message || 'Failed to update account status.');
+      return { success: false, error: err.message };
+    }
+
     const res = storage.toggleUserStatus(currentAdmin?.id || 'adm-sarah', targetUserId, nextStatus, reason);
     if (res.success) {
       setAllUsers(storage.getUsers());
@@ -197,19 +263,52 @@ export default function App() {
   };
 
   const handleRefreshHealth = async () => {
+    try {
+      if (authApi.getAccessToken()) {
+        const health = await adminApi.getSystemHealth();
+        const mapped = mapBackendHealthToServiceHealth(health);
+        setServiceHealth(mapped);
+        notify('info', 'Telemetry refreshed with live diagnostic pings.');
+        return mapped;
+      }
+    } catch (err: any) {
+      console.warn('Live health ping warning:', err);
+    }
     const updated = await storage.refreshHealthChecks();
     setServiceHealth([...updated]);
     notify('info', 'Telemetry refreshed with live diagnostic pings.');
     return updated;
   };
 
-  const handleUpdateAdminProfile = (updated: UserAccount) => {
+  const handleUpdateAdminProfile = async (updated: UserAccount) => {
+    try {
+      if (authApi.getAccessToken()) {
+        await authApi.updateProfile({
+          full_name: updated.name,
+          department: updated.department,
+        });
+      }
+    } catch (err: any) {
+      notify('error', err.message || 'Failed to sync admin profile with server');
+      return;
+    }
     storage.saveAdminUser(updated);
     setCurrentAdmin(updated);
     setAllUsers(storage.getUsers());
   };
 
-  const handleUpdateAdminPassword = async (newPass: string) => {
+  const handleUpdateAdminPassword = async (newPass: string, currentPass?: string) => {
+    try {
+      if (authApi.getAccessToken() && currentPass) {
+        await authApi.changePassword({
+          current_password: currentPass,
+          new_password: newPass,
+        });
+      }
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Failed to update administrative credentials on server' };
+    }
+
     storage.logAuditEvent({
       actorId: currentAdmin?.id || 'adm-sarah',
       actorName: currentAdmin?.name || 'Sarah Connor',
@@ -226,7 +325,12 @@ export default function App() {
     return { success: true };
   };
 
-  const handleAdminSignOut = () => {
+  const handleAdminSignOut = async () => {
+    try {
+      await authApi.logout();
+    } catch {
+      // Ignore network errors on logout
+    }
     storage.logAuditEvent({
       actorId: currentAdmin?.id || 'adm-sarah',
       actorName: currentAdmin?.name || 'Sarah Connor',
@@ -270,13 +374,65 @@ export default function App() {
   };
 
   // Student Actions
-  const handleEnrollCourse = (courseId: string) => {
+  const handleEnrollCourse = async (courseId: string) => {
+    try {
+      if (authApi.getAccessToken()) {
+        const backendEnr = await coursesApi.enrollCourse(courseId);
+        const mapped = mapBackendEnrollmentToEnrollment(backendEnr);
+        setEnrollments((prev) => {
+          const exists = prev.some((e) => e.courseId === courseId);
+          if (exists) {
+            return prev.map((e) => (e.courseId === courseId ? mapped : e));
+          }
+          return [mapped, ...prev];
+        });
+        storage.saveEnrollment(mapped);
+        const crs = courses.find((c) => c.id === courseId);
+        notify('success', `Successfully enrolled in ${crs?.title || 'course'}!`);
+        return;
+      }
+    } catch (err: any) {
+      notify('error', err.message || 'Failed to enroll in course on server.');
+      throw err;
+    }
+
     const enr = storage.enrollCourse(courseId);
     setEnrollments(storage.getEnrollments());
     notify('success', `Successfully enrolled in ${storage.getCourse(courseId)?.title || 'course'}!`);
   };
 
-  const handleMarkLessonComplete = (lessonId: string, courseId: string, topicId: string) => {
+  const handleMarkLessonComplete = async (lessonId: string, courseId: string, topicId: string) => {
+    try {
+      if (authApi.getAccessToken()) {
+        const backendRes = await curriculumApi.completeLesson(lessonId);
+        const mapped = mapBackendCompletionToCompletion(backendRes);
+        setCompletions((prev) => [...prev.filter((c) => c.lessonId !== lessonId), mapped]);
+
+        // Keep local storage in sync as fallback
+        storage.completeLesson(lessonId, courseId, topicId);
+
+        // Update enrollment progress
+        if (backendRes.progress_percent !== null && backendRes.progress_percent !== undefined) {
+          setEnrollments((prev) =>
+            prev.map((e) =>
+              e.courseId === courseId
+                ? { ...e, progressPercent: Math.round(backendRes.progress_percent!) }
+                : e
+            )
+          );
+        }
+
+        setGamificationProfile(storage.getGamificationProfile());
+        setXpEvents(storage.getXPEvents());
+        setLeaderboard(storage.getLeaderboard());
+        notify('success', `Lesson marked complete! +50 XP awarded.`);
+        return;
+      }
+    } catch (err: any) {
+      notify('error', err.message || 'Failed to record lesson completion on server');
+      throw err;
+    }
+
     const { completion, xpAwarded } = storage.completeLesson(lessonId, courseId, topicId);
     setCompletions(storage.getLessonCompletions());
     setEnrollments(storage.getEnrollments());
@@ -478,16 +634,189 @@ export default function App() {
     notify('success', `Examination submitted! +${res.xpAwarded} XP awarded.`);
   };
 
+  const refreshStudentCourseData = async () => {
+    try {
+      const [backendCourses, backendEnrollments] = await Promise.all([
+        coursesApi.listCourses().catch(() => null),
+        coursesApi.getMyEnrollments().catch(() => null),
+      ]);
+
+      if (backendCourses && backendCourses.length > 0) {
+        const mappedCourses = backendCourses.map(mapBackendCourseToCourse);
+        setCourses(mappedCourses);
+
+        // Fetch course details for full syllabus hierarchy
+        const detailPromises = backendCourses.map((c) =>
+          coursesApi.getCourseDetail(c.id).catch(() => null)
+        );
+        const details = await Promise.all(detailPromises);
+
+        const allTopics: Topic[] = [];
+        const allLessons: Lesson[] = [];
+        const allResources: LearningResource[] = [];
+
+        for (const d of details) {
+          if (!d) continue;
+          const parsed = mapBackendCourseDetailToCurriculum(d);
+          allTopics.push(...parsed.topics);
+          allLessons.push(...parsed.lessons);
+          allResources.push(...parsed.resources);
+        }
+
+        if (allTopics.length > 0) setTopics(allTopics);
+        if (allLessons.length > 0) setLessons(allLessons);
+        if (allResources.length > 0) setResources(allResources);
+      }
+
+      if (backendEnrollments) {
+        const mappedEnrollments = backendEnrollments.map(mapBackendEnrollmentToEnrollment);
+        setEnrollments(mappedEnrollments);
+
+        // If enrolled courses exist, hydrate topic mastery states from backend
+        if (backendEnrollments.length > 0) {
+          const masteryPromises = backendEnrollments.map((e) =>
+            masteryApi.getCourseMastery(e.course_id).catch(() => null)
+          );
+          const masteryResults = await Promise.all(masteryPromises);
+          const allMastery: MasteryState[] = [];
+          for (const m of masteryResults) {
+            if (!m || !m.topics) continue;
+            for (const item of m.topics) {
+              allMastery.push(mapBackendMasteryToMasteryState(item));
+            }
+          }
+          if (allMastery.length > 0) {
+            setMasteryStates(allMastery);
+          }
+        }
+      }
+
+      // Hydrate Gamification & Leaderboard in parallel
+      const [gProfile, gBadges, gXp, gLeaderboard] = await Promise.all([
+        gamificationApi.getProfile().catch(() => null),
+        gamificationApi.getBadges().catch(() => null),
+        gamificationApi.getXPHistory().catch(() => null),
+        gamificationApi.getLeaderboard().catch(() => null),
+      ]);
+
+      if (gProfile) {
+        setGamificationProfile(mapBackendProfileToProfile(gProfile));
+      }
+      if (gBadges && gBadges.items) {
+        setBadges(gBadges.items.map(mapBackendBadgeToBadge));
+      }
+      if (gXp && gXp.items) {
+        setXpEvents(gXp.items.map(mapBackendXPToXPEvent));
+      }
+      if (gLeaderboard && gLeaderboard.leaderboard) {
+        setLeaderboard(gLeaderboard.leaderboard.map(mapBackendLeaderboardToLeaderboard));
+      }
+    } catch (e) {
+      console.warn('Failed to hydrate student course data from API:', e);
+    }
+  };
+
+  const refreshTeacherCourseData = async () => {
+    try {
+      const backendCourses = await coursesApi.listCourses().catch(() => null);
+      if (backendCourses && backendCourses.length > 0) {
+        const mappedCourses = backendCourses.map(mapBackendCourseToCourse);
+        setCourses(mappedCourses);
+
+        const detailPromises = backendCourses.map((c) =>
+          coursesApi.getCourseDetail(c.id).catch(() => null)
+        );
+        const details = await Promise.all(detailPromises);
+
+        const allTopics: Topic[] = [];
+        const allLessons: Lesson[] = [];
+        const allResources: LearningResource[] = [];
+
+        for (const d of details) {
+          if (!d) continue;
+          const parsed = mapBackendCourseDetailToCurriculum(d);
+          allTopics.push(...parsed.topics);
+          allLessons.push(...parsed.lessons);
+          allResources.push(...parsed.resources);
+        }
+
+        if (allTopics.length > 0) setTopics(allTopics);
+        if (allLessons.length > 0) setLessons(allLessons);
+        if (allResources.length > 0) setResources(allResources);
+
+        const activeCId = teacherNavParams.courseId || backendCourses[0]?.id;
+        if (activeCId) {
+          const [backendQuestions, backendAssessments] = await Promise.all([
+            teacherApi.listQuestions(activeCId).catch(() => null),
+            teacherApi.listAssessments(activeCId).catch(() => null),
+          ]);
+
+          if (backendQuestions && backendQuestions.length > 0) {
+            setQuestions(backendQuestions.map(mapBackendQuestionToQuestionData));
+          }
+          if (backendAssessments && backendAssessments.length > 0) {
+            setAssessments(backendAssessments.map(mapBackendAssessmentToAssessment));
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to hydrate teacher course data from API:', e);
+    }
+  };
+
+  const refreshAdminData = async () => {
+    try {
+      const [usersRes, auditRes, healthRes] = await Promise.all([
+        adminApi.listUsers({ page_size: 100 }).catch(() => null),
+        adminApi.getAuditLogs({ page_size: 100 }).catch(() => null),
+        adminApi.getSystemHealth().catch(() => null),
+      ]);
+
+      if (usersRes && usersRes.items) {
+        setAllUsers(usersRes.items.map(mapBackendUserToUserAccount));
+      }
+      if (auditRes && auditRes.items) {
+        setAuditEvents(auditRes.items.map(mapBackendAuditToAuditEvent));
+      }
+      if (healthRes) {
+        setServiceHealth(mapBackendHealthToServiceHealth(healthRes));
+      }
+    } catch (e) {
+      console.warn('Failed to hydrate admin data from API:', e);
+    }
+  };
+
   // Restore live session on mount if valid refresh cookie exists
   useEffect(() => {
     let isMounted = true;
     authApi
       .getMe()
       .then((user) => {
-        if (isMounted && user.role === 'student') {
+        if (!isMounted) return;
+        if (user.role === 'student') {
           const student = mapUserResponseToStudentUser(user);
           setCurrentStudent(student);
           storage.saveStudentUser(student);
+          setPortalMode('student');
+          refreshStudentCourseData();
+        } else if (user.role === 'teacher') {
+          setPortalMode('teacher');
+          refreshTeacherCourseData();
+        } else if (user.role === 'administrator') {
+          const adminAccount: UserAccount = {
+            id: user.id,
+            name: user.full_name,
+            email: user.email,
+            role: 'administrator',
+            isActive: user.is_active,
+            createdAt: user.created_at,
+            lastActiveAt: user.created_at,
+            department: user.profile?.department || undefined,
+            avatar: user.profile?.avatar_url || undefined,
+          };
+          setCurrentAdmin(adminAccount);
+          storage.saveAdminUser(adminAccount);
+          refreshAdminData();
         }
       })
       .catch(() => {
@@ -522,6 +851,7 @@ export default function App() {
     setCurrentStudent(user);
     setStudentPage('dashboard');
     notify('success', `Welcome back, ${user.name}!`);
+    refreshStudentCourseData();
   };
 
   // Compute breadcrumbs for student layout
@@ -577,8 +907,14 @@ export default function App() {
         <SignInPage
           onSignInSuccess={handleStudentSignInSuccess}
           onNavigateToRegister={() => setStudentPage('register')}
-          onSwitchToTeacher={() => setPortalMode('teacher')}
-          onSwitchToAdmin={() => setPortalMode('admin')}
+          onSwitchToTeacher={() => {
+            setPortalMode('teacher');
+            refreshTeacherCourseData();
+          }}
+          onSwitchToAdmin={() => {
+            setPortalMode('admin');
+            refreshAdminData();
+          }}
         />
       );
     }
@@ -638,8 +974,14 @@ export default function App() {
         gamificationProfile={gamificationProfile}
         toasts={toasts}
         onDismissToast={handleDismissToast}
-        onSwitchPortal={() => setPortalMode('teacher')}
-        onSwitchToAdmin={() => setPortalMode('admin')}
+        onSwitchPortal={() => {
+          setPortalMode('teacher');
+          refreshTeacherCourseData();
+        }}
+        onSwitchToAdmin={() => {
+          setPortalMode('admin');
+          refreshAdminData();
+        }}
         onSignOut={handleStudentSignOut}
         breadcrumbs={getStudentBreadcrumbs()}
       >
@@ -813,6 +1155,7 @@ export default function App() {
             if (portal === 'admin') {
               setCurrentAdmin(storage.getAdminUser());
               setAdminPage('dashboard');
+              refreshAdminData();
               notify('success', 'Authenticated with Administrator credentials.');
             } else {
               setPortalMode(portal);
@@ -940,7 +1283,31 @@ export default function App() {
   const activeCourseId = teacherNavParams.courseId || courses[0]?.id;
   const activeCourse = courses.find((c) => c.id === activeCourseId) || courses[0];
 
-  const handleSaveCourse = (c: Course) => {
+  const handleSaveCourse = async (c: Course) => {
+    try {
+      if (authApi.getAccessToken()) {
+        const existing = courses.find((item) => item.id === c.id);
+        if (existing) {
+          if (c.status === 'published' && existing.status !== 'published') {
+            await teacherApi.publishCourse(c.id);
+          }
+          await teacherApi.updateCourse(c.id, {
+            title: c.title,
+            description: c.description,
+          });
+        } else {
+          const created = await teacherApi.createCourse({
+            title: c.title,
+            description: c.description,
+          });
+          if (created && created.id) {
+            c.id = created.id;
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn('Backend course save notice:', err);
+    }
     storage.saveCourse(c);
     setCourses(storage.getCourses());
     notify('success', `Course "${c.title}" saved.`);
@@ -952,45 +1319,203 @@ export default function App() {
     notify('info', 'Course deleted.');
   };
 
-  const handleSaveTopic = (t: Topic) => {
+  const handleSaveTopic = async (t: Topic) => {
+    try {
+      if (authApi.getAccessToken()) {
+        const existing = topics.find((item) => item.id === t.id);
+        if (existing) {
+          await teacherApi.updateTopic(t.id, {
+            title: t.title,
+            description: t.description,
+            order: t.order,
+          });
+          if (t.prerequisiteTopicIds) {
+            await teacherApi.updateTopicPrerequisites(t.id, t.prerequisiteTopicIds);
+          }
+        } else {
+          const created = await teacherApi.createTopic(t.courseId, {
+            title: t.title,
+            description: t.description,
+            order: t.order,
+          });
+          if (created && created.id) {
+            t.id = created.id;
+          }
+          if (t.prerequisiteTopicIds && t.prerequisiteTopicIds.length > 0) {
+            await teacherApi.updateTopicPrerequisites(t.id, t.prerequisiteTopicIds);
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn('Backend topic save notice:', err);
+      notify('error', err.message || 'Failed to sync topic with server');
+    }
     storage.saveTopic(t);
     setTopics(storage.getTopics());
   };
 
-  const handleDeleteTopic = (id: string) => {
+  const handleDeleteTopic = async (id: string) => {
+    try {
+      if (authApi.getAccessToken()) {
+        await teacherApi.deleteTopic(id);
+      }
+    } catch (err: any) {
+      console.warn('Backend topic delete notice:', err);
+    }
     storage.deleteTopic(id);
     setTopics(storage.getTopics());
   };
 
-  const handleSaveLesson = (l: Lesson) => {
+  const handleSaveLesson = async (l: Lesson) => {
+    try {
+      if (authApi.getAccessToken()) {
+        const existing = lessons.find((item) => item.id === l.id);
+        if (existing) {
+          await teacherApi.updateLesson(l.id, {
+            title: l.title,
+            description: l.description,
+            order: l.order,
+          });
+        } else {
+          const created = await teacherApi.createLesson(l.topicId, {
+            title: l.title,
+            description: l.description,
+            order: l.order,
+          });
+          if (created && created.id) {
+            l.id = created.id;
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn('Backend lesson save notice:', err);
+    }
     storage.saveLesson(l);
     setLessons(storage.getLessons());
   };
 
-  const handleDeleteLesson = (id: string) => {
+  const handleDeleteLesson = async (id: string) => {
+    try {
+      if (authApi.getAccessToken()) {
+        await teacherApi.deleteLesson(id);
+      }
+    } catch (err: any) {
+      console.warn('Backend lesson delete notice:', err);
+    }
     storage.deleteLesson(id);
     setLessons(storage.getLessons());
   };
 
-  const handleSaveResource = (r: LearningResource) => {
+  const handleSaveResource = async (r: LearningResource) => {
+    try {
+      if (authApi.getAccessToken()) {
+        const existing = resources.find((item) => item.id === r.id);
+        if (existing) {
+          await teacherApi.updateResource(r.id, {
+            title: r.title,
+            type: r.type,
+            content_or_url: r.contentOrUrl,
+          });
+        } else {
+          const created = await teacherApi.createResource(r.lessonId, {
+            title: r.title,
+            type: r.type,
+            content_or_url: r.contentOrUrl,
+          });
+          if (created && created.id) {
+            r.id = created.id;
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn('Backend resource save notice:', err);
+    }
     storage.saveResource(r);
     setResources(storage.getResources());
     notify('success', 'Resource saved.');
   };
 
-  const handleDeleteResource = (id: string) => {
+  const handleDeleteResource = async (id: string) => {
+    try {
+      if (authApi.getAccessToken()) {
+        await teacherApi.deleteResource(id);
+      }
+    } catch (err: any) {
+      console.warn('Backend resource delete notice:', err);
+    }
     storage.deleteResource(id);
     setResources(storage.getResources());
     notify('info', 'Resource removed.');
   };
 
-  const handleSaveQuestion = (q: QuestionData) => {
+  const handleSaveQuestion = async (q: QuestionData) => {
+    try {
+      if (authApi.getAccessToken()) {
+        const existing = questions.find((item) => item.id === q.id);
+        if (existing) {
+          await teacherApi.updateQuestion(q.id, {
+            prompt: q.prompt,
+            explanation: q.explanation,
+            difficulty: q.difficulty,
+            points: q.points,
+            options: q.options?.map((opt) => ({
+              id: opt.id,
+              text: opt.text,
+              is_correct: opt.isCorrect,
+            })),
+            correct_bool: q.correctBool,
+            accepted_answers: q.acceptedAnswers,
+            matching_pairs: q.matchingPairs?.map((pair) => ({
+              id: pair.id,
+              left: pair.left,
+              right: pair.right,
+            })),
+            expected_rubric: q.expectedRubric,
+          });
+        } else {
+          const created = await teacherApi.createQuestion({
+            course_id: q.courseId,
+            topic_id: q.topicId,
+            type: q.type,
+            difficulty: q.difficulty,
+            points: q.points,
+            prompt: q.prompt,
+            explanation: q.explanation,
+            options: q.options?.map((opt) => ({
+              id: opt.id,
+              text: opt.text,
+              is_correct: opt.isCorrect,
+            })),
+            correct_bool: q.correctBool,
+            accepted_answers: q.acceptedAnswers,
+            matching_pairs: q.matchingPairs?.map((pair) => ({
+              id: pair.id,
+              left: pair.left,
+              right: pair.right,
+            })),
+            expected_rubric: q.expectedRubric,
+          });
+          if (created && created.id) {
+            q.id = created.id;
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn('Backend question save notice:', err);
+    }
     storage.saveQuestion(q);
     setQuestions(storage.getQuestions());
     notify('success', 'Question saved to bank.');
   };
 
-  const handleDeleteQuestion = (id: string) => {
+  const handleDeleteQuestion = async (id: string) => {
+    try {
+      if (authApi.getAccessToken()) {
+        await teacherApi.archiveQuestion(id);
+      }
+    } catch (err: any) {
+      console.warn('Backend question archive notice:', err);
+    }
     storage.deleteQuestion(id);
     setQuestions(storage.getQuestions());
     notify('info', 'Question removed.');
@@ -1009,7 +1534,43 @@ export default function App() {
     notify(status === 'approved' ? 'success' : 'info', `Candidate question ${status}.`);
   };
 
-  const handleSaveAssessment = (a: Assessment) => {
+  const handleSaveAssessment = async (a: Assessment) => {
+    try {
+      if (authApi.getAccessToken()) {
+        const existing = assessments.find((item) => item.id === a.id);
+        if (existing) {
+          if (a.status === 'published' && existing.status !== 'published') {
+            await teacherApi.publishAssessment(a.id);
+          }
+          await teacherApi.updateAssessment(a.id, {
+            title: a.title,
+            instructions: a.instructions,
+            time_limit_minutes: a.timeLimitMinutes,
+            passing_score_percent: a.passingScorePercent,
+            questions: a.questionIds.map((qid, idx) => ({ question_id: qid, order: idx + 1 })),
+          });
+        } else {
+          const created = await teacherApi.createAssessment({
+            course_id: a.courseId,
+            topic_id: a.topicId,
+            title: a.title,
+            type: a.type as any,
+            instructions: a.instructions,
+            time_limit_minutes: a.timeLimitMinutes,
+            passing_score_percent: a.passingScorePercent,
+            questions: a.questionIds.map((qid, idx) => ({ question_id: qid, order: idx + 1 })),
+          });
+          if (created && created.id) {
+            a.id = created.id;
+            if (a.status === 'published') {
+              await teacherApi.publishAssessment(created.id);
+            }
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn('Backend assessment save notice:', err);
+    }
     storage.saveAssessment(a);
     setAssessments(storage.getAssessments());
     notify('success', `Assessment "${a.title}" saved.`);
@@ -1048,7 +1609,10 @@ export default function App() {
           </button>
           <button
             type="button"
-            onClick={() => setPortalMode('admin')}
+            onClick={() => {
+              setPortalMode('admin');
+              refreshAdminData();
+            }}
             className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-bold transition cursor-pointer"
           >
             Switch to Admin Portal →

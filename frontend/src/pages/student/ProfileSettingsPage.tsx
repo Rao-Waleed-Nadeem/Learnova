@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { StudentUser, GamificationProfile } from '../../types';
+import { authApi } from '../../services/api/authApi';
 import {
   User,
   Mail,
@@ -43,12 +44,23 @@ export const ProfileSettingsPage: React.FC<ProfileSettingsPageProps> = ({
   const [newPassword, setNewPassword] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
 
-    setTimeout(() => {
-      setIsSaving(false);
+    try {
+      if (authApi.getAccessToken()) {
+        await authApi.updateProfile({
+          full_name: name.trim(),
+          bio: bio.trim(),
+        });
+        await authApi.updatePreferences({
+          leaderboardOptIn,
+          emailNotifications,
+          theme: themePref,
+        });
+      }
+
       const updated: StudentUser = {
         ...currentUser,
         name: name.trim(),
@@ -64,10 +76,14 @@ export const ProfileSettingsPage: React.FC<ProfileSettingsPageProps> = ({
 
       onUpdateProfile(updated);
       onNotify('success', 'Profile and preferences successfully updated.');
-    }, 350);
+    } catch (err: any) {
+      onNotify('error', err.message || 'Failed to update profile.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handlePasswordSubmit = (e: React.FormEvent) => {
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentPassword || !newPassword) {
       onNotify('error', 'Please provide both current and new password.');
@@ -78,9 +94,19 @@ export const ProfileSettingsPage: React.FC<ProfileSettingsPageProps> = ({
       return;
     }
 
-    onNotify('success', 'Security credentials updated securely.');
-    setCurrentPassword('');
-    setNewPassword('');
+    try {
+      if (authApi.getAccessToken()) {
+        await authApi.changePassword({
+          current_password: currentPassword,
+          new_password: newPassword,
+        });
+      }
+      onNotify('success', 'Security credentials updated securely.');
+      setCurrentPassword('');
+      setNewPassword('');
+    } catch (err: any) {
+      onNotify('error', err.message || 'Failed to update security credentials.');
+    }
   };
 
   return (

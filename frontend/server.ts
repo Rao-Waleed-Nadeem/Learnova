@@ -121,6 +121,55 @@ app.post('/api/ai/simplify-lesson', async (req, res) => {
   }
 });
 
+// Full-duplex transparent proxy for /api/v1/* endpoints to FastAPI backend (DEC-P11-001)
+app.use('/api/v1', async (req, res) => {
+  try {
+    const backendUrl = `${getBackendUrl()}/api/v1${req.url}`;
+    const headers: Record<string, string> = {};
+
+    for (const [key, value] of Object.entries(req.headers)) {
+      const lower = key.toLowerCase();
+      if (lower !== 'host' && lower !== 'content-length' && typeof value === 'string') {
+        headers[key] = value;
+      }
+    }
+
+    const fetchOptions: RequestInit = {
+      method: req.method,
+      headers,
+    };
+
+    if (req.method !== 'GET' && req.method !== 'HEAD' && req.body && Object.keys(req.body).length > 0) {
+      fetchOptions.body = JSON.stringify(req.body);
+      if (!headers['content-type']) {
+        headers['content-type'] = 'application/json';
+      }
+    }
+
+    const backendRes = await fetch(backendUrl, fetchOptions);
+
+    backendRes.headers.forEach((val, key) => {
+      const lower = key.toLowerCase();
+      if (lower !== 'transfer-encoding' && lower !== 'content-encoding') {
+        res.setHeader(key, val);
+      }
+    });
+
+    const contentType = backendRes.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      const data = await backendRes.json().catch(() => null);
+      return res.status(backendRes.status).json(data);
+    } else {
+      const buffer = await backendRes.arrayBuffer();
+      return res.status(backendRes.status).send(Buffer.from(buffer));
+    }
+  } catch (err: any) {
+    return res.status(503).json({
+      detail: 'Backend API service unavailable. Could not connect to FastAPI backend.',
+    });
+  }
+});
+
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({

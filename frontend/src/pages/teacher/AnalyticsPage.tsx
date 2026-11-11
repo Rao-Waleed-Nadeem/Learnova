@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   BarChart3,
   TrendingUp,
@@ -18,6 +18,7 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Course, Topic, Assessment, AssessmentAttempt } from '../../types';
 import { calculateAcademicMastery } from '../../utils/assessment';
+import { adminApi, TeacherCourseAnalyticsResponse } from '../../services/api/adminApi';
 
 interface AnalyticsPageProps {
   courses: Course[];
@@ -43,6 +44,23 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
   );
   const [timeframe, setTimeframe] = useState<'all' | '30d' | '7d'>('all');
   const [viewMode, setViewMode] = useState<'visual' | 'table'>('visual');
+  const [serverAnalytics, setServerAnalytics] = useState<TeacherCourseAnalyticsResponse | null>(null);
+
+  useEffect(() => {
+    if (!courseFilter) return;
+    let isMounted = true;
+    adminApi
+      .getTeacherCourseAnalytics(courseFilter)
+      .then((data) => {
+        if (isMounted) setServerAnalytics(data);
+      })
+      .catch(() => {
+        // Fall back to local calculation if unauthenticated or endpoint unavailable
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [courseFilter]);
 
   const activeCourse = courses.find((c) => c.id === courseFilter);
   const courseTopics = topics.filter((t) => t.courseId === courseFilter);

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { StudentNavigationPage } from '../../components/student/StudentLayout';
 import { AIHelperPanel } from '../../components/student/AIHelperPanel';
+import { curriculumApi } from '../../services/api/curriculumApi';
 
 interface LessonWorkspacePageProps {
   courseId: string;
@@ -64,7 +65,13 @@ export const LessonWorkspacePage: React.FC<LessonWorkspacePageProps> = ({
   const handleCopyCode = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedCodeId(id);
+    curriculumApi.recordResourceActivity(id, { event_type: 'read', duration_seconds: 15 }).catch(() => {});
     setTimeout(() => setCopiedCodeId(null), 2000);
+  };
+
+  const handleResourceClick = (id: string, type: string) => {
+    const event_type = type === 'video' ? 'watch' : 'read';
+    curriculumApi.recordResourceActivity(id, { event_type, duration_seconds: 30 }).catch(() => {});
   };
 
   const handleComplete = () => {
@@ -226,6 +233,7 @@ export const LessonWorkspacePage: React.FC<LessonWorkspacePageProps> = ({
                         href={res.contentOrUrl}
                         target="_blank"
                         rel="noreferrer"
+                        onClick={() => handleResourceClick(res.id, res.type)}
                         className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center gap-1.5 transition"
                       >
                         <span>Open Resource</span>

@@ -207,6 +207,10 @@ test('Express Proxy: returns 503 when FastAPI backend is unreachable, with no fa
   }
 });
 
+
+
+
+
 test('Express Proxy: forwards simplify-lesson to FastAPI and maps response on 200', async () => {
   mockStatus = 200;
   mockResponseBody = {
@@ -286,3 +290,66 @@ test('Express Proxy: simplify-lesson returns 503 when backend is unreachable, wi
     process.env.BACKEND_URL = originalUrl;
   }
 });
+
+test('Express Proxy: forwards GET /api/v1/auth/me to FastAPI and returns JSON on 200', async () => {
+  mockStatus = 200;
+  mockResponseBody = {
+    id: 'u1111111-1111-1111-1111-111111111111',
+    email: 'student@example.com',
+    full_name: 'Alice Student',
+    role: 'student',
+    is_active: true,
+  };
+
+  const res = await fetch(`http://127.0.0.1:${expressPort}/api/v1/auth/me`, {
+    method: 'GET',
+    headers: {
+      Authorization: 'Bearer test-jwt-token',
+    },
+  });
+
+  assert.equal(res.status, 200);
+  const data = await res.json();
+  assert.equal(data.email, 'student@example.com');
+  assert.equal(capturedRequest.url, '/api/v1/auth/me');
+  assert.equal(capturedRequest.headers?.authorization, 'Bearer test-jwt-token');
+});
+
+test('Express Proxy: forwards POST /api/v1/auth/login with request body and forwards 401', async () => {
+  mockStatus = 401;
+  mockResponseBody = { detail: 'Incorrect email or password' };
+
+  const res = await fetch(`http://127.0.0.1:${expressPort}/api/v1/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'wrong@example.com', password: 'bad' }),
+  });
+
+  assert.equal(res.status, 401);
+  const data = await res.json();
+  assert.equal(data.detail, 'Incorrect email or password');
+  assert.equal(capturedRequest.url, '/api/v1/auth/login');
+  assert.equal(capturedRequest.body.email, 'wrong@example.com');
+});
+
+test('Express Proxy: returns 503 when FastAPI backend is unreachable for /api/v1/*', async () => {
+  const invalidUrl = 'http://127.0.0.1:59999';
+  const originalUrl = process.env.BACKEND_URL;
+  process.env.BACKEND_URL = invalidUrl;
+
+  try {
+    const res = await fetch(`http://127.0.0.1:${expressPort}/api/v1/courses`, {
+      method: 'GET',
+    });
+
+    assert.equal(res.status, 503);
+    const data = await res.json();
+    assert.match(data.detail, /backend api service unavailable/i);
+  } finally {
+    process.env.BACKEND_URL = originalUrl;
+  }
+});
+
+
+
+

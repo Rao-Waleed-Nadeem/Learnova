@@ -1,7 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LeaderboardEntry } from '../../types';
-import { Trophy, Award, Zap, X, Shield, Users } from 'lucide-react';
+import { Trophy, Award, Zap, X, Shield, Users, Eye, EyeOff } from 'lucide-react';
 import { StudentNavigationPage } from '../../components/student/StudentLayout';
+import {
+  gamificationApi,
+  mapBackendLeaderboardToLeaderboard,
+  BackendLeaderboardResponse,
+} from '../../services/api/gamificationApi';
 
 interface LeaderboardPageProps {
   leaderboard: LeaderboardEntry[];
@@ -10,11 +15,53 @@ interface LeaderboardPageProps {
 }
 
 export const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
-  leaderboard,
+  leaderboard: initialLeaderboard,
   currentStudentId,
   onNavigate,
 }) => {
   const [selectedEntry, setSelectedEntry] = useState<LeaderboardEntry | null>(null);
+  const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>(initialLeaderboard);
+  const [optedIn, setOptedIn] = useState<boolean>(true);
+  const [isTogglingOptIn, setIsTogglingOptIn] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    gamificationApi
+      .getLeaderboard()
+      .then((res: BackendLeaderboardResponse) => {
+        if (!isMounted) return;
+        if (res.leaderboard && res.leaderboard.length > 0) {
+          setLeaderboardData(res.leaderboard.map(mapBackendLeaderboardToLeaderboard));
+        }
+        setOptedIn(res.current_user_opted_in);
+      })
+      .catch(() => {
+        // Fall back to initial prop
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleToggleOptIn = async () => {
+    setIsTogglingOptIn(true);
+    try {
+      const nextVal = !optedIn;
+      await gamificationApi.updateProfile({ is_opted_in_leaderboard: nextVal });
+      setOptedIn(nextVal);
+      const res = await gamificationApi.getLeaderboard();
+      if (res.leaderboard) {
+        setLeaderboardData(res.leaderboard.map(mapBackendLeaderboardToLeaderboard));
+      }
+    } catch (e) {
+      console.warn('Failed to update leaderboard privacy:', e);
+    } finally {
+      setIsTogglingOptIn(false);
+    }
+  };
+
+  const activeLeaderboard = leaderboardData.length > 0 ? leaderboardData : initialLeaderboard;
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -29,12 +76,45 @@ export const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
         </p>
       </div>
 
+      {/* Privacy Opt-In Status Banner */}
+      <div className="p-4 rounded-xl bg-gray-50 dark:bg-[#1C212B] border border-gray-200 dark:border-gray-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-2.5">
+          {optedIn ? (
+            <Eye className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+          ) : (
+            <EyeOff className="w-4 h-4 text-gray-500" />
+          )}
+          <div>
+            <span className="font-bold text-gray-900 dark:text-white">
+              {optedIn ? 'Your profile is publicly ranked.' : 'You are currently hidden from public rankings.'}
+            </span>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400">
+              {optedIn
+                ? 'Your pseudonym and badges are visible to course peers.'
+                : 'Opt in to share your verified progress and achievements with other scholars.'}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={handleToggleOptIn}
+          disabled={isTogglingOptIn}
+          className={`px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer self-start sm:self-auto ${
+            optedIn
+              ? 'border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+              : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-2xs'
+          }`}
+        >
+          {isTogglingOptIn ? 'Saving...' : optedIn ? 'Make Private' : 'Opt In to Leaderboard'}
+        </button>
+      </div>
+
       {/* Leaderboard Table / Cards */}
       <div className="bg-white dark:bg-[#181C24] border border-[#D9DEE7] dark:border-[#2D3545] rounded-2xl shadow-xs overflow-hidden">
         <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs font-bold text-gray-700 dark:text-gray-300">
             <Users className="w-4 h-4 text-indigo-600" />
-            <span>Top Scholars ({leaderboard.length} Ranked)</span>
+            <span>Top Scholars ({activeLeaderboard.length} Ranked)</span>
           </div>
           <span className="text-[11px] text-gray-500 dark:text-gray-400">
             Click any scholar to inspect public badges
@@ -42,7 +122,7 @@ export const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
         </div>
 
         <div className="divide-y divide-gray-100 dark:divide-gray-800">
-          {leaderboard.map((entry) => {
+          {activeLeaderboard.map((entry) => {
             const isMe = entry.isCurrentUser || entry.studentId === currentStudentId;
 
             return (
