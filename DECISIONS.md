@@ -560,3 +560,58 @@
 - **Decision:** Option 2. Centralizes all AI logic in FastAPI behind `ILLMServiceAdapter`, eliminates duplicate provider code, and guarantees zero downtime cutover.
 - **Affected Files:** `frontend/server.ts`, `frontend/src/services/api/aiApi.ts`, `backend/app/ai/adapter.py`, `backend/app/api/v1/endpoints/ai.py`.
 - **Owner Status:** APPROVED & IMPLEMENTED (Phase 9).
+
+---
+
+### DEC-P9-004: Pure Express AI Proxy with Strict Controlled Failure Semantics
+- **Context:** During the initial Phase 9 implementation, `frontend/server.ts` maintained independent deterministic fallback generators for question generation and lesson simplification. When FastAPI was offline or returned error status codes (401, 403, 422, 500), Express caught the error and returned 200 OK with hardcoded items or academic summaries. This created a dual business-logic split, bypassed teacher candidate quarantine, and masked authentication/authorization errors.
+- **Options:**
+  1. Maintain deterministic fallback generators in Express for offline frontend resilience.
+  2. Remove all fake/deterministic generation from `frontend/server.ts`. Express acts purely as a thin backward-compatibility proxy forwarding request headers (including `Authorization` and `Cookie`), forwarding upstream HTTP status codes directly (400, 401, 403, 422, 429, 500), and returning a clean JSON `503 Service Unavailable` on network connection failure.
+- **Decision:** Option 2. FastAPI is the single authoritative source of AI business logic, governance, and RBAC. Express never fabricates unquarantined content or masks upstream security failures.
+- **Affected Files:** `frontend/server.ts`, `frontend/src/utils/aiProxy.test.ts`, `frontend/package.json`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 9 Corrective Refactoring).
+
+---
+
+### DEC-P9-005: Database-Authoritative Lesson Resolution and Strict Enrollment Authorization for AI Tutoring
+- **Context:** In `backend/app/services/ai_service.py`, `lesson_id` was optional. If omitted or if the lesson did not resolve in the database, enrollment verification was silently bypassed, permitting unauthenticated/unenrolled callers to reach Gemini and populate cache with arbitrary client text. Furthermore, untrusted client-supplied `req.lesson_content` was sent to Gemini instead of persisted lesson text.
+- **Options:**
+  1. Allow optional `lesson_id` with best-effort enrollment checking and fallback to client-supplied text.
+  2. Make `lesson_id` strictly required in `AISimplifyLessonRequest`. Resolve `Lesson`, `Topic`, and `Course` authoritatively from PostgreSQL (returning 404 if not found). Verify that the course is published (`Course.status == 'published'`) and the authenticated student has an active enrollment (`Enrollment.status == 'active'`) or the caller is an assigned teacher/administrator. Extract canonical content from `Lesson.description` and attached resources, ignoring any client-provided content override. Reject unauthorized requests with 401/403 before cache lookup or Gemini provider invocation.
+- **Decision:** Option 2. Guarantees zero unauthenticated LLM token consumption, prevents arbitrary text injection, and binds tutoring explanations strictly to verified, published curriculum content.
+- **Affected Files:** `backend/app/schemas/ai.py`, `backend/app/services/ai_service.py`, `frontend/src/components/student/AIHelperPanel.tsx`, `frontend/src/pages/student/LessonWorkspacePage.tsx`, `frontend/src/services/api/aiApi.ts`, `backend/tests/test_ai_authorization.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 9 Corrective Refactoring).
+
+---
+
+### DEC-P9-006: Versioned Content-Aware Cache Identity (`ns:v2`) with Cryptographic Fingerprinting
+- **Context:** AI tutoring explanations were cached using keys derived solely from titles and string metadata (`c:{course}::t:{topic}::l:{lesson}::m:{mode}::p:{prompt}::v:v1`). The cache identity omitted a hash of the actual lesson text, allowing stale explanations to be served for up to 30 days if a teacher edited lesson contents. Furthermore, cache lookups occurred before full enrollment authorization.
+- **Options:**
+  1. Invalidate cache entries by deleting rows on lesson updates via database triggers or hooks.
+  2. Introduce versioned namespace (`ns:v2`) and incorporate a cryptographic SHA-256 fingerprint of the authoritative persisted lesson text into the cache key: `ns:v2::c:{course_id}::t:{topic_id}::l:{lesson_id}::ch:{sha256(content)}::m:{mode}::pm:{sha256(prompt)}::md:{model}`. Enforce that access authorization occurs strictly before cache lookup. Old `v1` cache entries miss cleanly.
+- **Decision:** Option 2. Provides deterministic, instant cache invalidation upon lesson content modification without requiring cache purging or secondary index synchronization, while preventing unauthorized users from probing cached responses.
+- **Affected Files:** `backend/app/services/ai_service.py`, `backend/tests/test_ai_cache.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 9 Corrective Refactoring).
+
+---
+
+### DEC-P9-007: Single-Transaction Atomic Candidate Promotion with Row-Level Locking
+- **Context:** When approving an AI question candidate, `QuestionService.create_question()` performed an internal `db.commit()` before `AICandidateService.approve_candidate()` updated `cand.status` to `"approved"`. Under concurrent approval requests, two workers could simultaneously read `cand.status == "pending_review"` and create duplicate official questions in the question bank. Additionally, if the candidate status update failed, an orphaned question remained in the bank.
+- **Options:**
+  1. Add application-level distributed mutex lock via Redis.
+  2. Add `commit: bool = True` parameter to `QuestionService.create_question()` to permit callers to defer transaction commitment. In `AICandidateService.approve_candidate()`, acquire a database row-level lock via `db.query(AIQuestionCandidate).filter(...).with_for_update().first()`, re-verify status under lock (idempotently returning existing question if already approved), call `create_question(..., commit=False)`, update `cand.status = "approved"` and `cand.approved_question_id`, emit audit log, and commit atomically in one transaction. Ensure full `db.rollback()` on exception.
+- **Decision:** Option 2. Enforces the strict invariant that a candidate can become an official question only once, prevents duplicate questions and audit events under high concurrency, and guarantees rollback atomicity without adding Redis dependencies.
+- **Affected Files:** `backend/app/services/question_service.py`, `backend/app/services/ai_candidate_service.py`, `backend/tests/test_ai_candidate_governance.py`, `backend/tests/test_ai_concurrency.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 9 Corrective Refactoring).
+
+---
+
+### DEC-P9-008: Centralized PII Minimization and Prompt Boundary Defense
+- **Context:** User-submitted custom prompts and contextual queries were passed directly to Gemini without input sanitization or boundary framing. If a student or teacher accidentally included PII (emails, phone numbers, API keys, credentials) in their prompt, sensitive data was sent to the LLM provider. Additionally, string interpolation without explicit boundary tags left prompts vulnerable to instruction injection.
+- **Options:**
+  1. Rely on client-side regex checking in React.
+  2. Implement centralized, pure Python regex-based PII minimization in `backend/app/core/sanitizer.py` supporting email addresses, international phone numbers, Google API keys, generic API tokens, JWT bearer tokens, and credit card numbers while preserving code syntax and mathematical formulas. Frame user queries with `<student_query>` boundary tags with system-level instruction containment. Sanitize error logging to redact provider payload echoes.
+- **Decision:** Option 2. Centralizes privacy and security enforcement on the authoritative backend, enforces FERPA/GDPR data minimization prior to provider transmission, and hardens LLM prompts against prompt injection.
+- **Affected Files:** `backend/app/core/sanitizer.py`, `backend/app/ai/adapter.py`, `backend/tests/test_ai_privacy.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 9 Corrective Refactoring).

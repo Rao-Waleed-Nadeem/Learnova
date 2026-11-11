@@ -228,3 +228,41 @@ def test_teacher_rejects_candidate(teacher_course_context: Dict, db_session: Ses
         headers={"Authorization": f"Bearer {token}"},
     )
     assert resp_bad_app.status_code == 400
+
+
+def test_approval_transaction_rolls_back_completely_on_error(teacher_course_context: Dict, db_session: Session):
+    """Verify atomicity: if an exception occurs during approval, the entire transaction rolls back cleanly with zero questions created."""
+    from unittest.mock import patch
+    from app.services.ai_candidate_service import AICandidateService
+
+    client: TestClient = teacher_course_context["client"]
+    token = teacher_course_context["token"]
+    course = teacher_course_context["course"]
+    topic = teacher_course_context["topic"]
+    teacher = teacher_course_context["teacher"]
+
+    # 1. Generate candidate
+    resp_gen = client.post(
+        "/api/v1/ai/generate-questions",
+        json={"course_id": str(course.id), "topic_id": str(topic.id), "count": 1},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    cand_id = resp_gen.json()[0]["id"]
+    initial_q_count = db_session.query(Question).count()
+
+    # 2. Simulate failure during log_audit_event or DB commit
+    with patch("app.services.ai_candidate_service.log_audit_event", side_effect=RuntimeError("Simulated DB failure during audit")):
+        with pytest.raises(RuntimeError):
+            AICandidateService.approve_candidate(
+                db=db_session,
+                candidate_id=uuid.UUID(cand_id),
+                actor=teacher,
+            )
+
+    # 3. Assert rollback: zero new questions created, candidate status unchanged!
+    assert db_session.query(Question).count() == initial_q_count
+
+    cand_after = db_session.get(AICandidateQuestion, uuid.UUID(cand_id))
+    assert cand_after.status == "pending_review"
+    assert cand_after.approved_question_id is None
+

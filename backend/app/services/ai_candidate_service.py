@@ -6,6 +6,7 @@ from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy import desc, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.ai.adapter import AIGenerateRequest, GeminiServiceAdapter, ILLMServiceAdapter
@@ -201,10 +202,24 @@ class AICandidateService:
         candidate_id: UUID,
         actor: User,
     ) -> Question:
-        """Promote quarantined candidate question to official Question Bank through QuestionService."""
-        cand = AICandidateService.get_candidate(db, candidate_id, actor)
+        """Promote quarantined candidate question to official Question Bank through QuestionService atomically."""
+        # 1. Lock the candidate row for concurrency safety across multiple workers
+        cand = (
+            db.query(AICandidateQuestion)
+            .filter(AICandidateQuestion.id == candidate_id)
+            .with_for_update()
+            .first()
+        )
+        if not cand:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Candidate question with ID {candidate_id} not found",
+            )
 
-        # Idempotency check: if already approved, return existing question
+        # 2. Check teacher course authorization under the lock
+        QuestionService.verify_course_teacher_access(db, cand.course_id, actor)
+
+        # 3. Idempotency check under row lock: if already approved, return existing question
         if cand.status == "approved" and cand.approved_question_id:
             official_q = db.get(Question, cand.approved_question_id)
             if official_q:
@@ -216,7 +231,7 @@ class AICandidateService:
                 detail="Cannot approve a rejected candidate question without re-generating",
             )
 
-        # Convert candidate into QuestionCreateRequest
+        # 4. Convert candidate into QuestionCreateRequest
         q_create = QuestionCreateRequest(
             course_id=cand.course_id,
             topic_id=cand.topic_id,
@@ -231,31 +246,38 @@ class AICandidateService:
             answer_key=cand.answer_key,
         )
 
-        # Promote through authoritative QuestionService validation & creation
-        detail_resp = QuestionService.create_question(db, q_create, actor)
-        created_question = db.get(Question, detail_resp.id)
+        try:
+            # 5. Create official question WITHOUT committing yet (commit=False)
+            detail_resp = QuestionService.create_question(db, q_create, actor, commit=False)
+            created_question = db.get(Question, detail_resp.id)
 
-        # Link and mark candidate as approved
-        cand.status = "approved"
-        cand.approved_question_id = created_question.id
-        db.commit()
-        db.refresh(cand)
+            # 6. Link and mark candidate as approved in the SAME transaction
+            cand.status = "approved"
+            cand.approved_question_id = created_question.id
 
-        log_audit_event(
-            db,
-            action="ai_candidate_approved",
-            outcome="success",
-            actor_id=actor.id,
-            target_type="question",
-            target_id=str(created_question.id),
-            details={
-                "candidate_id": str(cand.id),
-                "course_id": str(cand.course_id),
-                "topic_id": str(cand.topic_id),
-            },
-        )
+            # 7. Audit logging
+            log_audit_event(
+                db,
+                action="ai_candidate_approved",
+                outcome="success",
+                actor_id=actor.id,
+                target_type="question",
+                target_id=str(created_question.id),
+                details={
+                    "candidate_id": str(cand.id),
+                    "course_id": str(cand.course_id),
+                    "topic_id": str(cand.topic_id),
+                },
+            )
 
-        return created_question
+            # 8. Single atomic commit
+            db.commit()
+            db.refresh(cand)
+            db.refresh(created_question)
+            return created_question
+        except Exception:
+            db.rollback()
+            raise
 
     @staticmethod
     def reject_candidate(
@@ -264,8 +286,19 @@ class AICandidateService:
         reason: Optional[str],
         actor: User,
     ) -> AICandidateQuestion:
-        """Reject quarantined candidate question with audit log."""
-        cand = AICandidateService.get_candidate(db, candidate_id, actor)
+        """Reject quarantined candidate question with audit log and concurrency locking."""
+        cand = (
+            db.query(AICandidateQuestion)
+            .filter(AICandidateQuestion.id == candidate_id)
+            .with_for_update()
+            .first()
+        )
+        if not cand:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Candidate question with ID {candidate_id} not found",
+            )
+        QuestionService.verify_course_teacher_access(db, cand.course_id, actor)
 
         # Idempotent rejection
         if cand.status == "rejected":

@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "node --test src/utils/dag.test.ts src/utils/assessment.test.ts src/utils/studentLogic.test.ts src/utils/adminLogic.test.ts"
+    "test": "node --test src/utils/dag.test.ts src/utils/assessment.test.ts src/utils/studentLogic.test.ts src/utils/adminLogic.test.ts src/utils/aiProxy.test.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

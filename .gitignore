@@ -34,3 +34,5 @@ Thumbs.db
 
 # Uncomment if the team does not share VS Code settings
 # .vscode/
+
+graphify-out/

@@ -10,8 +10,9 @@
 
 | Status | Count | Notes |
 |---|---|---|
-| **IMPLEMENTED** | 9 | Phase 1 Backend Foundation, Phase 2 Initial Domain Schema & Migrations, Phase 3 Authentication & RBAC, Phase 4 Curriculum, Enrollment, and Resources, Phase 5 Question Bank & Assessment Authoring, Phase 6 Assessment Attempts & Server-Authoritative Grading, Phase 7 Knowledge Tracing & Dynamic Mastery Engine (Stabilized), Phase 8 Gamification & Outbox Reliability Corrections (Stabilized), and Phase 9 AI Integration, Durable Caching & Teacher Governance (Verified: 162 backend tests passing [1 skipped], 29 frontend Vitest tests passing 100%, clean production Vite build). |
-| **IN_PROGRESS** | 0 | None. Phase 9 AI Integration completed; ready for Owner Acceptance (Sequence F). |
+| **IMPLEMENTED** | 8 | Phase 1 Backend Foundation, Phase 2 Initial Domain Schema & Migrations, Phase 3 Authentication & RBAC, Phase 4 Curriculum, Enrollment, and Resources, Phase 5 Question Bank & Assessment Authoring, Phase 6 Assessment Attempts & Server-Authoritative Grading, Phase 7 Knowledge Tracing & Dynamic Mastery Engine (Stabilized), Phase 8 Gamification & Outbox Reliability Corrections (Stabilized). |
+| **READY_FOR_OWNER_ACCEPTANCE** | 1 | Phase 9 AI Integration, Durable Caching, Teacher Governance & Corrective Refactoring (Verified: 184 backend tests passing [2 skipped, 0 failed], 39 frontend tests passing 100%, clean TypeScript compile, clean production Vite build). Awaiting explicit project owner acceptance. |
+| **IN_PROGRESS** | 0 | None. |
 | **PARTIAL** | 0 | (All AI capabilities transitioned to FastAPI with durable PostgreSQL persistence and teacher governance). |
 | **MOCK_ONLY** | 9 | UI screens, navigation, assessment players, and teacher/student views transition progressively to FastAPI; teacher analytics and advanced AI review remain on mock state until Phases 9 & 10. |
 | **NOT_IMPLEMENTED** | 0 | (All domain capabilities exist in mock UI form). |
@@ -184,3 +185,17 @@
 | Course Enrollment Lifecycle | `backend/app/api/v1/endpoints/enrollments.py` | `POST /courses/{id}/enrollments` | `enrollments` table (`UNIQUE` constraint) | Planned Phase 4 | **PLAN_SUBMITTED** |
 | Lesson Completion Tracking | `backend/app/api/v1/endpoints/lessons.py` | `POST /lessons/{id}/complete` | `lesson_completions` & progress recalculation | Planned Phase 4 | **PLAN_SUBMITTED** |
 | Learning Map & Readiness | `backend/app/api/v1/endpoints/enrollments.py` | `GET /courses/{id}/learning-map` | Topic readiness evaluation & DAG | Planned Phase 4 | **PLAN_SUBMITTED** |
+
+---
+
+## 10. AI Integration, Durable Caching & Corrective Stabilization (`LAY-DOMAIN` / `LAY-AI`) — Phase 9 Status
+
+| Capability / Fix | Component / Module | Scope / Endpoints | Persistence / Drivers | Verified Tests | Status |
+|:---|:---|:---|:---|:---|:---:|
+| Pure Express AI Proxy (No Fallback) | `frontend/server.ts` | `/api/ai/*` | Node/Express reverse proxy forwarding to FastAPI | `frontend/src/utils/aiProxy.test.ts` (10 tests) | **READY_FOR_OWNER_ACCEPTANCE** |
+| Persisted Lesson Tutoring Auth | `backend/app/services/ai_service.py`, `backend/app/schemas/ai.py` | `POST /api/v1/ai/simplify-lesson` | `lessons`, `courses`, `enrollments` table checks | `backend/tests/test_ai_authorization.py` (10 tests) | **READY_FOR_OWNER_ACCEPTANCE** |
+| Content-Aware Cache Identity (v2) | `backend/app/services/ai_service.py` | `POST /api/v1/ai/simplify-lesson` | `ai_content_cache` table (SHA-256 fingerprinting) | `backend/tests/test_ai_cache.py` (5 tests) | **READY_FOR_OWNER_ACCEPTANCE** |
+| Atomic Candidate Approval & Locks | `backend/app/services/ai_candidate_service.py`, `question_service.py` | `POST /api/v1/ai/candidates/{id}/approve` | `ai_question_candidates`, `questions` (row locking) | `test_ai_candidate_governance.py` (5 tests), `test_ai_concurrency.py` (7 tests) | **READY_FOR_OWNER_ACCEPTANCE** |
+| PII Minimization & Prompt Boundaries | `backend/app/core/sanitizer.py`, `backend/app/ai/adapter.py` | `ILLMServiceAdapter` input preparation | Pure Python regex + XML `<student_query>` tags | `backend/tests/test_ai_privacy.py` (8 tests) | **READY_FOR_OWNER_ACCEPTANCE** |
+| Teacher Candidate Review CRUD | `backend/app/api/v1/endpoints/ai.py` | `/api/v1/ai/candidates` CRUD | `ai_question_candidates` table | `test_ai_candidate_governance.py` | **READY_FOR_OWNER_ACCEPTANCE** |
+| Frontend AI Client Integration | `frontend/src/components/student/AIHelperPanel.tsx`, `aiApi.ts` | Student AI Panel & Workspace | Passes `lessonId` authoritatively | Vitest (39 tests) & Vite build | **READY_FOR_OWNER_ACCEPTANCE** |

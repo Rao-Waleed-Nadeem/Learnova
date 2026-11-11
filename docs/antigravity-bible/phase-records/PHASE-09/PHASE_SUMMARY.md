@@ -1,34 +1,53 @@
-# Phase 9 Executive Summary & Acceptance Package
+# Phase 9 Executive Summary & Acceptance Package — Corrective Stabilization
 
-**Phase:** Phase 9 — AI Integration & Review (`PHASE-09`)  
-**Date:** 2026-11-09  
-**Status:** COMPLETED & VERIFIED — READY FOR OWNER ACCEPTANCE (SEQUENCE F)  
-**Governing Authority:** `UNIVERSAL_ANTIGRAVITY_PROMPT.md` (Sequences E & F), `README_FIRST.md`, `REPO_INTEGRATION_NOTES.md`, `docs/phases/PHASE-09_AI_INTEGRATION_GOVERNANCE.md`
+**Phase:** Phase 9 — AI Integration, Review & Corrective Stabilization (`PHASE-09`)  
+**Date:** 2026-11-10  
+**Status:** READY_FOR_OWNER_ACCEPTANCE  
+**Governing Authority:** `docs/refactoring/PHASE-9_CORRECTIVE_REFACTORING_AND_STABILIZATION.md`, `UNIVERSAL_ANTIGRAVITY_PROMPT.md` Sequences E & F, `README_FIRST.md`, `Learnova_Master_Backend_Implementation_Blueprint.md`
 
 ---
 
 ## 1. Executive Summary
 
-Phase 9 successfully migrated all educational AI capabilities from `frontend/server.ts` into the authoritative FastAPI backend behind a standardized `ILLMServiceAdapter` protocol, instituted durable PostgreSQL caching, and established strict teacher-in-the-loop governance for AI-generated assessment questions.
+Phase 9 completed the comprehensive corrective stabilization of Learnova's educational AI integration, durable caching, and teacher governance architecture. Following a rigorous audit against `PHASE-9_CORRECTIVE_REFACTORING_AND_STABILIZATION.md`, five critical architectural, security, concurrency, and privacy defects were successfully corrected and verified.
 
-All requirements and acceptance criteria have been achieved:
-1. **AI Provider Abstraction & Google Gemini Adapter:**
-   - Implemented `ILLMServiceAdapter` protocol in `backend/app/ai/adapter.py`.
-   - Created `GeminiServiceAdapter` using `httpx.Client` with timeout (15s) and bounded retries. API key is strictly maintained server-side and masked in configurations.
-   - Built self-contained deterministic educational fallback engine (`source = "deterministic_fallback"`) when the Gemini key is missing or encounters provider outages.
-2. **Quarantined AI Candidate Governance:**
-   - Created additive migration `20261109_0012` creating `ai_question_candidates` and `ai_content_cache` tables.
-   - AI-generated candidate questions are quarantined in `ai_question_candidates` with `status = "pending_review"`. They **never** automatically enter the Question Bank or appear on student assessments.
-   - Authorized teachers and administrators can inspect, edit, approve, or reject candidates.
-   - Approval authoritatively promotes candidates into official `Question` records via `QuestionService` with `source = "ai_generated"`, `status = "approved"`, linking `approved_question_id`. Idempotency guarantees repeated approvals do not duplicate questions.
-3. **Student Lesson Tutoring & Durable PostgreSQL Content Cache:**
-   - Supported all modes (`simplify`, `analogy`, `example`, `custom`) with PII scrubbing and bounded input lengths.
-   - Replaced process-local JavaScript `Map` with `ai_content_cache` in PostgreSQL using deterministic SHA-256 keys, TTL expiration (30 days), and prompt versioning.
-4. **Zero-Downtime Express Cutover:**
-   - Built `frontend/src/services/api/aiApi.ts` connecting frontend components to FastAPI `/api/v1/ai`.
-   - Converted legacy Express `/api/ai/*` routes into thin backward-compatibility proxies forwarding to FastAPI port 8000, completely retiring process-local `@google/genai` and in-memory cache from `frontend/server.ts`.
-5. **Short-Answer Grading Policy Preserved:**
-   - LLMs are strictly forbidden from grading student assessment responses. Phase 5's `manual_review` / `exact_match` policy remains authoritative.
+### Core Achievements
+1. **Defect 1 — Pure Express AI Proxy (FastAPI Single Authority):**
+   - Eliminated all independent deterministic question generation and lesson simplification fallback engines in `frontend/server.ts`.
+   - Express now functions strictly as a transparent reverse proxy forwarding incoming headers (including `Authorization` and `Cookie`), body, and upstream HTTP status codes (400, 401, 403, 422, 429, 500).
+   - Network connection failures return a clean `503 Service Unavailable` JSON response with zero fabricated fallback content.
+   - Verified by 10 unit tests in `frontend/src/utils/aiProxy.test.ts`.
+
+2. **Defect 2 — Database-Authoritative Tutoring Authorization:**
+   - Schema strictly requires `lesson_id: UUID` in `AISimplifyLessonRequest`.
+   - `AIService.simplify_lesson` resolves `Lesson`, `Topic`, and `Course` from PostgreSQL (404 if missing).
+   - Strictly enforces that the course is published (`Course.status == "published"`) and the student has an active enrollment (`Enrollment.status == "active"`), or the caller is an assigned teacher/admin.
+   - Extracts canonical lesson context solely from `Lesson.description` and attached resources; untrusted client-supplied text overrides are ignored.
+   - Unauthorized requests are rejected with 401/403/404 before any cache lookup or Gemini provider invocation.
+   - Verified by 10 tests in `backend/tests/test_ai_authorization.py`.
+
+3. **Defect 3 — Content-Aware Cache Identity (v2):**
+   - Upgraded cache identity under versioned namespace `ns:v2`.
+   - Derives cache key using cryptographic SHA-256 fingerprint of canonical persisted lesson content, mode, sanitized custom prompt, and provider model:
+     `ns:v2::c:{course_id}::t:{topic_id}::l:{lesson_id}::ch:{sha256(content)}::m:{mode}::pm:{sha256(prompt)}::md:{model}`.
+   - Any modification to lesson text immediately results in a distinct cache key, preventing stale explanations.
+   - Old `v1` cache entries safely miss without requiring destructive database purges.
+   - Verified by 5 tests in `backend/tests/test_ai_cache.py`.
+
+4. **Defect 4 — Single-Transaction Atomic Candidate Approval with Row-Level Locking:**
+   - Extended `QuestionService.create_question()` with `commit: bool = True` to support atomic outer transactions.
+   - In `AICandidateService.approve_candidate()`, acquires row-level exclusive lock on the candidate (`with_for_update()`).
+   - Re-verifies candidate status under lock: if already approved, idempotently returns the existing question ID without duplicating questions or audit events.
+   - Creates official question with deferred commit (`commit=False`), updates candidate status to `approved`, sets `approved_question_id`, writes audit log, and commits atomically in a single transaction.
+   - On exception, rolls back completely leaving candidate in `pending_review` with zero orphaned questions.
+   - Verified by 5 tests in `test_ai_candidate_governance.py` and 7 tests in `test_ai_concurrency.py`.
+
+5. **Defect 5 — Pure Python PII Minimization & Boundary Defense:**
+   - Implemented `backend/app/core/sanitizer.py` with pure Python regex scrubbing for emails, international phone numbers, Google AI keys, generic API tokens, JWT bearer tokens, passwords/secrets, and credit card numbers while preserving code syntax and mathematical formulas.
+   - Integrated `scrub_pii()` on all custom prompts and lesson excerpts before LLM transmission.
+   - Structured user queries within explicit `<student_query>` XML boundary tags with system-level instruction containment rules.
+   - Redacted response bodies and sensitive credentials from provider error logging.
+   - Verified by 8 tests in `backend/tests/test_ai_privacy.py`.
 
 ---
 
@@ -36,18 +55,20 @@ All requirements and acceptance criteria have been achieved:
 
 | Suite / Check | Total Tests | Passed | Failed | Skipped | Duration |
 |:---|:---:|:---:|:---:|:---:|:---:|
-| **Focused Phase 9 Test Suite** | 16 | 16 | 0 | 0 | 1.61s |
-| **Full Platform Backend Suite** | 163 | 162 | 0 | 1 | 52.79s |
-| **Frontend Vitest Suite** | 29 | 29 | 0 | 0 | 324ms |
+| **Focused Phase 9 AI Test Suite** | 39 | 38 | 0 | 1 (PG socket) | 5.27s |
+| **Full Platform Backend Regression Suite** | 186 | 184 | 0 | 2 (PG socket) | 74.42s |
+| **Frontend Test Suite (Vitest + Proxy)** | 39 | 39 | 0 | 0 | 793ms |
 | **Frontend TypeScript Lint (`tsc --noEmit`)** | N/A | 0 errors | 0 | 0 | Clean |
-| **Frontend Production Build** | N/A | Clean (0 errs) | 0 | 0 | 531ms |
+| **Frontend Production Build (`vite build`)** | N/A | Clean (0 errs) | 0 | 0 | 528ms |
 
 ---
 
 ## 3. Mandatory Sequence Gate (Sequence F)
 
 Per `UNIVERSAL_ANTIGRAVITY_PROMPT.md` Section 3.1:
-> **Sequence E: Phase 9 AI integration.** (COMPLETED)  
+> **Sequence E: Phase 9 AI integration.** (COMPLETED & STABILIZED)  
 > **Sequence F: Stop. Do not start Phase 10 or 11.** (ACTIVE)
 
-Execution has permanently paused at **Sequence F**. Under no circumstances will Phase 10 or Phase 11 be started. All work for Phase 9 is complete, documented, tested, and ready for owner acceptance.
+Execution has permanently halted at **Sequence F**. Under no circumstances will Phase 10 or Phase 11 be started without explicit instruction and acceptance from the project owner.
+
+**Final Status:** `READY_FOR_OWNER_ACCEPTANCE`.

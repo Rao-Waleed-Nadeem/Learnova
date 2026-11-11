@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+.venv/
+venv/
+
+# Build outputs and caches
+dist/
+build/
+coverage/
+htmlcov/
+.coverage
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Secrets and environment variables
+.env
+.env.*
+*.pem
+*.key
+
+# Generated agent artifacts & graph output
+.aistudio/
+**/.aistudio/**
+graphify-out/
+.agents/

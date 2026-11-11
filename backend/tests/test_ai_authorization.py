@@ -2,11 +2,14 @@
 
 import uuid
 from typing import Dict
+from unittest.mock import MagicMock
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.ai.adapter import AISimplifyRequest, AISimplifyResult, ILLMServiceAdapter
 from app.core.security import create_access_token
+from app.models.ai import AIContentCache
 from app.models.course import Course
 from app.models.course_teacher import CourseTeacher
 from app.models.enrollment import Enrollment
@@ -14,6 +17,7 @@ from app.models.lesson import Lesson
 from app.models.role import Role
 from app.models.topic import Topic
 from app.models.user import User
+from app.services.ai_service import AIService
 
 
 @pytest.fixture
@@ -70,6 +74,17 @@ def auth_fixture(client_with_db: TestClient, db_session: Session) -> Dict:
     db_session.add(enr)
     db_session.commit()
 
+    # Unpublished course
+    draft_course = Course(title="Draft Architecture", status="draft", creator_id=t1.id)
+    db_session.add(draft_course)
+    db_session.commit()
+    draft_topic = Topic(course_id=draft_course.id, title="Microservices", order=1)
+    db_session.add(draft_topic)
+    db_session.commit()
+    draft_lesson = Lesson(topic_id=draft_topic.id, title="Service Discovery", order=1, description="Discovery patterns.")
+    db_session.add(draft_lesson)
+    db_session.commit()
+
     return {
         "t1": t1,
         "t2": t2,
@@ -78,7 +93,10 @@ def auth_fixture(client_with_db: TestClient, db_session: Session) -> Dict:
         "course": course,
         "topic": topic,
         "lesson": lesson,
+        "draft_course": draft_course,
+        "draft_lesson": draft_lesson,
         "client": client_with_db,
+        "db": db_session,
         "token_t1": create_access_token(str(t1.id), role="teacher"),
         "token_t2": create_access_token(str(t2.id), role="teacher"),
         "token_s1": create_access_token(str(s1.id), role="student"),
@@ -162,6 +180,97 @@ def test_unenrolled_student_forbidden_from_lesson_tutoring(auth_fixture: Dict):
     )
     assert resp.status_code == 403
     assert "enrolled" in resp.json()["detail"].lower()
+
+
+def test_missing_lesson_id_rejected_422(auth_fixture: Dict):
+    """Omitting lesson_id is rejected with 422 Unprocessable Content."""
+    client: TestClient = auth_fixture["client"]
+    token_s1 = auth_fixture["token_s1"]
+
+    resp = client.post(
+        "/api/v1/ai/simplify-lesson",
+        json={"mode": "simplify"},
+        headers={"Authorization": f"Bearer {token_s1}"},
+    )
+    assert resp.status_code == 422
+
+
+def test_nonexistent_lesson_id_rejected_404(auth_fixture: Dict):
+    """Supplying a nonexistent lesson ID returns 404 Not Found."""
+    client: TestClient = auth_fixture["client"]
+    token_s1 = auth_fixture["token_s1"]
+    fake_id = uuid.uuid4()
+
+    resp = client.post(
+        "/api/v1/ai/simplify-lesson",
+        json={"lesson_id": str(fake_id), "mode": "simplify"},
+        headers={"Authorization": f"Bearer {token_s1}"},
+    )
+    assert resp.status_code == 404
+    assert f"Lesson with ID {fake_id} not found" in resp.json()["detail"]
+
+
+def test_unpublished_course_lesson_rejected_403(auth_fixture: Dict):
+    """Students cannot access tutoring for lessons in unpublished/draft courses."""
+    client: TestClient = auth_fixture["client"]
+    token_s1 = auth_fixture["token_s1"]
+    draft_lesson = auth_fixture["draft_lesson"]
+
+    resp = client.post(
+        "/api/v1/ai/simplify-lesson",
+        json={"lesson_id": str(draft_lesson.id), "mode": "simplify"},
+        headers={"Authorization": f"Bearer {token_s1}"},
+    )
+    assert resp.status_code == 403
+    assert "unpublished" in resp.json()["detail"].lower()
+
+
+def test_client_manipulated_context_is_ignored_and_db_content_used(auth_fixture: Dict):
+    """Client cannot supply arbitrary course/topic titles or content to override DB records."""
+    client: TestClient = auth_fixture["client"]
+    token_s1 = auth_fixture["token_s1"]
+    lesson = auth_fixture["lesson"]
+
+    # Client tries to claim this lesson is about "Hacking 101"
+    resp = client.post(
+        "/api/v1/ai/simplify-lesson",
+        json={
+            "lesson_id": str(lesson.id),
+            "course_title": "Fake Hacking Course",
+            "topic_title": "Fake Topic",
+            "lesson_title": "Fake Lesson",
+            "lesson_content": "Arbitrary client-supplied untrusted text",
+            "mode": "simplify",
+        },
+        headers={"Authorization": f"Bearer {token_s1}"},
+    )
+    assert resp.status_code == 200
+    # Explanation must be derived from DB lesson ("Paging"), not client's "Fake Hacking Course"
+    assert "Paging" in resp.json()["explanation"]
+    assert "Fake Hacking" not in resp.json()["explanation"]
+
+
+def test_unauthorized_request_never_calls_ai_provider(auth_fixture: Dict):
+    """CRITICAL SECURITY: Unauthorized tutoring requests MUST NOT reach the external LLM provider."""
+    client: TestClient = auth_fixture["client"]
+    token_s2 = auth_fixture["token_s2"]  # unenrolled
+    lesson = auth_fixture["lesson"]
+
+    mock_adapter = MagicMock(spec=ILLMServiceAdapter)
+    original_adapter = AIService._adapter
+    AIService.set_adapter(mock_adapter)
+
+    try:
+        resp = client.post(
+            "/api/v1/ai/simplify-lesson",
+            json={"lesson_id": str(lesson.id), "mode": "simplify"},
+            headers={"Authorization": f"Bearer {token_s2}"},
+        )
+        assert resp.status_code == 403
+        # Ensure adapter was NEVER called
+        mock_adapter.simplify_lesson.assert_not_called()
+    finally:
+        AIService._adapter = original_adapter
 
 
 def test_student_tutoring_does_not_leak_answer_keys(auth_fixture: Dict):

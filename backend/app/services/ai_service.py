@@ -8,13 +8,16 @@ from sqlalchemy.orm import Session
 
 from app.ai.adapter import AISimplifyRequest, GeminiServiceAdapter, ILLMServiceAdapter
 from app.core.config import settings
+from app.core.sanitizer import scrub_pii
 from app.models.ai import AIContentCache
 from app.models.course import Course
 from app.models.enrollment import Enrollment
 from app.models.lesson import Lesson
+from app.models.resource import LearningResource
 from app.models.topic import Topic
 from app.models.user import User
 from app.schemas.ai import AISimplifyLessonRequest, AISimplifyLessonResponse
+from app.services.question_service import QuestionService
 from fastapi import HTTPException, status
 
 
@@ -41,21 +44,22 @@ class AIService:
 
     @staticmethod
     def _compute_cache_key(
-        course_title: str,
-        topic_title: str,
-        lesson_title: str,
+        lesson_id: uuid.UUID,
+        content_hash: str,
         mode: str,
         custom_prompt: Optional[str] = None,
-        prompt_version: str = "v1",
+        model: str = "gemini-2.5-flash",
+        prompt_version: str = "v2",
     ) -> str:
-        """Compute deterministic SHA-256 hash for cached explanation retrieval."""
+        """Compute deterministic versioned SHA-256 hash for content-aware cached explanation retrieval."""
+        clean_prompt = (custom_prompt or "").strip().lower()
         raw = (
-            f"c:{course_title.strip().lower()}::"
-            f"t:{topic_title.strip().lower()}::"
-            f"l:{lesson_title.strip().lower()}::"
-            f"m:{mode.strip().lower()}::"
-            f"p:{(custom_prompt or '').strip().lower()}::"
-            f"v:{prompt_version}"
+            f"ns:{prompt_version}::"
+            f"m:{model.strip().lower()}::"
+            f"lid:{str(lesson_id).lower()}::"
+            f"ch:{content_hash}::"
+            f"mode:{mode.strip().lower()}::"
+            f"p:{clean_prompt}"
         )
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
@@ -65,48 +69,110 @@ class AIService:
         req: AISimplifyLessonRequest,
         actor: User,
     ) -> AISimplifyLessonResponse:
-        """Provide student/teacher lesson explanation with durable cache check and fallback."""
-        # Optional validation: if lesson_id provided, verify enrollment / access
-        course_title = req.course_title or "Course"
-        topic_title = req.topic_title or "Topic"
-        lesson_title = req.lesson_title or "Lesson"
-        lesson_content = req.lesson_content or ""
+        """Provide student/teacher lesson explanation with authoritative DB resolution, RBAC, and durable cache."""
+        # 1. Require and resolve persisted lesson
+        if not req.lesson_id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="A valid lesson_id is required for AI lesson tutoring",
+            )
 
-        if req.lesson_id:
-            lesson = db.get(Lesson, req.lesson_id)
-            if lesson:
-                lesson_title = lesson.title
-                topic = db.get(Topic, lesson.topic_id)
-                if topic:
-                    topic_title = topic.title
-                    course = db.get(Course, topic.course_id)
-                    if course:
-                        course_title = course.title
-                        # If student, verify active enrollment
-                        if actor.role.name == "student":
-                            enr = (
-                                db.query(Enrollment)
-                                .filter(
-                                    Enrollment.student_id == actor.id,
-                                    Enrollment.course_id == course.id,
-                                    Enrollment.status == "active",
-                                )
-                                .first()
-                            )
-                            if not enr:
-                                raise HTTPException(
-                                    status_code=status.HTTP_403_FORBIDDEN,
-                                    detail="Must be enrolled in the course to access lesson AI tutoring",
-                                )
+        lesson = db.get(Lesson, req.lesson_id)
+        if not lesson:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Lesson with ID {req.lesson_id} not found",
+            )
 
-        # 1. Check durable PostgreSQL content cache
+        # 2. Resolve parent Topic and Course relationships from database
+        topic = db.get(Topic, lesson.topic_id)
+        if not topic:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Lesson topic not found",
+            )
+
+        course = db.get(Course, topic.course_id)
+        if not course:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Course not found",
+            )
+
+        # 3. Enforce strict server-side authorization BEFORE accessing cache or LLM
+        actor_role = actor.role.name if (actor.role and actor.role.name) else "student"
+
+        if actor_role == "student":
+            # Student must be actively enrolled in published course
+            if course.status != "published":
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Cannot access tutoring for an unpublished course",
+                )
+
+            enr = (
+                db.query(Enrollment)
+                .filter(
+                    Enrollment.student_id == actor.id,
+                    Enrollment.course_id == course.id,
+                    Enrollment.status == "active",
+                )
+                .first()
+            )
+            if not enr:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Must be enrolled in the course to access lesson AI tutoring",
+                )
+        elif actor_role == "teacher":
+            # Teacher must be assigned to course or creator
+            QuestionService.verify_course_teacher_access(db, course.id, actor)
+        elif actor_role == "administrator":
+            # Admin permitted
+            pass
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to access lesson tutoring",
+            )
+
+        # 4. Extract authoritative canonical persisted lesson content (ignore untrusted client text)
+        course_title = course.title
+        topic_title = topic.title
+        lesson_title = lesson.title
+
+        lesson_desc = lesson.description or ""
+        resources = (
+            db.query(LearningResource)
+            .filter(LearningResource.lesson_id == lesson.id)
+            .order_by(LearningResource.created_at)
+            .all()
+        )
+        resource_snippets = []
+        for res_item in resources:
+            if res_item.type in ("markdown", "document", "code"):
+                resource_snippets.append(f"[{res_item.title}]: {res_item.content_or_url}")
+
+        if resource_snippets:
+            canonical_content = f"{lesson_desc}\n" + "\n".join(resource_snippets)
+        else:
+            canonical_content = lesson_desc or f"Foundational curriculum concepts for {lesson_title}."
+        canonical_content = canonical_content.strip()
+
+        # 5. Compute cryptographic content fingerprint
+        content_hash = hashlib.sha256(canonical_content.encode("utf-8")).hexdigest()[:16]
+
+        # 6. Scrub PII from custom prompt
+        clean_custom_prompt = scrub_pii(req.custom_prompt) if req.custom_prompt else None
+
+        # 7. Check durable PostgreSQL content cache with versioned content-aware key
         cache_key = AIService._compute_cache_key(
-            course_title=course_title,
-            topic_title=topic_title,
-            lesson_title=lesson_title,
+            lesson_id=lesson.id,
+            content_hash=content_hash,
             mode=req.mode,
-            custom_prompt=req.custom_prompt,
-            prompt_version="v1",
+            custom_prompt=clean_custom_prompt,
+            model=settings.GEMINI_MODEL,
+            prompt_version="v2",
         )
 
         now = datetime.now(timezone.utc)
@@ -134,23 +200,23 @@ class AIService:
                 explanation=cached.content,
                 source=source_label,
                 is_cached=True,
-                prompt_used=req.custom_prompt or req.mode,
+                prompt_used=clean_custom_prompt or req.mode,
             )
 
-        # 2. Invoke adapter (PII minimized: no student identity dispatched)
+        # 8. Invoke provider adapter with minimized, scrubbed payload
         adapter = AIService.get_adapter()
         adapter_req = AISimplifyRequest(
             course_title=course_title,
             topic_title=topic_title,
             lesson_title=lesson_title,
-            lesson_content=lesson_content,
+            lesson_content=canonical_content,
             mode=req.mode,
-            custom_prompt=req.custom_prompt,
+            custom_prompt=clean_custom_prompt,
         )
 
         res = adapter.simplify_lesson(adapter_req)
 
-        # 3. Save / Upsert into durable PostgreSQL content cache
+        # 9. Save / Upsert into durable PostgreSQL content cache
         ttl_days = settings.AI_CACHE_TTL_DAYS
         expires_at = now + timedelta(days=ttl_days)
 
@@ -160,6 +226,7 @@ class AIService:
             cached.source = res.source
             cached.provider = "gemini" if res.source == "gemini" else "deterministic_fallback"
             cached.model = settings.GEMINI_MODEL
+            cached.prompt_version = "v2"
             cached.created_at = now
             cached.expires_at = expires_at
         else:
@@ -170,7 +237,7 @@ class AIService:
                 source=res.source,
                 provider="gemini" if res.source == "gemini" else "deterministic_fallback",
                 model=settings.GEMINI_MODEL,
-                prompt_version="v1",
+                prompt_version="v2",
                 created_at=now,
                 expires_at=expires_at,
             )

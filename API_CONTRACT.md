@@ -101,78 +101,64 @@ These are the ONLY endpoints currently existing and functional in the repository
 
 ---
 
-### 2.2 AI Candidate Question Generation (Express)
+### 2.2 AI Candidate Question Generation (Express Compatibility Proxy)
 - **Method & Path:** `POST /api/ai/generate-questions`
 - **Host / Port:** `http://localhost:3000`
-- **Ownership:** Express (`frontend/server.ts:15`)
-- **Authentication:** None (relies on server-side `GEMINI_API_KEY`)
+- **Ownership:** Express (`frontend/server.ts`) — Pure reverse proxy forwarding to FastAPI (`http://localhost:8000/api/v1/ai/generate-questions`).
+- **Authentication:** Forwards `Authorization` header and `Cookie` to FastAPI; requires teacher or administrator credentials.
 - **Request Body:**
   ```json
   {
-    "courseTitle": "string (optional)",
-    "topicTitle": "string (optional)",
-    "sourceContent": "string (optional)",
-    "questionTypes": ["multiple_choice" | "true_false" | "fill_blank" | "matching" | "short_answer"],
+    "course_id": "UUID (required)",
+    "topic_id": "UUID (optional)",
+    "source_content": "string (optional)",
+    "question_types": ["multiple_choice" | "true_false" | "fill_blank" | "matching" | "short_answer"],
     "difficulty": "easy" | "medium" | "hard",
     "count": 3
   }
   ```
 - **Response Format (`200 OK`):**
-  ```json
-  {
-    "success": true,
-    "candidates": [
-      {
-        "id": "string",
-        "prompt": "string",
-        "type": "multiple_choice | true_false | fill_blank | matching | short_answer",
-        "difficulty": "easy | medium | hard",
-        "points": 2,
-        "explanation": "string",
-        "sourceContext": "string",
-        "options": [
-          { "id": "opt-1", "text": "string", "isCorrect": true }
-        ],
-        "correctBool": true,
-        "acceptedAnswers": ["string"],
-        "matchingPairs": [{ "id": "p1", "left": "string", "right": "string" }],
-        "expectedRubric": "string"
-      }
-    ],
-    "source": "gemini" | "deterministic_engine"
-  }
-  ```
-- **Behavior:** Attempts Gemini 2.5 Flash API call. If key is missing or call fails, gracefully falls back to deterministic educational items.
+  Forwards exact FastAPI response payload with candidate list quarantined in `pending_review` status.
+- **Error Responses:**
+  - Upstream errors (400, 401, 403, 422, 429, 500) are forwarded directly with their upstream status and JSON body.
+  - On network connection failure to FastAPI, returns `503 Service Unavailable`:
+    ```json
+    {
+      "error": "AI service unavailable",
+      "message": "Failed to connect to backend AI service",
+      "status_code": 503
+    }
+    ```
+- **Behavior:** Acts strictly as a transparent proxy. Zero in-memory deterministic fallback items are generated.
 
 ---
 
-### 2.3 AI Lesson Simplification & Tutoring (Express)
+### 2.3 AI Lesson Simplification & Tutoring (Express Compatibility Proxy)
 - **Method & Path:** `POST /api/ai/simplify-lesson`
 - **Host / Port:** `http://localhost:3000`
-- **Ownership:** Express (`frontend/server.ts:160`)
-- **Authentication:** None (relies on server-side `GEMINI_API_KEY`)
+- **Ownership:** Express (`frontend/server.ts`) — Pure reverse proxy forwarding to FastAPI (`http://localhost:8000/api/v1/ai/simplify-lesson`).
+- **Authentication:** Forwards `Authorization` header and `Cookie` to FastAPI; requires active student enrollment or assigned teacher access.
 - **Request Body:**
   ```json
   {
-    "lessonTitle": "string",
-    "topicTitle": "string",
-    "courseTitle": "string",
-    "lessonContent": "string",
-    "customPrompt": "string (optional)",
-    "mode": "simplify" | "analogy" | "example" | "custom"
+    "lesson_id": "UUID (required)",
+    "mode": "simplify" | "analogy" | "example" | "custom",
+    "custom_prompt": "string (optional)"
   }
   ```
 - **Response Format (`200 OK`):**
-  ```json
-  {
-    "success": true,
-    "explanation": "Markdown formatted explanation text",
-    "source": "gemini" | "gemini_cache" | "academic_cache",
-    "isCached": true | false,
-    "promptUsed": "string"
-  }
-  ```
-- **Behavior:** Implements in-memory caching keyed by `courseTitle::topicTitle::lessonTitle::mode::customPrompt`. If cached, returns `source: "gemini_cache"`. Otherwise calls Gemini 2.5 Flash or falls back to academic templates (`academic_cache`).
+  Forwards exact FastAPI response payload (`explanation`, `source`, `is_cached`, `prompt_used`).
+- **Error Responses:**
+  - Upstream errors (400, 401, 403, 404, 422, 429, 500) are forwarded directly with their upstream status and JSON body.
+  - On network connection failure to FastAPI, returns `503 Service Unavailable`:
+    ```json
+    {
+      "error": "AI service unavailable",
+      "message": "Failed to connect to backend AI service",
+      "status_code": 503
+    }
+    ```
+- **Behavior:** Acts strictly as a transparent proxy. No in-memory cache and no fallback templates exist in Express. Fast-path authorization, database-authoritative lesson resolution, and durable caching are handled entirely by FastAPI.
 
 ---
 
@@ -253,16 +239,22 @@ These endpoints represent the target FastAPI architecture planned across Phases 
 - `GET /api/v1/gamification/challenges` — Active learning challenges with current student progress tracking.
 - `POST /api/v1/gamification/process-events` — Worker dispatcher endpoint to drain and process pending domain outbox events (`domain_outbox_events`). Requires `administrator` role (`require_role("administrator")`); processes events with row locking (`FOR UPDATE SKIP LOCKED` on PostgreSQL), retry tracking, exponential backoff, and dead-lettering at 5 retries. Standalone CLI worker entrypoint available at `python -m app.workers.outbox_worker`.
 
-### 3.7 AI Integration & Review (`/api/v1/ai`) — Phase 9 Verified & Implemented
-- `POST /api/v1/ai/simplify-lesson` — Student and teacher lesson tutoring, analogies, worked examples, and contextual clarifications with PII scrubbing and durable PostgreSQL content caching (`ai_content_cache`).
+### 3.7 AI Integration & Review (`/api/v1/ai`) — Phase 9 Verified & Stabilized
+- `POST /api/v1/ai/simplify-lesson` — Student and teacher lesson tutoring, analogies, worked examples, and contextual clarifications.
+  - **Inputs:** `lesson_id` (UUID, strictly required), `mode` (`"simplify"` | `"analogy"` | `"example"` | `"custom"`), optional `custom_prompt` (string).
+  - **Authorization:** Authenticated caller. Resolves `Lesson`, `Topic`, and `Course` from PostgreSQL (returns 404 if not found). For students, strictly enforces that `Course.status == "published"` and the student has an active enrollment (`Enrollment.status == "active"`). For teachers, verifies course assignment via `QuestionService.verify_course_teacher_access()`. Unauthorized callers receive 401 or 403 before any cache lookup or Gemini provider invocation.
+  - **Authoritative Resolution:** Tutoring context is extracted solely from persisted DB records (`Lesson.description` + attached `LearningResource`). Client-supplied text overrides are ignored.
+  - **Content-Aware Caching:** Durable PostgreSQL cache (`ai_content_cache`) lookup occurs strictly after authorization. Keys use namespace `ns:v2` and incorporate SHA-256 cryptographic fingerprints of authoritative lesson content, prompt mode, normalized custom prompt, and provider model: `ns:v2::c:{course_id}::t:{topic_id}::l:{lesson_id}::ch:{sha256(content)}::m:{mode}::pm:{sha256(prompt)}::md:{model}`. Lesson content edits immediately trigger cache misses.
+  - **PII Minimization & Prompt Boundaries:** Custom prompts and content excerpts are sanitized via pure Python regex (`scrub_pii`) removing emails, international phone numbers, Google API keys, bearer tokens, and credit cards. Untrusted queries are enclosed in `<student_query>` XML boundaries with anti-injection instructions. Provider error logging redacts response payloads and credentials.
 - `POST /api/v1/ai/generate-questions` — Course-scoped candidate question generation for assigned teachers and administrators (`require_role("teacher", "administrator")`); outputs are strictly quarantined in `ai_question_candidates` with `status = "pending_review"` and never appear on assessments without review.
 - `GET /api/v1/ai/candidates` — List quarantined candidate questions filtered by `course_id`, `topic_id`, and `status`.
 - `GET /api/v1/ai/candidates/{id}` — Detailed candidate question inspection for teacher audit.
 - `PATCH /api/v1/ai/candidates/{id}` — Edit candidate question prompt, difficulty, points, options, or rubric prior to approval.
-- `POST /api/v1/ai/candidates/{id}/approve` — Authoritatively promote candidate to official `Question` in the Question Bank via `QuestionService` with `source = "ai_generated"`, `status = "approved"`, linking `approved_question_id`. Idempotent.
-- `POST /api/v1/ai/candidates/{id}/reject` — Reject candidate question with recorded reason and security audit log. Idempotent.
+- `POST /api/v1/ai/candidates/{id}/approve` — Authoritatively promote candidate to official `Question` in the Question Bank via `QuestionService` with `source = "ai_generated"`, `status = "approved"`, linking `approved_question_id`.
+  - **Single-Transaction Atomicity:** Acquires row-level exclusive lock on the candidate (`with_for_update()`). Re-verifies status under lock; if already approved, idempotently returns the existing question ID without duplicating items or audit logs. Calls `QuestionService.create_question(..., commit=False)` within the locked transaction, updates candidate `status = "approved"` and `approved_question_id`, writes audit log, and commits all changes atomically in one transaction. Full database rollback on error ensures candidate remains `pending_review` with zero orphaned questions.
+- `POST /api/v1/ai/candidates/{id}/reject` — Reject candidate question with recorded reason and security audit log. Acquires row-level lock (`with_for_update()`); idempotent.
 
-### 3.7 Administration & Analytics (`/api/v1/admin`, `/api/v1/teacher`) — Planned Phase 10
+### 3.8 Administration & Analytics (`/api/v1/admin`, `/api/v1/teacher`) — Planned Phase 10
 - `GET /api/v1/teacher/analytics/{course_id}` — Class performance and mastery heatmap.
 - `GET /api/v1/admin/users` — User management and account listings.
 - `PUT /api/v1/admin/users/{id}/role` — Change user role (with safeguards preventing self-demotion or demoting last admin).

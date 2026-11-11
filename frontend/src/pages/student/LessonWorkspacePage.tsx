@@ -294,6 +294,7 @@ export const LessonWorkspacePage: React.FC<LessonWorkspacePageProps> = ({
       <AIHelperPanel
         isOpen={isAIOpen}
         onClose={() => setIsAIOpen(false)}
+        lessonId={lesson?.id || lessonId}
         lessonTitle={lesson?.title || 'Current Lesson'}
         topicTitle={topic?.title || 'Topic'}
         courseTitle={course?.title || 'Course'}

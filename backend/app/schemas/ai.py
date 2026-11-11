@@ -9,13 +9,13 @@ from pydantic import BaseModel, ConfigDict, Field
 class AISimplifyLessonRequest(BaseModel):
     """Request schema for student/teacher lesson tutoring and explanation."""
 
-    course_title: Optional[str] = "Course"
-    topic_title: Optional[str] = "Topic"
-    lesson_title: Optional[str] = "Lesson"
-    lesson_content: Optional[str] = Field(default="", max_length=4000)
+    lesson_id: uuid.UUID = Field(..., description="Required persisted lesson ID")
     mode: str = Field(default="simplify", pattern="^(simplify|analogy|example|custom)$")
     custom_prompt: Optional[str] = Field(default=None, max_length=500)
-    lesson_id: Optional[uuid.UUID] = None
+    course_title: Optional[str] = None
+    topic_title: Optional[str] = None
+    lesson_title: Optional[str] = None
+    lesson_content: Optional[str] = Field(default=None, max_length=4000)
 
     model_config = ConfigDict(populate_by_name=True)
 

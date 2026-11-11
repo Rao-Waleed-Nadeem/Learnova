@@ -373,7 +373,12 @@ class QuestionService:
         )
 
     @staticmethod
-    def create_question(db: Session, req: QuestionCreateRequest, actor: User) -> QuestionDetailResponse:
+    def create_question(
+        db: Session,
+        req: QuestionCreateRequest,
+        actor: User,
+        commit: bool = True,
+    ) -> QuestionDetailResponse:
         """Create a new validated question in the course question bank."""
         QuestionService.verify_course_teacher_access(db, req.course_id, actor)
 
@@ -423,8 +428,12 @@ class QuestionService:
             answer_key=answer_key,
         )
         db.add(question)
-        db.commit()
-        db.refresh(question)
+        if commit:
+            db.commit()
+            db.refresh(question)
+        else:
+            db.flush()
+            db.refresh(question)
 
         log_audit_event(
             db=db,

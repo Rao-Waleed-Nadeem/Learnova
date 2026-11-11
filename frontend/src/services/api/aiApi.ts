@@ -91,7 +91,7 @@ class AIApiClient {
       lesson_content: req.lessonContent,
       mode: req.mode,
       custom_prompt: req.customPrompt,
-      lesson_id: req.lessonId,
+      lesson_id: req.lessonId || (req as any).lesson_id,
     };
 
     const res = await fetch('/api/v1/ai/simplify-lesson', {

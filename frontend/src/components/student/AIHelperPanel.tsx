@@ -9,6 +9,7 @@ interface AIHelperPanelProps {
   topicTitle: string;
   courseTitle: string;
   lessonContent: string;
+  lessonId?: string;
 }
 
 export const AIHelperPanel: React.FC<AIHelperPanelProps> = ({
@@ -18,6 +19,7 @@ export const AIHelperPanel: React.FC<AIHelperPanelProps> = ({
   topicTitle,
   courseTitle,
   lessonContent,
+  lessonId,
 }) => {
   const [mode, setMode] = useState<'simplify' | 'analogy' | 'example' | 'custom'>('simplify');
   const [customPrompt, setCustomPrompt] = useState('');
@@ -42,6 +44,7 @@ export const AIHelperPanel: React.FC<AIHelperPanelProps> = ({
 
       try {
         const data = await aiApi.simplifyLesson({
+          lessonId,
           lessonTitle,
           topicTitle,
           courseTitle,
@@ -60,6 +63,7 @@ export const AIHelperPanel: React.FC<AIHelperPanelProps> = ({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            lessonId,
             lessonTitle,
             topicTitle,
             courseTitle,
