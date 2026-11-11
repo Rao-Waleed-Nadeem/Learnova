@@ -14,6 +14,8 @@ from app.api.v1.endpoints import (
     lessons,
     mastery,
     questions,
+    student_analytics,
+    teacher_analytics,
     topics,
     users,
 )
@@ -23,6 +25,8 @@ api_router.include_router(health.router, prefix="/health", tags=["health"])
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
 api_router.include_router(admin.router, prefix="/admin", tags=["admin"])
+api_router.include_router(student_analytics.router, prefix="/students", tags=["student-analytics"])
+api_router.include_router(teacher_analytics.router, prefix="/teacher", tags=["teacher-analytics"])
 api_router.include_router(courses.router, prefix="/courses", tags=["courses"])
 api_router.include_router(topics.router, prefix="", tags=["topics"])
 api_router.include_router(lessons.router, prefix="", tags=["lessons", "resources"])

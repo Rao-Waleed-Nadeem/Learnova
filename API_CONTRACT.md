@@ -254,13 +254,66 @@ These endpoints represent the target FastAPI architecture planned across Phases 
   - **Single-Transaction Atomicity:** Acquires row-level exclusive lock on the candidate (`with_for_update()`). Re-verifies status under lock; if already approved, idempotently returns the existing question ID without duplicating items or audit logs. Calls `QuestionService.create_question(..., commit=False)` within the locked transaction, updates candidate `status = "approved"` and `approved_question_id`, writes audit log, and commits all changes atomically in one transaction. Full database rollback on error ensures candidate remains `pending_review` with zero orphaned questions.
 - `POST /api/v1/ai/candidates/{id}/reject` — Reject candidate question with recorded reason and security audit log. Acquires row-level lock (`with_for_update()`); idempotent.
 
-### 3.8 Administration & Analytics (`/api/v1/admin`, `/api/v1/teacher`) — Planned Phase 10
-- `GET /api/v1/teacher/analytics/{course_id}` — Class performance and mastery heatmap.
-- `GET /api/v1/admin/users` — User management and account listings.
-- `PUT /api/v1/admin/users/{id}/role` — Change user role (with safeguards preventing self-demotion or demoting last admin).
-- `PUT /api/v1/admin/users/{id}/status` — Activate/deactivate user account.
-- `GET /api/v1/admin/audit-logs` — Immutable system audit log.
-- `GET /api/v1/admin/system-health` — Real-time backend, DB, and external service health diagnostics.
+### 3.8 Administration, Analytics, and Diagnostics (`/api/v1/students/me`, `/api/v1/teacher`, `/api/v1/admin`) — Phase 10 Verified & Stabilized
+
+#### Student Personal Analytics (`/api/v1/students/me`)
+- `GET /api/v1/students/me/dashboard` — Authenticated student overview dashboard.
+  - **Authorization:** `require_role("student")`.
+  - **Payload:** Returns enrolled course progress summaries (`enrolled_courses`), recent graded attempts (`recent_attempts`), recent learning activities (`recent_activities`), and gamification profile summary (`gamification`).
+  - **Invariants:** Strictly isolated to caller's `current_user.id`. Mastery is never calculated from gamification XP.
+- `GET /api/v1/students/me/analytics` — Detailed student cognitive progress analytics.
+  - **Query Parameters:** `course_id` (optional UUID filter).
+  - **Payload:** Course syllabus topic masteries (`topic_masteries`), dynamic weak topics list (`weak_topics`), chronological score trajectory trends (`attempt_trends`), and overall engagement counts.
+  - **Invariants:** Dynamic weak topic evaluation (`mastery_percent < Topic.mastery_threshold`); `not_assessed` topics are strictly excluded from weak lists (DEC-P10-002). In-progress and unsubmitted attempts are excluded from trend lines and score averages.
+- `GET /api/v1/students/me/attempts` — Paginated assessment attempts history for authenticated student.
+  - **Query Parameters:** `course_id` (optional UUID), `assessment_id` (optional UUID), `limit` (default 20, max 100), `offset` (default 0).
+  - **Payload:** Paginated list of attempts ordered newest first with total count.
+
+#### Teacher Reporting & Class Analytics (`/api/v1/teacher`)
+- `GET /api/v1/teacher/dashboard` — Teacher multi-course overview dashboard.
+  - **Authorization:** `require_role("teacher", "administrator")`.
+  - **Payload:** Summaries of assigned courses (`assigned_courses`), total students reached (`total_students_reach`), and total active assessments (`total_active_assessments`).
+  - **Invariants:** Scoped strictly to courses assigned in `course_teachers` for teachers; administrators see all courses (DEC-P10-001).
+- `GET /api/v1/teacher/courses/{id}/analytics` — Comprehensive course-level class performance analytics.
+  - **Authorization:** `require_role("teacher", "administrator")` + course teacher assignment check.
+  - **Query Parameters:** `timeframe` (`"all"` | `"30d"` | `"7d"`).
+  - **Payload:** Overall class average mastery, topic mastery distribution heatmap (`topic_mastery_distribution` with counts for mastered, competent, developing, and not_assessed), class weak concepts (`weak_concepts`), assessment score distribution bands (`0-49%`, `50-69%`, `70-84%`, `85-100%`), assessment summaries, and at-risk students list (`at_risk_students`).
+  - **Invariants:** Empty cohorts return `null` averages (never fabricated zeros). Unassigned teachers receive 403 Forbidden.
+- `GET /api/v1/teacher/courses/{id}/students/{student_id}/analytics` — Teacher drilldown into an enrolled student's course performance.
+  - **Authorization:** `require_role("teacher", "administrator")` + course teacher assignment check + active student course enrollment check.
+  - **Payload:** Detailed course lesson progress, topic mastery states, and weak topics for the specific student.
+  - **Invariants:** Returns 404 if the student is not actively enrolled in the course.
+- `GET /api/v1/teacher/courses/{id}/students/{student_id}/attempts` — Teacher drilldown into an enrolled student's course assessment attempts.
+  - **Authorization:** `require_role("teacher", "administrator")` + course teacher assignment check + active student course enrollment check.
+  - **Query Parameters:** `limit` (default 20, max 100), `offset` (default 0).
+  - **Payload:** Paginated assessment attempts history for the enrolled student within the course scope.
+
+#### Platform Administration, Directory, Audit & Diagnostics (`/api/v1/admin`)
+- `GET /api/v1/admin/dashboard` — High-level platform KPIs dashboard.
+  - **Authorization:** `require_role("administrator")`.
+  - **Payload:** Platform aggregations: user counts by role and active status (`users`), curriculum volume (`curriculum`), enrollment volume (`enrollments`), assessment attempts (`assessments`), and 24-hour security audit metrics (`security_audit`).
+- `GET /api/v1/admin/users` — Paginated user directory with multi-attribute filtering.
+  - **Authorization:** `require_role("administrator")`.
+  - **Query Parameters:** `role` (optional), `is_active` (optional), `search` (optional substring match on email or full name), `limit` (default 20, max 100), `offset` (default 0).
+  - **Payload:** Paginated list of `UserResponse` objects with safe profile projections.
+  - **Invariants:** Password hashes, salt strings, auth tokens, and session secrets are strictly redacted (DEC-P10-004).
+- `GET /api/v1/admin/users/{user_id}` — Detailed single user inspection.
+  - **Authorization:** `require_role("administrator")`.
+  - **Payload:** User profile plus contextual platform metrics (`enrolled_courses_count`, `assigned_courses_count`, `completed_attempts_count`, `security_audit_events_count`).
+- `PUT /api/v1/admin/users/{id}/role` — Authoritative user role mutation.
+  - **Authorization:** `require_role("administrator")`.
+  - **Safeguards:** Enforces anti-lockout protection: blocks self-demotion and prevents demoting the last active administrator. Writes immutable audit log.
+- `PUT /api/v1/admin/users/{id}/status` — Account active status toggle.
+  - **Authorization:** `require_role("administrator")`.
+  - **Safeguards:** Blocks self-deactivation and deactivating the last active administrator. Writes immutable audit log.
+- `GET /api/v1/admin/audit-logs` — Immutable security audit log viewer.
+  - **Authorization:** `require_role("administrator")`.
+  - **Query Parameters:** `action`, `outcome`, `actor_id`, `from_date`, `to_date`, `limit` (default 50, max 100), `offset` (default 0).
+  - **Payload:** Paginated list of `SecurityAuditEventResponse` records ordered newest first.
+- `GET /api/v1/admin/system/health` — Safe operational system diagnostics.
+  - **Authorization:** `require_role("administrator")`.
+  - **Payload:** Database ping latency (ms), connection pool sizing, Alembic current revision head and sync status, domain outbox queue backlog, AI service status, application version, and server timestamp.
+  - **Invariants:** Credentials, connection strings, API keys, and secrets are strictly redacted from output (DEC-P10-004).
 
 ---
 

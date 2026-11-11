@@ -615,3 +615,47 @@
 - **Decision:** Option 2. Centralizes privacy and security enforcement on the authoritative backend, enforces FERPA/GDPR data minimization prior to provider transmission, and hardens LLM prompts against prompt injection.
 - **Affected Files:** `backend/app/core/sanitizer.py`, `backend/app/ai/adapter.py`, `backend/tests/test_ai_privacy.py`.
 - **Owner Status:** APPROVED & IMPLEMENTED (Phase 9 Corrective Refactoring).
+
+---
+
+### DEC-P10-001: Teacher Course Access Scoping via `CourseTeacher` Junction
+- **Context:** Teachers must only access analytics, grade distributions, and student performance reports for courses to which they are assigned. Unassigned teachers must not inspect course data or student attempts. Administrators require full system-wide reporting capability.
+- **Options:**
+  1. Client-side filtering of courses based on user role.
+  2. Enforce course-level teacher assignment server-side via `CourseTeacher` queries and Learnova's reusable `check_course_teacher_or_admin` security gate across all teacher reporting endpoints. Reject unassigned teachers with HTTP 403 Forbidden, while allowing administrators global read access.
+- **Decision:** Option 2. Enforces strict zero-trust authorization on all course reporting routes, preventing horizontal privilege escalation across departments and faculty.
+- **Affected Files:** `backend/app/api/v1/endpoints/teacher_analytics.py`, `backend/app/services/analytics_service.py`, `backend/tests/test_teacher_analytics.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 10).
+
+---
+
+### DEC-P10-002: Dynamic Weak Concept Identification and Unassessed Exclusion
+- **Context:** Student and class weak concept reporting must avoid hardcoded threshold heuristics and must never misclassify unassessed topics as weak.
+- **Options:**
+  1. Hardcode a fixed 70% cutoff across all subjects and flag unassessed topics with 0% mastery as weak.
+  2. Dynamically resolve each topic's authoritative `Topic.mastery_threshold` (defaulting to 0.7500 / 75%). A topic is classified as weak if and only if `status != 'not_assessed'`, `mastery_score is not None`, and `mastery_percent < threshold_percent`. For class-level analytics, a topic is classified as class-weak if and only if at least one enrolled student has been assessed and the class average mastery is strictly below the topic threshold.
+- **Decision:** Option 2. Protects student cognitive morale, aligns with the pedagogical contract established in Phase 7, and ensures configurable subject-specific difficulty thresholds.
+- **Affected Files:** `backend/app/services/analytics_service.py`, `backend/tests/test_student_analytics.py`, `backend/tests/test_teacher_analytics.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 10).
+
+---
+
+### DEC-P10-003: Purely Derived Analytics Without Database Schema Migrations
+- **Context:** Phase 10 requires student dashboard KPIs, course mastery heatmaps, score distribution bands, at-risk student lists, and administrator system metrics. Introducing new database tables or pre-computed aggregation columns risks data drift, outbox synchronization overhead, and migration friction.
+- **Options:**
+  1. Create auxiliary persistent summary tables (`student_analytics_summaries`, `teacher_course_rollups`) updated asynchronously via cron or background tasks.
+  2. Author purely derived, bounded SQL queries and in-memory Pydantic aggregations leveraging existing indexes on domain models (`users`, `courses`, `topics`, `lessons`, `lesson_completions`, `enrollments`, `assessments`, `assessment_attempts`, `student_topic_mastery`, `gamification_profiles`, `security_audit_events`).
+- **Decision:** Option 2. Eliminates database schema migrations, guarantees real-time data consistency, prevents cache invalidation bugs, and maintains zero database storage overhead for derived analytics.
+- **Affected Files:** `backend/app/services/analytics_service.py`, `backend/app/services/admin_service.py`, `backend/app/schemas/analytics.py`, `backend/app/schemas/admin.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 10).
+
+---
+
+### DEC-P10-004: Strict Credential Redaction Invariant in Admin Directory and Diagnostics
+- **Context:** The administrative user directory, security audit log viewer, and system health endpoints expose sensitive data structures. Accidental inclusion of password hashes, salt strings, session secrets, API tokens, or raw database URLs represents a severe security vulnerability.
+- **Options:**
+  1. Return raw SQLAlchemy model dictionaries and rely on frontend components to filter out sensitive attributes.
+  2. Enforce strict, isolated Pydantic projection schemas (`UserResponse`, `SecurityAuditEventResponse`, `SystemHealthResponse`) with explicit field definitions omitting secrets. The system health diagnostic endpoint returns latency in milliseconds, connection pool sizing, and Alembic head revision without exposing raw PostgreSQL connection URIs or API secret keys.
+- **Decision:** Option 2. Enforces defense-in-depth security at the serialization boundary, ensuring zero credential leakage in administrative API responses.
+- **Affected Files:** `backend/app/schemas/admin.py`, `backend/app/services/admin_service.py`, `backend/app/api/v1/endpoints/admin.py`, `backend/tests/test_admin_analytics_and_diagnostics.py`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Phase 10).

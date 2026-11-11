@@ -10,8 +10,8 @@
 
 | Status | Count | Notes |
 |---|---|---|
-| **IMPLEMENTED** | 8 | Phase 1 Backend Foundation, Phase 2 Initial Domain Schema & Migrations, Phase 3 Authentication & RBAC, Phase 4 Curriculum, Enrollment, and Resources, Phase 5 Question Bank & Assessment Authoring, Phase 6 Assessment Attempts & Server-Authoritative Grading, Phase 7 Knowledge Tracing & Dynamic Mastery Engine (Stabilized), Phase 8 Gamification & Outbox Reliability Corrections (Stabilized). |
-| **READY_FOR_OWNER_ACCEPTANCE** | 1 | Phase 9 AI Integration, Durable Caching, Teacher Governance & Corrective Refactoring (Verified: 184 backend tests passing [2 skipped, 0 failed], 39 frontend tests passing 100%, clean TypeScript compile, clean production Vite build). Awaiting explicit project owner acceptance. |
+| **IMPLEMENTED** | 9 | Phase 1 Backend Foundation, Phase 2 Initial Domain Schema & Migrations, Phase 3 Authentication & RBAC, Phase 4 Curriculum, Enrollment, and Resources, Phase 5 Question Bank & Assessment Authoring, Phase 6 Assessment Attempts & Server-Authoritative Grading, Phase 7 Knowledge Tracing & Dynamic Mastery Engine (Stabilized), Phase 8 Gamification & Outbox Reliability Corrections (Stabilized), Phase 9 AI Integration, Durable Caching & Teacher Governance (Committed at f2f80eb). |
+| **READY_FOR_OWNER_ACCEPTANCE** | 1 | Phase 10 Analytics, Teacher Reporting and Administration (Verified: 209 backend tests passing [2 skipped, 0 failed], 39 frontend tests passing 100%, clean TypeScript compile, clean production Vite build, validated Docker Compose config). Awaiting explicit project owner acceptance. |
 | **IN_PROGRESS** | 0 | None. |
 | **PARTIAL** | 0 | (All AI capabilities transitioned to FastAPI with durable PostgreSQL persistence and teacher governance). |
 | **MOCK_ONLY** | 9 | UI screens, navigation, assessment players, and teacher/student views transition progressively to FastAPI; teacher analytics and advanced AI review remain on mock state until Phases 9 & 10. |
@@ -46,7 +46,7 @@
 | `uc_study` | Study Learning Resources | Student | `LessonWorkspacePage.tsx` | Live PostgreSQL (`lessons`, `learning_resources`, `lesson_completions`, `resource_activities`) | `test_enrollment_lifecycle.py` | **IMPLEMENTED** |
 | `uc_practice` | Attempt Adaptive Practice | Student | `AdaptivePracticePlayerPage.tsx` | Live PostgreSQL (`assessment_attempts`, `attempt_responses`, `domain_outbox_events`, `student_topic_mastery`) | `test_attempt_concurrency_and_outbox.py`, `test_mastery_bkt.py`, `studentLogic.test.ts` | **IMPLEMENTED** |
 | `uc_exam` | Take Final Examination | Student | `FinalExamPlayerPage.tsx` | Live PostgreSQL (`assessment_attempts`, `attempt_responses`, `domain_outbox_events`, `student_topic_mastery`) | `test_attempt_lifecycle.py`, `test_server_grading.py`, `test_mastery_bkt.py` | **IMPLEMENTED** |
-| `uc_stu_analytics` | View Learning Progress & Analytics | Student | `ProgressAnalyticsPage.tsx` | Live PostgreSQL (`student_topic_mastery`, `mastery_audit_ledger`) | `test_mastery_bkt.py` | **PARTIAL** |
+| `uc_stu_analytics` | View Learning Progress & Analytics | Student | `ProgressAnalyticsPage.tsx` | Live PostgreSQL (`student_topic_mastery`, `mastery_audit_ledger`) | `test_student_analytics.py`, `test_mastery_bkt.py` | **IMPLEMENTED** |
 | `uc_update_mastery` | Update Topic Mastery & Student State | System | Triggered on assessment complete | Live PostgreSQL (`student_topic_mastery`, `mastery_audit_ledger`) | `test_mastery_bkt.py`, `test_mastery_outbox_integration.py` | **IMPLEMENTED** |
 | `uc_regen_path` | Regenerate Learning Path | System | Triggered on mastery change | Live PostgreSQL (`student_topic_mastery`, `lesson_completions`) | `test_learning_path_planner.py` | **IMPLEMENTED** |
 | `uc_gamify` | Earn Gamification Rewards (XP, Badges, Streaks) | Student | `AchievementsBadgesPage.tsx`, `XPActivityHistoryPage.tsx`, `LeaderboardPage.tsx` | Live PostgreSQL (`gamification_profiles`, `xp_ledger`, `badges`, `user_badges`, `challenges`, `user_challenges`, `domain_outbox_events`) | `test_gamification_profile_and_level.py`, `test_xp_ledger_idempotency.py`, `test_badge_rules.py`, `test_leaderboard_privacy.py`, `test_gamification_outbox_worker.py` | **IMPLEMENTED** |
@@ -56,7 +56,7 @@
 | `uc_manage_content` | Provide Content & Resources | Teacher | `ResourceManagerPage.tsx` | Live PostgreSQL (`learning_resources`) | `test_curriculum_endpoints.py` | **IMPLEMENTED** |
 | `uc_manage_assessments` | Manage Assessments & Questions | Teacher | `QuestionBankPage.tsx`, `QuestionEditorPage.tsx`, `AssessmentsPage.tsx` | Live PostgreSQL (`questions`, `assessments`, `assessment_questions`) | `test_question_bank.py`, `test_assessment_authoring.py`, `assessment.test.ts` | **IMPLEMENTED** |
 | `uc_review_ai` | Review AI-Generated Questions | Teacher, AI/LLM | `AIReviewPage.tsx` | Live PostgreSQL (`ai_question_candidates`, `questions`) | `test_ai_candidate_governance.py`, `test_ai_authorization.py` | **IMPLEMENTED** |
-| `uc_monitor_perf` | Monitor Student Performance | Teacher | `AnalyticsPage.tsx` | `storage.getAttempts()`, `storage.getUsers()` | None | **MOCK_ONLY** |
+| `uc_monitor_perf` | Monitor Student Performance | Teacher | `AnalyticsPage.tsx` | Live PostgreSQL (`course_teachers`, `student_topic_mastery`, `assessment_attempts`) | `test_teacher_analytics.py` | **IMPLEMENTED** |
 
 ---
 
@@ -199,3 +199,21 @@
 | PII Minimization & Prompt Boundaries | `backend/app/core/sanitizer.py`, `backend/app/ai/adapter.py` | `ILLMServiceAdapter` input preparation | Pure Python regex + XML `<student_query>` tags | `backend/tests/test_ai_privacy.py` (8 tests) | **READY_FOR_OWNER_ACCEPTANCE** |
 | Teacher Candidate Review CRUD | `backend/app/api/v1/endpoints/ai.py` | `/api/v1/ai/candidates` CRUD | `ai_question_candidates` table | `test_ai_candidate_governance.py` | **READY_FOR_OWNER_ACCEPTANCE** |
 | Frontend AI Client Integration | `frontend/src/components/student/AIHelperPanel.tsx`, `aiApi.ts` | Student AI Panel & Workspace | Passes `lessonId` authoritatively | Vitest (39 tests) & Vite build | **READY_FOR_OWNER_ACCEPTANCE** |
+
+---
+
+## 11. Analytics, Teacher Reporting & Platform Administration (`LAY-DOMAIN` / `LAY-TECH`) — Phase 10 Status
+
+| Capability / Fix | Component / Module | Scope / Endpoints | Persistence / Drivers | Verified Tests | Status |
+|:---|:---|:---|:---|:---|:---:|
+| Student Personal Dashboard & KPIs | `backend/app/api/v1/endpoints/student_analytics.py`, `analytics_service.py` | `GET /api/v1/students/me/dashboard` | Live PostgreSQL (`enrollments`, `courses`, `attempts`, `gamification_profiles`) | `backend/tests/test_student_analytics.py` (7 tests) | **READY_FOR_OWNER_ACCEPTANCE** |
+| Dynamic Weak Topics Evaluation | `backend/app/services/analytics_service.py`, `schemas/analytics.py` | `GET /api/v1/students/me/analytics` | Evaluated against `Topic.mastery_threshold`; excludes `not_assessed` | `backend/tests/test_student_analytics.py` | **READY_FOR_OWNER_ACCEPTANCE** |
+| Student Attempts History | `backend/app/api/v1/endpoints/student_analytics.py` | `GET /api/v1/students/me/attempts` | Paginated `assessment_attempts` filtered to student | `backend/tests/test_student_analytics.py` | **READY_FOR_OWNER_ACCEPTANCE** |
+| Teacher Multi-Course Dashboard | `backend/app/api/v1/endpoints/teacher_analytics.py`, `analytics_service.py` | `GET /api/v1/teacher/dashboard` | Scoped via `course_teachers` junction | `backend/tests/test_teacher_analytics.py` (10 tests) | **READY_FOR_OWNER_ACCEPTANCE** |
+| Class Heatmap & Score Bands | `backend/app/services/analytics_service.py` | `GET /api/v1/teacher/courses/{id}/analytics` | Topic mastery heatmap, dynamic weak concepts, score bands (0-49, 50-69, 70-84, 85-100) | `backend/tests/test_teacher_analytics.py` | **READY_FOR_OWNER_ACCEPTANCE** |
+| Teacher Student Drilldown Isolation | `backend/app/api/v1/endpoints/teacher_analytics.py` | `GET /courses/{id}/students/{sid}/*` | Strictly enforces active enrollment; 404 on isolation boundary | `backend/tests/test_teacher_analytics.py` | **READY_FOR_OWNER_ACCEPTANCE** |
+| Admin Platform Overview & KPIs | `backend/app/api/v1/endpoints/admin.py`, `admin_service.py` | `GET /api/v1/admin/dashboard` | Platform aggregations: users by role, courses, enrollments, attempts, audit counts | `backend/tests/test_admin_analytics_and_diagnostics.py` (8 tests) | **READY_FOR_OWNER_ACCEPTANCE** |
+| Admin User Directory & Redaction | `backend/app/services/admin_service.py`, `schemas/admin.py` | `GET /api/v1/admin/users`, `GET /users/{id}` | Filterable directory; strict redaction of password hashes & tokens | `backend/tests/test_admin_analytics_and_diagnostics.py` | **READY_FOR_OWNER_ACCEPTANCE** |
+| Admin Security Audit Log Viewer | `backend/app/api/v1/endpoints/admin.py` | `GET /api/v1/admin/audit-logs` | Paginated `security_audit_events` with multi-attribute filtering | `backend/tests/test_admin_analytics_and_diagnostics.py` | **READY_FOR_OWNER_ACCEPTANCE** |
+| Safe Diagnostics & Zero Leaks | `backend/app/services/admin_service.py` | `GET /api/v1/admin/system/health` | DB latency ms, pool size, Alembic head, zero secret/URL leakage | `backend/tests/test_admin_analytics_and_diagnostics.py` | **READY_FOR_OWNER_ACCEPTANCE** |
+
