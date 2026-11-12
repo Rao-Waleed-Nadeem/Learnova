@@ -19,8 +19,31 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     setup_logging()
     logger.info("Learnova API starting up (%s, env=%s)...", settings.VERSION, settings.ENVIRONMENT)
-    yield
-    logger.info("Learnova API shutting down...")
+
+    # Initialize and start in-process background OutboxProcessor (Option B)
+    if settings.OUTBOX_ENABLED:
+        from app.workers.outbox_worker import create_outbox_processor
+
+        processor = create_outbox_processor()
+        await processor.start()
+        app.state.outbox_processor = processor
+        logger.info(
+            "In-process outbox processor started (poll_interval=%.1fs, batch_size=%d, max_attempts=%d)",
+            settings.OUTBOX_POLL_INTERVAL_SECONDS,
+            settings.OUTBOX_BATCH_SIZE,
+            settings.OUTBOX_MAX_ATTEMPTS,
+        )
+
+    try:
+        yield
+    finally:
+        # Gracefully stop in-process background OutboxProcessor
+        if hasattr(app.state, "outbox_processor") and app.state.outbox_processor:
+            logger.info("Stopping in-process outbox processor...")
+            await app.state.outbox_processor.stop()
+            logger.info("In-process outbox processor stopped.")
+
+        logger.info("Learnova API shutting down...")
 
 
 app = FastAPI(

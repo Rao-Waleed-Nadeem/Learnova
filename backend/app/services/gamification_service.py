@@ -2,11 +2,13 @@
 badges, challenges, privacy-aware leaderboards, and asynchronous outbox event processing.
 """
 
+import random
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import desc, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.assessment import Assessment
@@ -164,8 +166,20 @@ class GamificationService:
             related_id=related_id,
             idempotency_key=idempotency_key,
         )
-        db.add(ledger_entry)
-        db.flush()
+        try:
+            with db.begin_nested():
+                db.add(ledger_entry)
+                db.flush()
+        except IntegrityError:
+            # Concurrently inserted by another worker transaction: rollback savepoint and return existing
+            existing = (
+                db.query(XPLedger)
+                .filter(XPLedger.idempotency_key == idempotency_key)
+                .first()
+            )
+            if existing:
+                return existing, False
+            raise
 
         return ledger_entry, True
 
@@ -623,7 +637,11 @@ class GamificationService:
 
     @staticmethod
     def process_pending_outbox_events(
-        db: Session, limit: int = 50
+        db: Session,
+        limit: int = 50,
+        max_attempts: int = 5,
+        retry_base_seconds: float = 5.0,
+        retry_max_seconds: float = 300.0,
     ) -> Dict[str, Any]:
         """Worker dispatcher draining pending domain outbox events with retry backoff and concurrency locking."""
         now = datetime.now(timezone.utc)
@@ -660,15 +678,20 @@ class GamificationService:
                         ev.published_at = datetime.now(timezone.utc)
                         ev.last_error = None
                         processed += 1
+                    else:
+                        raise ValueError(f"Unsupported or unhandled outbox event type '{ev.event_type}'")
             except Exception as exc:
                 # db.begin_nested() rollback guarantees no partial XP/badge writes persist
                 ev.retry_count = (ev.retry_count or 0) + 1
                 ev.last_error = str(exc)[:500]
-                if ev.retry_count >= 5:
+                if ev.retry_count >= max_attempts:
                     ev.status = "failed"
                     ev.next_attempt_at = None
                 else:
-                    ev.next_attempt_at = datetime.now(timezone.utc) + timedelta(seconds=(2 ** ev.retry_count) * 5)
+                    delay = min(retry_max_seconds, retry_base_seconds * (2 ** ev.retry_count))
+                    # Add small random jitter (0 to 1 second)
+                    delay += random.uniform(0.0, 1.0)
+                    ev.next_attempt_at = datetime.now(timezone.utc) + timedelta(seconds=delay)
                 failed += 1
 
         db.commit()

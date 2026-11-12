@@ -1,6 +1,6 @@
 """Health and readiness endpoints for API v1."""
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Request, status
 from fastapi.responses import JSONResponse
 
 from app.core.config import settings
@@ -40,3 +40,23 @@ def readiness_check():
             "error": "Database unavailable",
         },
     )
+
+
+@router.get("/outbox")
+def outbox_health_check(request: Request):
+    """Outbox background processor health and telemetry diagnostics."""
+    processor = getattr(request.app.state, "outbox_processor", None)
+    if processor is not None and processor.is_running:
+        return {
+            "status": "running",
+            "diagnostics": processor.get_diagnostics(),
+        }
+    elif processor is not None:
+        return {
+            "status": "stopped",
+            "diagnostics": processor.get_diagnostics(),
+        }
+    return {
+        "status": "disabled",
+        "diagnostics": None,
+    }

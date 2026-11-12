@@ -77,6 +77,46 @@ class Settings(BaseSettings):
         description="Durable content cache retention in days",
     )
 
+    # Outbox Event Processor Settings (Option B In-Process Worker)
+    OUTBOX_ENABLED: bool = Field(
+        default=True,
+        description="Enable/disable in-process background outbox processor",
+    )
+    OUTBOX_POLL_INTERVAL_SECONDS: float = Field(
+        default=5.0,
+        gt=0,
+        description="Seconds to sleep between outbox polling passes",
+    )
+    OUTBOX_BATCH_SIZE: int = Field(
+        default=20,
+        gt=0,
+        description="Maximum domain outbox events to drain per batch pass",
+    )
+    OUTBOX_MAX_ATTEMPTS: int = Field(
+        default=5,
+        gt=0,
+        description="Maximum delivery attempts before an event is marked failed/dead-lettered",
+    )
+    OUTBOX_RETRY_BASE_SECONDS: float = Field(
+        default=5.0,
+        gt=0,
+        description="Base retry backoff in seconds",
+    )
+    OUTBOX_RETRY_MAX_SECONDS: float = Field(
+        default=300.0,
+        gt=0,
+        description="Maximum retry backoff cap in seconds",
+    )
+    OUTBOX_SHUTDOWN_TIMEOUT_SECONDS: float = Field(
+        default=30.0,
+        gt=0,
+        description="Maximum seconds to wait for running outbox batch to finish during graceful shutdown",
+    )
+    OUTBOX_ENABLE_ADVISORY_LOCK: bool = Field(
+        default=True,
+        description="Whether to use PostgreSQL advisory locks for leader election across instances",
+    )
+
     @property
     def sync_database_url(self) -> str:
         """Return a valid synchronous SQLAlchemy PostgreSQL URL."""

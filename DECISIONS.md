@@ -659,3 +659,15 @@
 - **Decision:** Option 2. Enforces defense-in-depth security at the serialization boundary, ensuring zero credential leakage in administrative API responses.
 - **Affected Files:** `backend/app/schemas/admin.py`, `backend/app/services/admin_service.py`, `backend/app/api/v1/endpoints/admin.py`, `backend/tests/test_admin_analytics_and_diagnostics.py`.
 - **Owner Status:** APPROVED & IMPLEMENTED (Phase 10).
+
+---
+
+### DEC-P12-001: Integration of Durable Outbox Processor into FastAPI Lifespan (Option B)
+- **Context:** Domain events (`assessment.completed`, `lesson.completed`, `resource.reviewed`) are written to `domain_outbox_events` by domain services to decouple gamification XP/streaks/badges from core grading transactions. A reliable, persistent mechanism was required to process pending events automatically without manual CLI intervention or administrative endpoints.
+- **Options:**
+  1. Option A: Dedicated worker container in Docker Compose running a continuous polling CLI loop.
+  2. Option B: In-process background worker integrated into the FastAPI application lifespan, running as an asynchronous background task within the existing backend service container.
+  3. Option C: Distributed task queue (Celery, RQ, or Dramatiq) backed by an external broker (Redis, RabbitMQ, or Kafka).
+- **Decision:** Option B. Integrates the background `OutboxProcessor` into `app.main.lifespan`. Runs within the existing backend container without adding a fourth service or external broker dependencies. Incorporates non-blocking `asyncio.to_thread` execution, PostgreSQL `FOR UPDATE SKIP LOCKED` and session advisory lock (`742918`) for multi-worker safety, bounded exponential backoff with jitter, fast interruptible sleep for graceful shutdown, and a dedicated telemetry endpoint `GET /api/v1/health/outbox`.
+- **Affected Files:** `backend/app/main.py`, `backend/app/workers/outbox_worker.py`, `backend/app/core/config.py`, `.env.example`, `backend/app/services/gamification_service.py`, `backend/app/api/v1/endpoints/health.py`, `backend/tests/test_outbox_processor_unit.py`, `backend/tests/test_fastapi_lifespan_integration.py`, `backend/tests/test_outbox_multi_instance.py`, `docs/ARCHITECTURE_OUTBOX_PROCESSOR.md`.
+- **Owner Status:** APPROVED & IMPLEMENTED (Option B).
