@@ -16,6 +16,7 @@ from app.models.user import User
 from app.schemas.enrollment import (
     EnrollmentResponse,
     LearningMapResponse,
+    LessonCompletionResponse,
 )
 from app.services.enrollment_service import EnrollmentService
 
@@ -55,6 +56,22 @@ def get_my_enrollments(
 ):
     """Retrieve all course enrollments with real-time derived progress for the current student."""
     return EnrollmentService.get_student_enrollments(db=db, student_id=current_user.id)
+
+
+@router.get(
+    "/students/me/lesson-completions",
+    response_model=List[LessonCompletionResponse],
+    summary="Retrieve all lesson completions for the authenticated student",
+)
+def get_my_lesson_completions(
+    course_id: Optional[UUID] = None,
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+):
+    """Retrieve all lesson completion records for the current student, optionally filtered by course."""
+    return EnrollmentService.get_student_lesson_completions(
+        db=db, student_id=current_user.id, course_id=course_id
+    )
 
 
 @router.get("/courses/{course_id}/learning-map", response_model=LearningMapResponse)

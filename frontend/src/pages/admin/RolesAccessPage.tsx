@@ -72,7 +72,7 @@ export const RolesAccessPage: React.FC<RolesAccessPageProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-12 view-enter-animation">
       {/* Header */}
       <div className="pb-2">
         <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
@@ -86,7 +86,7 @@ export const RolesAccessPage: React.FC<RolesAccessPageProps> = ({
       {/* Role Architecture Cards (3 Fixed Roles) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {/* Student Role */}
-        <div className="p-6 rounded-2xl bg-white dark:bg-[#181C24] border border-gray-200 dark:border-gray-800 shadow-xs flex flex-col justify-between">
+        <div className="interactive-card p-6 rounded-2xl bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 shadow-xs flex flex-col justify-between">
           <div>
             <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-4">
               <GraduationCap className="w-5 h-5" />
@@ -119,7 +119,7 @@ export const RolesAccessPage: React.FC<RolesAccessPageProps> = ({
         </div>
 
         {/* Teacher Role */}
-        <div className="p-6 rounded-2xl bg-white dark:bg-[#181C24] border border-gray-200 dark:border-gray-800 shadow-xs flex flex-col justify-between">
+        <div className="interactive-card p-6 rounded-2xl bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 shadow-xs flex flex-col justify-between">
           <div>
             <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-4">
               <BookOpen className="w-5 h-5" />
@@ -152,7 +152,7 @@ export const RolesAccessPage: React.FC<RolesAccessPageProps> = ({
         </div>
 
         {/* Administrator Role */}
-        <div className="p-6 rounded-2xl bg-white dark:bg-[#181C24] border border-gray-200 dark:border-gray-800 shadow-xs flex flex-col justify-between">
+        <div className="interactive-card p-6 rounded-2xl bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 shadow-xs flex flex-col justify-between">
           <div>
             <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-4">
               <ShieldCheck className="w-5 h-5" />
@@ -186,7 +186,7 @@ export const RolesAccessPage: React.FC<RolesAccessPageProps> = ({
       </div>
 
       {/* Role Assignment Workflow Form */}
-      <div className="p-6 sm:p-7 rounded-2xl bg-white dark:bg-[#181C24] border border-gray-200 dark:border-gray-800 shadow-xs space-y-6">
+      <div className="p-6 sm:p-7 rounded-2xl bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 shadow-xs space-y-6">
         <div className="pb-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">

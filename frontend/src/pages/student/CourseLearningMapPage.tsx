@@ -118,9 +118,9 @@ export const CourseLearningMapPage: React.FC<CourseLearningMapPageProps> = ({
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 view-enter-animation">
       {/* Course Overview Banner */}
-      <div className="p-6 rounded-2xl bg-white dark:bg-[#181C24] border border-[#D9DEE7] dark:border-[#2D3545] shadow-xs">
+      <div className="p-6 rounded-2xl bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1.5">
@@ -140,7 +140,7 @@ export const CourseLearningMapPage: React.FC<CourseLearningMapPageProps> = ({
             </p>
           </div>
 
-          <div className="md:w-60 shrink-0 bg-gray-50 dark:bg-[#1C212B] p-4 rounded-xl border border-gray-200 dark:border-gray-800">
+          <div className="md:w-60 shrink-0 bg-gray-50/80 dark:bg-[#1C212B] p-4 rounded-xl border border-gray-200/80 dark:border-gray-800">
             <div className="flex justify-between text-xs font-bold mb-1.5">
               <span className="text-gray-600 dark:text-gray-400">Course Progress</span>
               <span className="text-indigo-600 dark:text-indigo-400">{enr?.progressPercent || 0}%</span>
@@ -180,15 +180,18 @@ export const CourseLearningMapPage: React.FC<CourseLearningMapPageProps> = ({
 
               // Prerequisite titles
               const prereqTopics = courseTopics.filter((t) =>
-                serverNode ? serverNode.prerequisite_ids.includes(t.id) : topic.prerequisiteTopicIds.includes(t.id)
+                serverNode ? (serverNode.prerequisite_ids || []).includes(t.id) : (topic.prerequisiteTopicIds || []).includes(t.id)
               );
+
+              const completedTopicLessonsCount = topicLessons.filter((l) => completedLessonIds.has(l.id)).length;
+              const isTopicAllLessonsCompleted = topicLessons.length > 0 && completedTopicLessonsCount === topicLessons.length;
 
               return (
                 <div
                   key={topic.id}
                   className={`rounded-2xl border transition-all ${
                     readiness.isReady
-                      ? 'bg-white dark:bg-[#181C24] border-[#D9DEE7] dark:border-[#2D3545] shadow-xs'
+                      ? 'bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border-gray-200/80 dark:border-gray-800/80 shadow-xs'
                       : 'bg-gray-50/70 dark:bg-[#14171E] border-gray-200 dark:border-gray-800 opacity-90'
                   }`}
                 >
@@ -202,12 +205,20 @@ export const CourseLearningMapPage: React.FC<CourseLearningMapPageProps> = ({
                     <div className="flex items-start gap-3.5">
                       <div
                         className={`w-8 h-8 rounded-xl font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 ${
-                          readiness.isReady
-                            ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400'
-                            : 'bg-gray-200 dark:bg-gray-800 text-gray-500'
+                          !readiness.isReady
+                            ? 'bg-gray-200 dark:bg-gray-800 text-gray-500'
+                            : isTopicAllLessonsCompleted
+                            ? 'bg-emerald-500 text-white shadow-2xs'
+                            : 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400'
                         }`}
                       >
-                        {readiness.isReady ? index + 1 : <Lock className="w-4 h-4" />}
+                        {!readiness.isReady ? (
+                          <Lock className="w-4 h-4" />
+                        ) : isTopicAllLessonsCompleted ? (
+                          <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
+                        ) : (
+                          index + 1
+                        )}
                       </div>
 
                       <div>
@@ -215,6 +226,28 @@ export const CourseLearningMapPage: React.FC<CourseLearningMapPageProps> = ({
                           <h3 className="text-base font-bold text-gray-900 dark:text-white">
                             {topic.title}
                           </h3>
+
+                          {/* Lesson Completion Status Pill */}
+                          {topicLessons.length > 0 && (
+                            <span
+                              className={`text-[11px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+                                isTopicAllLessonsCompleted
+                                  ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                                  : completedTopicLessonsCount > 0
+                                  ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800'
+                                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700'
+                              }`}
+                            >
+                              {isTopicAllLessonsCompleted ? (
+                                <>
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                  <span>Completed ({completedTopicLessonsCount}/{topicLessons.length})</span>
+                                </>
+                              ) : (
+                                <span>{completedTopicLessonsCount}/{topicLessons.length} Lessons</span>
+                              )}
+                            </span>
+                          )}
 
                           {/* Mastery Status Pill */}
                           {mastery ? (
@@ -258,8 +291,14 @@ export const CourseLearningMapPage: React.FC<CourseLearningMapPageProps> = ({
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0 text-gray-400">
-                      <span className="text-xs hidden sm:inline">
-                        {topicLessons.length} {topicLessons.length === 1 ? 'lesson' : 'lessons'}
+                      <span className="text-xs hidden sm:inline font-medium">
+                        {isTopicAllLessonsCompleted ? (
+                          <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                            All {topicLessons.length} {topicLessons.length === 1 ? 'lesson' : 'lessons'} completed
+                          </span>
+                        ) : (
+                          `${completedTopicLessonsCount}/${topicLessons.length} completed`
+                        )}
                       </span>
                       {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
                     </div>
@@ -275,7 +314,7 @@ export const CourseLearningMapPage: React.FC<CourseLearningMapPageProps> = ({
                         return (
                           <div
                             key={lesson.id}
-                            className="p-3 rounded-xl bg-white dark:bg-[#181C24] border border-gray-200 dark:border-gray-800 flex items-center justify-between gap-3 hover:border-indigo-300 dark:hover:border-indigo-700 transition"
+                            className="p-3 rounded-xl bg-white dark:bg-[#181C24] border border-gray-200/80 dark:border-gray-800 flex items-center justify-between gap-3 hover:border-indigo-300 dark:hover:border-indigo-700 transition"
                           >
                             <div className="flex items-center gap-3 min-w-0">
                               <span
@@ -312,7 +351,7 @@ export const CourseLearningMapPage: React.FC<CourseLearningMapPageProps> = ({
                                   lessonId: lesson.id,
                                 })
                               }
-                              className="px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-xs font-semibold flex items-center gap-1 shrink-0 transition"
+                              className="px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-xs font-semibold flex items-center gap-1 shrink-0 transition active:scale-[0.98] cursor-pointer"
                             >
                               <span>{isDone ? 'Review' : 'Open'}</span>
                               <ArrowRight className="w-3.5 h-3.5" />
@@ -332,11 +371,11 @@ export const CourseLearningMapPage: React.FC<CourseLearningMapPageProps> = ({
         <div className="lg:col-span-4 space-y-5">
           {/* Dynamic Personalized Recommended Next Step */}
           {learningPath?.recommended_next_step && (
-            <div className="p-5 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 shadow-xs space-y-3">
+            <div className="interactive-card p-5 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/90 dark:border-indigo-800 shadow-xs space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>Recommended Next Step</span>
+                  <span>Recommended Step</span>
                 </span>
                 <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 uppercase">
                   {learningPath.recommended_next_step.type.replace('_', ' ')}
@@ -358,7 +397,7 @@ export const CourseLearningMapPage: React.FC<CourseLearningMapPageProps> = ({
                       lessonId: learningPath.recommended_next_step.lesson_id!,
                     })
                   }
-                  className="w-full py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs"
+                  className="w-full py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-[0.98]"
                 >
                   <span>Start Recommended Lesson</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -369,7 +408,7 @@ export const CourseLearningMapPage: React.FC<CourseLearningMapPageProps> = ({
 
           {/* Diagnostic Baseline Card */}
           {diagnostic && (
-            <div className="p-5 rounded-2xl bg-white dark:bg-[#181C24] border border-[#D9DEE7] dark:border-[#2D3545] shadow-xs space-y-3">
+            <div className="interactive-card p-5 rounded-2xl bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 shadow-xs space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
                   Diagnostic Baseline
@@ -387,7 +426,7 @@ export const CourseLearningMapPage: React.FC<CourseLearningMapPageProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigate('diagnostic_intro', { assessmentId: diagnostic.id })}
-                className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+                className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer active:scale-[0.98]"
               >
                 <span>Take Diagnostic Assessment</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -397,7 +436,7 @@ export const CourseLearningMapPage: React.FC<CourseLearningMapPageProps> = ({
 
           {/* Adaptive Practice Card */}
           {adaptive && (
-            <div className="p-5 rounded-2xl bg-white dark:bg-[#181C24] border border-[#D9DEE7] dark:border-[#2D3545] shadow-xs space-y-3">
+            <div className="interactive-card p-5 rounded-2xl bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 shadow-xs space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
                   Adaptive Practice
@@ -410,12 +449,12 @@ export const CourseLearningMapPage: React.FC<CourseLearningMapPageProps> = ({
                 {adaptive.title}
               </h3>
               <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
-                Item difficulty adjusts after each answer. Your responses recalibrate topic mastery after completion.
+                Item difficulty adjusts after each answer. Your responses recalibrate topic mastery dynamically.
               </p>
               <button
                 type="button"
                 onClick={() => onNavigate('practice_player', { assessmentId: adaptive.id })}
-                className="w-full py-2.5 rounded-xl border border-emerald-600 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 font-semibold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                className="w-full py-2.5 rounded-xl border border-emerald-600 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 font-semibold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.98]"
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>Launch Adaptive Practice</span>
@@ -425,7 +464,7 @@ export const CourseLearningMapPage: React.FC<CourseLearningMapPageProps> = ({
 
           {/* Final Examination Card */}
           {finalExam && (
-            <div className="p-5 rounded-2xl bg-white dark:bg-[#181C24] border border-[#D9DEE7] dark:border-[#2D3545] shadow-xs space-y-3">
+            <div className="interactive-card p-5 rounded-2xl bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 shadow-xs space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">
                   Summative Exam
@@ -443,7 +482,7 @@ export const CourseLearningMapPage: React.FC<CourseLearningMapPageProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigate('exam_player', { assessmentId: finalExam.id })}
-                className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+                className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer active:scale-[0.98]"
               >
                 <GraduationCap className="w-4 h-4" />
                 <span>Start Final Examination</span>

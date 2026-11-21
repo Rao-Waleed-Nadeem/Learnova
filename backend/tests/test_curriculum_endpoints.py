@@ -107,8 +107,15 @@ def test_teacher_views_own_draft_courses(client_with_db: TestClient, db_session:
     assert res.status_code == 200
     titles = [c["title"] for c in res.json()]
     assert "Teacher1 Draft" in titles
-    assert "Shared Published" in titles
+    assert "Shared Published" not in titles
     assert "Teacher2 Draft" not in titles
+
+    # Teacher1 catalog exploration view: scope=catalog returns published
+    res_cat = client_with_db.get("/api/v1/courses?scope=catalog", headers=auth_header(teacher1))
+    assert res_cat.status_code == 200
+    cat_titles = [c["title"] for c in res_cat.json()]
+    assert "Shared Published" in cat_titles
+    assert "Teacher1 Draft" not in cat_titles
 
 
 def test_admin_views_all_courses(client_with_db: TestClient, db_session: Session, seed_test_users):
@@ -246,3 +253,102 @@ def test_publish_valid_course_success(client_with_db: TestClient, db_session: Se
     res = client_with_db.post(f"/api/v1/courses/{course.id}/publish", headers=auth_header(teacher))
     assert res.status_code == 200
     assert res.json()["status"] == "published"
+
+
+def test_get_student_lesson_completions_endpoint(client_with_db: TestClient, db_session: Session, seed_test_users):
+    """Student can retrieve recorded lesson completions via /api/v1/students/me/lesson-completions."""
+    from app.models.enrollment import Enrollment
+
+    student = seed_test_users["student"]
+    teacher = seed_test_users["teacher1"]
+
+    course = Course(title="Complete Test Course", status="published", creator_id=teacher.id)
+    db_session.add(course)
+    db_session.flush()
+
+    topic = Topic(course_id=course.id, title="Module 1", order=1)
+    db_session.add(topic)
+    db_session.flush()
+
+    lesson = Lesson(topic_id=topic.id, title="Lesson 1", order=1)
+    db_session.add(lesson)
+    db_session.flush()
+
+    enrollment = Enrollment(student_id=student.id, course_id=course.id, status="active")
+    db_session.add(enrollment)
+    db_session.commit()
+
+    # Complete the lesson
+    res_comp = client_with_db.post(
+        f"/api/v1/lessons/{lesson.id}/complete", headers=auth_header(student)
+    )
+    assert res_comp.status_code == 200
+    assert res_comp.json()["lesson_id"] == str(lesson.id)
+
+    # Retrieve completions via /students/me/lesson-completions
+    res_list1 = client_with_db.get(
+        "/api/v1/students/me/lesson-completions", headers=auth_header(student)
+    )
+    assert res_list1.status_code == 200
+    items1 = res_list1.json()
+    assert len(items1) >= 1
+    assert any(c["lesson_id"] == str(lesson.id) for c in items1)
+
+    # Retrieve completions via /lessons/completions
+    res_list2 = client_with_db.get(
+        f"/api/v1/lessons/completions?course_id={course.id}", headers=auth_header(student)
+    )
+    assert res_list2.status_code == 200
+    items2 = res_list2.json()
+    assert len(items2) == 1
+    assert items2[0]["lesson_id"] == str(lesson.id)
+
+
+def test_course_lifecycle_archive_draft_delete(client_with_db: TestClient, db_session: Session, seed_test_users):
+    """Verify archive unenrolls students, draft status, and delete requires archive first."""
+    from app.models.enrollment import Enrollment
+
+    student = seed_test_users["student"]
+    teacher = seed_test_users["teacher1"]
+
+    course = Course(title="Lifecycle Test Course", status="published", creator_id=teacher.id)
+    db_session.add(course)
+    db_session.flush()
+
+    enrollment = Enrollment(student_id=student.id, course_id=course.id, status="active")
+    db_session.add(enrollment)
+    db_session.commit()
+
+    # Attempting to delete published course must fail (400)
+    del_fail = client_with_db.delete(f"/api/v1/courses/{course.id}", headers=auth_header(teacher))
+    assert del_fail.status_code == 400
+    assert "archive" in del_fail.json()["detail"].lower()
+
+    # Archive the course
+    res_arch = client_with_db.post(f"/api/v1/courses/{course.id}/archive", headers=auth_header(teacher))
+    assert res_arch.status_code == 200
+    assert res_arch.json()["status"] == "archived"
+
+    # Verify student is unenrolled
+    enr_check = db_session.query(Enrollment).filter_by(course_id=course.id).first()
+    assert enr_check is None
+
+    # Draft the course
+    res_draft = client_with_db.post(f"/api/v1/courses/{course.id}/draft", headers=auth_header(teacher))
+    assert res_draft.status_code == 200
+    assert res_draft.json()["status"] == "draft"
+
+    # Attempting to delete draft course must also fail
+    del_draft_fail = client_with_db.delete(f"/api/v1/courses/{course.id}", headers=auth_header(teacher))
+    assert del_draft_fail.status_code == 400
+
+    # Archive again
+    client_with_db.post(f"/api/v1/courses/{course.id}/archive", headers=auth_header(teacher))
+
+    # Now delete succeeds
+    del_success = client_with_db.delete(f"/api/v1/courses/{course.id}", headers=auth_header(teacher))
+    assert del_success.status_code == 204
+
+    # Confirm course is gone
+    deleted_check = db_session.query(Course).filter_by(id=course.id).first()
+    assert deleted_check is None

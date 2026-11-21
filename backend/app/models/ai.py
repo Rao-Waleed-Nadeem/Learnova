@@ -21,6 +21,7 @@ from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.models.course import Course
+    from app.models.lesson import Lesson
     from app.models.question import Question
     from app.models.topic import Topic
     from app.models.user import User
@@ -215,3 +216,148 @@ class AIContentCache(Base):
         nullable=True,
         index=True,
     )
+
+
+class AISession(Base):
+    """Persistent AI session for teacher question generation or student lesson tutoring."""
+
+    __tablename__ = "ai_sessions"
+
+    __table_args__ = (
+        CheckConstraint(
+            "session_type IN ('question_generation', 'lesson_tutoring')",
+            name="ck_ai_sessions_type",
+        ),
+        CheckConstraint(
+            "status IN ('active', 'archived')",
+            name="ck_ai_sessions_status",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    session_type: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    course_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("courses.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    topic_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("topics.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    lesson_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("lessons.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    agy_conversation_id: Mapped[Optional[str]] = mapped_column(
+        String(128),
+        nullable=True,
+        index=True,
+    )
+    title: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+    context_snapshot: Mapped[Dict[str, Any]] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"),
+        default=dict,
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(
+        String(32),
+        default="active",
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    # Relationships
+    user: Mapped["User"] = relationship("User")
+    course: Mapped["Course"] = relationship("Course")
+    topic: Mapped[Optional["Topic"]] = relationship("Topic")
+    lesson: Mapped[Optional["Lesson"]] = relationship("Lesson")
+    messages: Mapped[list["AISessionMessage"]] = relationship(
+        "AISessionMessage",
+        back_populates="session",
+        cascade="all, delete-orphan",
+        order_by="AISessionMessage.created_at",
+    )
+
+
+class AISessionMessage(Base):
+    """Individual conversational exchange within an AI persistent session."""
+
+    __tablename__ = "ai_session_messages"
+
+    __table_args__ = (
+        CheckConstraint(
+            "sender IN ('user', 'agent', 'system')",
+            name="ck_ai_session_messages_sender",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("ai_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    sender: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+    )
+    content: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+    attachments: Mapped[list[Any]] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"),
+        default=list,
+        nullable=False,
+    )
+    raw_metadata: Mapped[Dict[str, Any]] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"),
+        default=dict,
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    # Relationships
+    session: Mapped["AISession"] = relationship("AISession", back_populates="messages")
+

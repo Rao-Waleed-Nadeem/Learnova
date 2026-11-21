@@ -326,6 +326,16 @@ class EnrollmentService:
             status="pending",
         )
         db.add(outbox_event)
+        
+        # Synchronously process event so XP and streak are immediately awarded in the database
+        try:
+            from app.services.gamification_service import GamificationService
+            if GamificationService.process_outbox_event(db, outbox_event):
+                outbox_event.status = "published"
+                outbox_event.published_at = datetime.now(timezone.utc)
+        except Exception:
+            pass
+
         db.commit()
 
         _, _, prog = cls.calculate_course_progress(db, student.id, course_id)
@@ -339,6 +349,33 @@ class EnrollmentService:
             completed_at=completion.completed_at,
             progress_percent=prog,
         )
+
+    @classmethod
+    def get_student_lesson_completions(
+        cls,
+        db: Session,
+        student_id: UUID,
+        course_id: Optional[UUID] = None,
+    ) -> List[LessonCompletionResponse]:
+        """Retrieve recorded lesson completions for the authenticated student."""
+        stmt = select(LessonCompletion).where(LessonCompletion.student_id == student_id)
+        if course_id:
+            stmt = stmt.where(LessonCompletion.course_id == course_id)
+        stmt = stmt.order_by(LessonCompletion.completed_at.desc())
+        completions = db.execute(stmt).scalars().all()
+        return [
+            LessonCompletionResponse(
+                id=c.id,
+                enrollment_id=c.enrollment_id,
+                student_id=c.student_id,
+                course_id=c.course_id,
+                topic_id=c.topic_id,
+                lesson_id=c.lesson_id,
+                completed_at=c.completed_at,
+                progress_percent=None,
+            )
+            for c in completions
+        ]
 
     @classmethod
     def record_resource_activity(

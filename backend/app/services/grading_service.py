@@ -273,6 +273,7 @@ class GradingService:
             status="pending",
         )
         db.add(outbox_event)
+
         db.commit()
         db.refresh(attempt)
 

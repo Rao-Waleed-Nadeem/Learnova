@@ -174,8 +174,10 @@ def test_admin_user_detail_metrics(admin_auth_fixture: Dict):
     """Admin user detail returns profile with contextual metrics and no secrets."""
     client = admin_auth_fixture["client"]
     student = admin_auth_fixture["student"]
+    teacher = admin_auth_fixture["teacher"]
     headers = {"Authorization": f"Bearer {admin_auth_fixture['token_admin']}"}
 
+    # 1. Student detail verification
     res = client.get(f"/api/v1/admin/users/{student.id}", headers=headers)
     assert res.status_code == 200
     data = res.json()
@@ -186,6 +188,23 @@ def test_admin_user_detail_metrics(admin_auth_fixture: Dict):
     assert data["enrolled_courses_count"] >= 1
     assert "hashed_password" not in data["user"]
     assert "hashed_password" not in res.text
+    assert data["student_metrics"] is not None
+    assert "xp" in data["student_metrics"]
+    assert data["security_profile"] is not None
+    assert data["security_profile"]["account_status"] == "Active"
+
+    # 2. Teacher detail verification
+    res_teacher = client.get(f"/api/v1/admin/users/{teacher.id}", headers=headers)
+    assert res_teacher.status_code == 200
+    t_data = res_teacher.json()
+
+    assert t_data["user"]["id"] == str(teacher.id)
+    assert t_data["user"]["role"] == "teacher"
+    assert t_data["teacher_metrics"] is not None
+    assert "authored_questions_count" in t_data["teacher_metrics"]
+    assert "published_courses_count" in t_data["teacher_metrics"]
+    assert isinstance(t_data["courses"], list)
+    assert t_data["security_profile"]["auth_method"] is not None
 
 
 def test_admin_user_detail_not_found(admin_auth_fixture: Dict):

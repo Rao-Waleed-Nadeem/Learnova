@@ -8,18 +8,20 @@ import {
   BarChart3,
   Menu,
   X,
-  ChevronLeft,
-  ChevronRight,
   LogOut,
-  User,
   GraduationCap,
-  Bell,
   CheckCircle2,
   AlertCircle,
   HelpCircle,
+  Sun,
+  Moon,
+  ChevronRight,
+  ChevronLeft,
+  ArrowRightLeft,
 } from 'lucide-react';
-import { CURRENT_TEACHER } from '../../services/storageService';
-import { ThemeToggle } from '../ui/ThemeToggle';
+import { DesignStudioWidget } from '../ui/DesignStudioWidget';
+import { AppFooter } from '../ui/AppFooter';
+import { useTheme } from '../../context/ThemeContext';
 
 export type NavigationPage =
   | 'overview'
@@ -41,66 +43,86 @@ export interface ToastMessage {
   message: string;
 }
 
+export interface BreadcrumbItem {
+  label: string;
+  page?: NavigationPage;
+  params?: Record<string, string>;
+}
+
 interface TeacherLayoutProps {
   currentPage: NavigationPage;
   onNavigate: (page: NavigationPage, params?: Record<string, string>) => void;
   selectedCourseId?: string;
   selectedCourseTitle?: string;
+  teacherUser?: { name: string; email: string; department?: string };
+  onSignOut?: () => void;
+  onSwitchPortal?: (portal: 'student' | 'admin' | 'public') => void;
+  onSwitchToPublic?: () => void;
+  breadcrumbs?: BreadcrumbItem[];
   toasts: ToastMessage[];
   onDismissToast: (id: string) => void;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 export const TeacherLayout: React.FC<TeacherLayoutProps> = ({
   currentPage,
   onNavigate,
-  selectedCourseId,
-  selectedCourseTitle,
+  teacherUser,
+  onSignOut,
+  onSwitchPortal,
+  onSwitchToPublic,
+  breadcrumbs = [],
   toasts,
   onDismissToast,
   children,
 }) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [helpModalOpen, setHelpModalOpen] = useState(false);
+  const [designStudioOpen, setDesignStudioOpen] = useState(false);
+  const { actualTheme, setTheme } = useTheme();
+  const isDark = actualTheme === 'dark';
+
+  const toggleTheme = () => {
+    setTheme(isDark ? 'light' : 'dark');
+  };
 
   const navItems = [
     {
       id: 'overview' as NavigationPage,
       label: 'Overview',
-      icon: <LayoutDashboard className="w-5 h-5 shrink-0" />,
+      icon: LayoutDashboard,
       activeMatches: ['overview'],
     },
     {
       id: 'courses' as NavigationPage,
       label: 'Courses',
-      icon: <BookOpen className="w-5 h-5 shrink-0" />,
+      icon: BookOpen,
       activeMatches: ['courses', 'course_overview', 'curriculum', 'prerequisites', 'resources'],
     },
     {
       id: 'questions' as NavigationPage,
       label: 'Question Bank',
-      icon: <ListChecks className="w-5 h-5 shrink-0" />,
+      icon: ListChecks,
       activeMatches: ['questions', 'question_editor'],
     },
     {
       id: 'ai_review' as NavigationPage,
       label: 'AI Review',
-      icon: <Sparkles className="w-5 h-5 shrink-0" />,
+      icon: Sparkles,
       activeMatches: ['ai_review'],
       badge: 'Review',
     },
     {
       id: 'assessments' as NavigationPage,
       label: 'Assessments',
-      icon: <ClipboardCheck className="w-5 h-5 shrink-0" />,
+      icon: ClipboardCheck,
       activeMatches: ['assessments', 'assessment_editor'],
     },
     {
       id: 'analytics' as NavigationPage,
       label: 'Analytics',
-      icon: <BarChart3 className="w-5 h-5 shrink-0" />,
+      icon: BarChart3,
       activeMatches: ['analytics'],
     },
   ];
@@ -110,8 +132,12 @@ export const TeacherLayout: React.FC<TeacherLayoutProps> = ({
     setMobileMenuOpen(false);
   };
 
+  const userInitials = teacherUser?.name
+    ? teacherUser.name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()
+    : 'ER';
+
   return (
-    <div className="min-h-screen bg-[#F5F7FA] text-[#1F2937] flex flex-col font-sans">
+    <div className="min-h-screen bg-[#F5F7FA] dark:bg-[#0F1218] text-[#1F2937] dark:text-[#F3F4F6] flex font-sans">
       {/* Toast Notification Stack */}
       <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm pointer-events-none">
         {toasts.map((t) => (
@@ -145,34 +171,53 @@ export const TeacherLayout: React.FC<TeacherLayoutProps> = ({
         ))}
       </div>
 
-      <div className="flex flex-1">
-        {/* Desktop Sidebar (248px or 72px collapsed) */}
-        <aside
-          className={`hidden md:flex flex-col border-r border-[#D9DEE7] bg-white transition-all duration-200 select-none z-20 shrink-0 ${
-            sidebarCollapsed ? 'w-[72px]' : 'w-[248px]'
-          }`}
-          aria-label="Main Navigation"
-        >
-          {/* Brand header */}
-          <div className="h-[72px] px-5 border-b border-[#D9DEE7] flex items-center justify-between">
-            <div className="flex items-center gap-3 overflow-hidden">
-              <div className="w-9 h-9 rounded-xl bg-[#3156D3] text-white flex items-center justify-center shrink-0 shadow-xs">
-                <GraduationCap className="w-5 h-5" />
-              </div>
+      {/* ========================================================================= */}
+      {/* DESKTOP COLLAPSIBLE LEFT SIDEBAR (Unified with Student & Admin layouts)     */}
+      {/* ========================================================================= */}
+      <aside
+        className={`fixed top-0 bottom-0 left-0 z-40 bg-white dark:bg-[#12161F] border-r border-[#D9DEE7] dark:border-[#2D3545] hidden lg:flex flex-col justify-between transition-all duration-300 ease-in-out ${
+          sidebarCollapsed ? 'w-[72px]' : 'w-64'
+        }`}
+      >
+        <div className="flex flex-col flex-1 overflow-y-auto">
+          {/* Brand Header */}
+          <div
+            className={`h-16 flex items-center justify-between border-b border-[#D9DEE7] dark:border-[#2D3545] ${
+              sidebarCollapsed ? 'px-2 justify-center' : 'px-4'
+            }`}
+          >
+            <div
+              onClick={() => onNavigate('overview')}
+              className="flex items-center gap-2.5 overflow-hidden cursor-pointer group"
+            >
+              <img
+                src="/learnova-logo.png"
+                alt="Learnova"
+                className={`object-contain shrink-0 transition-transform group-hover:scale-105 ${
+                  sidebarCollapsed ? 'w-7 h-7' : 'h-8 w-auto'
+                }`}
+                title="Learnova Faculty"
+              />
               {!sidebarCollapsed && (
-                <div className="flex flex-col">
-                  <span className="font-bold text-base tracking-tight text-[#1F2937] leading-none">
+                <div className="min-w-0">
+                  <span className="font-bold text-base text-gray-900 dark:text-white tracking-tight block truncate">
                     Learnova
                   </span>
-                  <span className="text-[11px] font-semibold text-[#3156D3] uppercase tracking-wider mt-1">
+                  <span className="block text-[10px] font-bold text-[#3156D3] dark:text-indigo-400 uppercase tracking-wider">
                     Teacher Portal
                   </span>
                 </div>
               )}
             </div>
+
+            {/* Collapse Toggle */}
             <button
+              type="button"
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              className="p-1 rounded-md text-[#5B6472] hover:bg-gray-100 hover:text-[#1F2937] transition-colors cursor-pointer"
+              className={`text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer ${
+                sidebarCollapsed ? 'p-1 mt-2' : 'p-1.5'
+              }`}
+              title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
               aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
               {sidebarCollapsed ? (
@@ -183,42 +228,36 @@ export const TeacherLayout: React.FC<TeacherLayoutProps> = ({
             </button>
           </div>
 
-          {/* Navigation links */}
-          <nav className="flex-1 py-4 px-3 flex flex-col gap-1 overflow-y-auto">
+          {/* Navigation Links */}
+          <nav className="p-3 space-y-1" aria-label="Faculty Navigation">
             {navItems.map((item) => {
+              const Icon = item.icon;
               const isActive = item.activeMatches.includes(currentPage);
               return (
                 <button
                   key={item.id}
+                  type="button"
                   onClick={() => handleNavClick(item.id)}
                   title={sidebarCollapsed ? item.label : undefined}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors relative cursor-pointer group ${
+                  className={`w-full group relative flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 cursor-pointer ${
                     isActive
-                      ? 'bg-[#E8EEFF] text-[#2646B8] font-semibold'
-                      : 'text-[#5B6472] hover:bg-gray-100 hover:text-[#1F2937]'
+                      ? 'bg-[#E8EEFF] dark:bg-indigo-950/60 text-[#2646B8] dark:text-indigo-300 font-bold shadow-2xs'
+                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/60 hover:translate-x-0.5'
                   } ${sidebarCollapsed ? 'justify-center px-0' : ''}`}
                 >
-                  {/* Left edge indicator */}
-                  {isActive && (
-                    <span
-                      className="absolute left-0 top-1.5 bottom-1.5 w-1 bg-[#3156D3] rounded-r"
-                      aria-hidden="true"
+                  {isActive && <span className="nav-indicator-pill" aria-hidden="true" />}
+                  <div className="flex items-center gap-2.5">
+                    <Icon
+                      className={`w-4 h-4 shrink-0 transition-colors ${
+                        isActive
+                          ? 'text-[#2646B8] dark:text-indigo-400'
+                          : 'text-gray-400 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white'
+                      }`}
                     />
-                  )}
-                  <span
-                    className={
-                      isActive
-                        ? 'text-[#2646B8]'
-                        : 'text-[#5B6472] group-hover:text-[#1F2937]'
-                    }
-                  >
-                    {item.icon}
-                  </span>
-                  {!sidebarCollapsed && (
-                    <span className="flex-1 text-left truncate">{item.label}</span>
-                  )}
+                    {!sidebarCollapsed && <span>{item.label}</span>}
+                  </div>
                   {!sidebarCollapsed && item.badge && (
-                    <span className="text-[10px] font-semibold bg-[#FFF5D6] text-[#946200] px-1.5 py-0.5 rounded border border-[#946200]/20">
+                    <span className="text-[9px] font-bold bg-[#FFF5D6] text-[#946200] px-1.5 py-0.5 rounded border border-[#946200]/20 ml-0.5">
                       {item.badge}
                     </span>
                   )}
@@ -226,243 +265,268 @@ export const TeacherLayout: React.FC<TeacherLayoutProps> = ({
               );
             })}
           </nav>
-
-          {/* Course context widget if course is selected */}
-          {!sidebarCollapsed && selectedCourseTitle && (
-            <div className="mx-3 mb-3 p-2.5 rounded-lg bg-[#F5F7FA] border border-[#D9DEE7] text-xs">
-              <span className="text-[10px] font-semibold uppercase text-[#737D8C] block mb-0.5">
-                Current Course Context
-              </span>
-              <p className="font-semibold text-[#1F2937] truncate" title={selectedCourseTitle}>
-                {selectedCourseTitle}
-              </p>
-            </div>
-          )}
-
-          {/* Bottom user utility area */}
-          <div className="p-3 border-t border-[#D9DEE7]">
-            <div className="relative">
-              <button
-                onClick={() => setUserMenuOpen(!userMenuOpen)}
-                className={`w-full flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 transition-colors text-left cursor-pointer ${
-                  sidebarCollapsed ? 'justify-center p-1.5' : ''
-                }`}
-                aria-haspopup="true"
-                aria-expanded={userMenuOpen}
-              >
-                <div className="w-8 h-8 rounded-full bg-[#E8EEFF] text-[#2646B8] flex items-center justify-center font-bold text-xs shrink-0 border border-[#2646B8]/20">
-                  ER
-                </div>
-                {!sidebarCollapsed && (
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-[#1F2937] truncate">
-                      {CURRENT_TEACHER.name}
-                    </p>
-                    <p className="text-[11px] text-[#5B6472] truncate">
-                      {CURRENT_TEACHER.department}
-                    </p>
-                  </div>
-                )}
-              </button>
-
-              {userMenuOpen && (
-                <div className="absolute bottom-12 left-0 right-0 bg-white border border-[#D9DEE7] rounded-xl shadow-lg p-2 z-30 flex flex-col gap-1 text-xs animate-in fade-in duration-100">
-                  <div className="px-2 py-1.5 border-b border-gray-100">
-                    <p className="font-semibold text-[#1F2937]">{CURRENT_TEACHER.name}</p>
-                    <p className="text-[#5B6472] text-[11px]">{CURRENT_TEACHER.email}</p>
-                    <span className="inline-block mt-1 bg-green-100 text-green-800 text-[10px] px-1.5 py-0.2 rounded font-medium">
-                      Role: Instructor (Verified)
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setHelpModalOpen(true);
-                      setUserMenuOpen(false);
-                    }}
-                    className="flex items-center gap-2 px-2 py-1.5 rounded text-[#5B6472] hover:bg-gray-100 hover:text-[#1F2937] transition-colors cursor-pointer w-full text-left"
-                  >
-                    <HelpCircle className="w-3.5 h-3.5 text-[#3156D3]" />
-                    <span>Documentation & Help</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setUserMenuOpen(false);
-                    }}
-                    className="flex items-center gap-2 px-2 py-1.5 rounded text-[#B42318] hover:bg-[#FEF0EF] transition-colors cursor-pointer w-full text-left font-medium"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                    <span>Active Session</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </aside>
-
-        {/* Mobile Header and Drawer */}
-        <div className="flex-1 flex flex-col min-w-0">
-          <header className="h-[72px] bg-white border-b border-[#D9DEE7] px-4 md:px-8 flex items-center justify-between sticky top-0 z-30">
-            <div className="flex items-center gap-3">
-              {/* Mobile hamburger */}
-              <button
-                onClick={() => setMobileMenuOpen(true)}
-                className="md:hidden p-2 rounded-lg text-[#5B6472] hover:bg-gray-100 transition-colors cursor-pointer"
-                aria-label="Open mobile navigation"
-              >
-                <Menu className="w-5 h-5" />
-              </button>
-
-              <div className="flex items-center gap-2 md:hidden">
-                <div className="w-7 h-7 rounded-lg bg-[#3156D3] text-white flex items-center justify-center font-bold text-xs">
-                  <GraduationCap className="w-4 h-4" />
-                </div>
-                <span className="font-bold text-sm tracking-tight text-[#1F2937]">Learnova</span>
-              </div>
-
-              {/* Course breadcrumb indicator in top header */}
-              {selectedCourseTitle && (
-                <div className="hidden lg:flex items-center gap-2 text-xs text-[#5B6472] pl-3 border-l border-gray-200">
-                  <span className="text-[#737D8C]">Active Course:</span>
-                  <span className="font-semibold text-[#1F2937] max-w-sm truncate bg-[#F5F7FA] px-2 py-0.5 rounded border border-[#D9DEE7]">
-                    {selectedCourseTitle}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2.5 sm:gap-3">
-              <ThemeToggle />
-
-              <button
-                onClick={() => setHelpModalOpen(true)}
-                className="p-2 text-[#5B6472] hover:text-[#3156D3] hover:bg-gray-100 rounded-lg transition-colors cursor-pointer hidden sm:flex items-center gap-1.5 text-xs font-medium"
-                title="Teacher Help Guide"
-              >
-                <HelpCircle className="w-4 h-4" />
-                <span>Guide</span>
-              </button>
-
-              <div className="w-px h-5 bg-gray-200 hidden sm:block" />
-
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-[#E8EEFF] text-[#2646B8] flex items-center justify-center font-bold text-xs border border-[#2646B8]/20">
-                  ER
-                </div>
-                <span className="text-xs font-semibold text-[#1F2937] hidden sm:inline">
-                  {CURRENT_TEACHER.name}
-                </span>
-              </div>
-            </div>
-          </header>
-
-          {/* Mobile Navigation Drawer */}
-          {mobileMenuOpen && (
-            <div
-              className="fixed inset-0 z-50 bg-black/45 md:hidden backdrop-blur-xs flex"
-              role="dialog"
-              aria-modal="true"
-            >
-              <div className="w-72 bg-white h-full shadow-2xl flex flex-col p-4 animate-in slide-in-from-left duration-200">
-                <div className="flex items-center justify-between pb-4 border-b border-gray-200">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-[#3156D3] text-white flex items-center justify-center">
-                      <GraduationCap className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-sm text-[#1F2937]">Learnova</p>
-                      <p className="text-[11px] text-[#3156D3] font-semibold">Teacher Portal</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="p-1.5 text-[#5B6472] hover:bg-gray-100 rounded-lg cursor-pointer"
-                    aria-label="Close menu"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-
-                <nav className="flex-1 py-4 flex flex-col gap-1 overflow-y-auto">
-                  {navItems.map((item) => {
-                    const isActive = item.activeMatches.includes(currentPage);
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => handleNavClick(item.id)}
-                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                          isActive
-                            ? 'bg-[#E8EEFF] text-[#2646B8] font-semibold'
-                            : 'text-[#5B6472] hover:bg-gray-100 text-left'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          {item.icon}
-                          <span>{item.label}</span>
-                        </div>
-                        {item.badge && (
-                          <span className="text-[10px] font-semibold bg-[#FFF5D6] text-[#946200] px-1.5 py-0.5 rounded border border-[#946200]/20">
-                            {item.badge}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </nav>
-
-                <div className="pt-4 border-t border-gray-200">
-                  <div className="mb-3">
-                    <span className="text-[10px] font-semibold uppercase text-[#737D8C] dark:text-[#828B99] block mb-1.5">
-                      Theme Mode
-                    </span>
-                    <ThemeToggle compact />
-                  </div>
-
-                  <div className="p-2.5 rounded-lg bg-[#F5F7FA] border border-[#D9DEE7] mb-3">
-                    <p className="text-xs font-semibold text-[#1F2937]">{CURRENT_TEACHER.name}</p>
-                    <p className="text-[11px] text-[#5B6472]">{CURRENT_TEACHER.email}</p>
-                    <p className="text-[10px] text-[#3156D3] font-medium mt-1">
-                      {CURRENT_TEACHER.department}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="flex-1" onClick={() => setMobileMenuOpen(false)} />
-            </div>
-          )}
-
-          {/* Main content viewport */}
-          <main className="flex-1 p-4 sm:p-6 md:p-8 max-w-[1440px] w-full mx-auto overflow-x-hidden">
-            {children}
-          </main>
         </div>
-      </div>
 
-      {/* Teacher Portal Documentation Modal */}
-      {helpModalOpen && (
+        {/* Sidebar Footer: Profile Card & Sign Out */}
+        <div className="p-3 border-t border-[#D9DEE7] dark:border-[#2D3545]">
+          <div
+            className={`p-2 rounded-xl bg-gray-50/70 dark:bg-[#1C212B] border border-gray-200 dark:border-gray-800 flex items-center justify-between ${
+              sidebarCollapsed ? 'justify-center p-1.5' : ''
+            }`}
+          >
+            <div
+              className={`flex items-center gap-2.5 min-w-0 ${
+                sidebarCollapsed ? 'justify-center' : ''
+              }`}
+            >
+              <div className="w-8 h-8 rounded-full bg-[#E8EEFF] dark:bg-indigo-950/60 text-[#2646B8] dark:text-indigo-300 flex items-center justify-center font-bold text-xs border border-[#2646B8]/20 dark:border-indigo-700/40 shrink-0">
+                {userInitials}
+              </div>
+              {!sidebarCollapsed && (
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-gray-900 dark:text-white truncate">
+                    {teacherUser?.name || 'Elena Rostova'}
+                  </p>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                    {teacherUser?.department || teacherUser?.email || 'Computer Science'}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {!sidebarCollapsed && onSignOut && (
+              <button
+                type="button"
+                onClick={onSignOut}
+                className="p-1 text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 rounded transition cursor-pointer"
+                title="Sign out"
+                aria-label="Sign out"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      </aside>
+
+      {/* ========================================================================= */}
+      {/* MOBILE NAVIGATION DRAWER                                                  */}
+      {/* ========================================================================= */}
+      {mobileMenuOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/45 flex items-center justify-center p-4 backdrop-blur-xs"
+          className="fixed inset-0 z-50 bg-slate-900/10 dark:bg-black/25 backdrop-blur-xs lg:hidden flex"
           role="dialog"
           aria-modal="true"
         >
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-xl border border-[#D9DEE7] max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between pb-3 border-b border-[#D9DEE7]">
+          <div className="w-72 bg-white dark:bg-[#181C24] h-full shadow-2xl flex flex-col p-4 animate-in slide-in-from-left duration-200 border-r border-gray-200 dark:border-gray-800">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-200 dark:border-gray-800">
+              <div className="flex items-center gap-2.5">
+                <img src="/learnova-logo.png" alt="Learnova" className="h-7 w-auto object-contain" />
+                <div>
+                  <p className="font-bold text-sm text-[#1F2937] dark:text-white">Learnova</p>
+                  <p className="text-[11px] text-[#3156D3] dark:text-indigo-400 font-semibold">Teacher Portal</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-1.5 text-[#5B6472] dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg cursor-pointer"
+                aria-label="Close menu"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <nav className="flex-1 py-4 flex flex-col gap-1 overflow-y-auto">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = item.activeMatches.includes(currentPage);
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => handleNavClick(item.id)}
+                    className={`w-full flex items-center justify-between p-3 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                      isActive
+                        ? 'bg-[#E8EEFF] dark:bg-indigo-950/60 text-[#2646B8] dark:text-indigo-300'
+                        : 'text-[#5B6472] dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Icon className="w-4 h-4 shrink-0" />
+                      <span>{item.label}</span>
+                    </div>
+                    {item.badge && (
+                      <span className="text-[10px] font-bold bg-[#FFF5D6] text-[#946200] px-1.5 py-0.5 rounded border border-[#946200]/20">
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </nav>
+
+            <div className="pt-4 border-t border-gray-200 dark:border-gray-800 space-y-3">
+              <div className="p-3 rounded-xl bg-gray-50 dark:bg-[#1C212B] border border-gray-200 dark:border-gray-800">
+                <p className="font-bold text-xs text-gray-900 dark:text-white">{teacherUser?.name || 'Elena Rostova'}</p>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">{teacherUser?.department || teacherUser?.email || 'Computer Science'}</p>
+              </div>
+              {onSignOut && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onSignOut();
+                  }}
+                  className="w-full flex items-center justify-center gap-2 p-2 rounded-xl text-xs font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Sign Out</span>
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="flex-1" onClick={() => setMobileMenuOpen(false)} />
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MAIN CONTENT VIEWPORT & TOP DEDICATED BREADCRUMB HEADER                   */}
+      {/* ========================================================================= */}
+      <div
+        className={`flex-1 transition-all duration-300 ease-in-out flex flex-col min-h-screen ${
+          sidebarCollapsed ? 'lg:pl-[72px]' : 'lg:pl-64'
+        }`}
+      >
+        {/* Top Header Bar */}
+        <header className="sticky top-0 z-30 h-16 frosted-header px-4 sm:px-6 flex items-center justify-between gap-4 border-b border-[#D9DEE7] dark:border-[#2D3545]">
+          {/* Left: Mobile hamburger & clean spacious Breadcrumb trail */}
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(true)}
+              className="lg:hidden p-2 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+              aria-label="Open sidebar navigation"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
+            {/* Breadcrumb Path Tree */}
+            <nav className="flex items-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate" aria-label="Breadcrumb">
+              <button
+                type="button"
+                onClick={() => onNavigate('overview')}
+                className="hover:text-indigo-600 dark:hover:text-indigo-400 font-medium"
+              >
+                Faculty
+              </button>
+              {breadcrumbs.map((crumb, idx) => (
+                <React.Fragment key={idx}>
+                  <ChevronRight className="w-3.5 h-3.5 mx-1 text-gray-400 shrink-0" />
+                  {crumb.page ? (
+                    <button
+                      type="button"
+                      onClick={() => onNavigate(crumb.page!, crumb.params)}
+                      className="hover:text-indigo-600 dark:hover:text-indigo-400 font-medium truncate"
+                    >
+                      {crumb.label}
+                    </button>
+                  ) : (
+                    <span className="font-semibold text-gray-800 dark:text-gray-200 truncate">
+                      {crumb.label}
+                    </span>
+                  )}
+                </React.Fragment>
+              ))}
+            </nav>
+          </div>
+
+          {/* Right Header Command Dock */}
+          <div className="flex items-center gap-2 shrink-0">
+            {onSwitchPortal && (
+              <button
+                type="button"
+                onClick={() => onSwitchPortal('student')}
+                className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-white dark:hover:bg-gray-800 transition cursor-pointer"
+                title="Switch to Student Portal"
+              >
+                <ArrowRightLeft className="w-3.5 h-3.5" />
+                <span>Student View</span>
+              </button>
+            )}
+
+            <div className="command-dock">
+              {/* Appearance Mode Toggle */}
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="p-1.5 rounded-full text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-white dark:hover:bg-gray-800 transition cursor-pointer"
+                aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                title="Toggle appearance mode"
+              >
+                {isDark ? (
+                  <Sun className="w-4 h-4 text-amber-400" />
+                ) : (
+                  <Moon className="w-4 h-4 text-gray-600" />
+                )}
+              </button>
+
+              {/* Documentation Guide Modal Button */}
+              <button
+                type="button"
+                onClick={() => setHelpModalOpen(true)}
+                className="p-1.5 rounded-full text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-white dark:hover:bg-gray-800 transition cursor-pointer"
+                aria-label="Faculty guide & help"
+                title="Faculty System Guide"
+              >
+                <HelpCircle className="w-4 h-4 text-[#3156D3] dark:text-indigo-400" />
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Content Area */}
+        <main className="flex-1 p-4 sm:p-6 md:p-8 max-w-7xl w-full mx-auto overflow-x-hidden">
+          <div className="view-enter-animation">
+            {children}
+          </div>
+        </main>
+
+        {/* App Footer */}
+        <AppFooter onOpenDesignStudio={() => setDesignStudioOpen(true)} />
+      </div>
+
+      {/* Design Studio Widget */}
+      <DesignStudioWidget
+        isOpen={designStudioOpen}
+        onClose={() => setDesignStudioOpen(false)}
+        onToggle={() => setDesignStudioOpen((prev) => !prev)}
+      />
+
+      {/* Help Modal */}
+      {helpModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/10 dark:bg-black/25 flex items-center justify-center p-4 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-white dark:bg-[#181C24] rounded-2xl max-w-2xl w-full p-6 shadow-xl border border-[#D9DEE7] dark:border-[#2D3545] max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-[#D9DEE7] dark:border-[#2D3545]">
               <div className="flex items-center gap-2">
                 <GraduationCap className="w-5 h-5 text-[#3156D3]" />
-                <h3 className="text-base font-bold text-[#1F2937]">
+                <h3 className="text-base font-bold text-[#1F2937] dark:text-white">
                   Learnova Teacher Portal - System Guide
                 </h3>
               </div>
               <button
                 onClick={() => setHelpModalOpen(false)}
-                className="p-1 text-[#5B6472] hover:bg-gray-100 rounded-lg cursor-pointer"
+                className="p-1 text-[#5B6472] dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg cursor-pointer"
                 aria-label="Close help modal"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="py-4 overflow-y-auto space-y-4 text-xs text-[#5B6472] leading-relaxed">
-              <div className="p-3 rounded-lg bg-[#EFF8FF] border border-[#175CD3]/20">
-                <p className="font-semibold text-[#175CD3] mb-1">Teacher-in-the-Loop Principle</p>
+            <div className="py-4 overflow-y-auto space-y-4 text-xs text-[#5B6472] dark:text-gray-300 leading-relaxed">
+              <div className="p-3 rounded-lg bg-[#EFF8FF] dark:bg-indigo-950/40 border border-[#175CD3]/20 dark:border-indigo-700/30">
+                <p className="font-semibold text-[#175CD3] dark:text-indigo-300 mb-1">Teacher-in-the-Loop Principle</p>
                 <p>
                   AI generates candidate questions based on your curriculum topics and learning
                   resources. Every question requires manual teacher review, edit, and explicit
@@ -470,7 +534,7 @@ export const TeacherLayout: React.FC<TeacherLayoutProps> = ({
                 </p>
               </div>
               <div>
-                <h4 className="font-semibold text-[#1F2937] text-sm mb-1">
+                <h4 className="font-semibold text-[#1F2937] dark:text-white text-sm mb-1">
                   Prerequisite Graph (DAG Rules)
                 </h4>
                 <p>
@@ -480,7 +544,7 @@ export const TeacherLayout: React.FC<TeacherLayoutProps> = ({
                 </p>
               </div>
               <div>
-                <h4 className="font-semibold text-[#1F2937] text-sm mb-1">
+                <h4 className="font-semibold text-[#1F2937] dark:text-white text-sm mb-1">
                   Academic Mastery vs Gamification
                 </h4>
                 <p>
@@ -490,7 +554,7 @@ export const TeacherLayout: React.FC<TeacherLayoutProps> = ({
                 </p>
               </div>
             </div>
-            <div className="pt-3 border-t border-[#D9DEE7] flex justify-end">
+            <div className="pt-3 border-t border-[#D9DEE7] dark:border-[#2D3545] flex justify-end">
               <button
                 onClick={() => setHelpModalOpen(false)}
                 className="bg-[#3156D3] text-white px-4 py-2 rounded-lg font-medium text-xs hover:bg-[#2646B8] cursor-pointer"

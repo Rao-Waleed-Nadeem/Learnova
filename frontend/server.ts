@@ -11,7 +11,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
-const getBackendUrl = () => process.env.BACKEND_URL || 'http://localhost:8000';
+const getBackendUrl = () => process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 
 app.use(express.json());
 
@@ -129,7 +129,7 @@ app.use('/api/v1', async (req, res) => {
 
     for (const [key, value] of Object.entries(req.headers)) {
       const lower = key.toLowerCase();
-      if (lower !== 'host' && lower !== 'content-length' && typeof value === 'string') {
+      if (lower !== 'host' && lower !== 'content-length' && lower !== 'expect' && typeof value === 'string') {
         headers[key] = value;
       }
     }
@@ -164,8 +164,9 @@ app.use('/api/v1', async (req, res) => {
       return res.status(backendRes.status).send(Buffer.from(buffer));
     }
   } catch (err: any) {
+    console.error('Proxy error details:', err?.message || err, err?.cause);
     return res.status(503).json({
-      detail: 'Backend API service unavailable. Could not connect to FastAPI backend.',
+      detail: `Backend API service unavailable. Could not connect to FastAPI backend: ${err?.message}`,
     });
   }
 });

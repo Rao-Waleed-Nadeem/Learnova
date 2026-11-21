@@ -66,24 +66,24 @@ export const StudentDashboardPage: React.FC<StudentDashboardPageProps> = ({
   const latestAttempt = recentAttempts[0];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 view-enter-animation">
       {/* Welcome Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
-            Welcome back, {currentUser.name}!
+            Welcome back, {currentUser.name}
           </h1>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            Pick up where you left off or explore recommended practice sessions.
+            Resume your active coursework or recalibrate skills with targeted practice.
           </p>
         </div>
         <button
           type="button"
           onClick={() => onNavigate('catalog')}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#181C24] hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-semibold text-gray-800 dark:text-gray-200 transition shadow-2xs self-start sm:self-auto cursor-pointer"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200/90 dark:border-gray-800/90 bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-semibold text-gray-800 dark:text-gray-200 transition shadow-2xs self-start sm:self-auto cursor-pointer"
         >
           <Compass className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-          <span>Explore Course Catalog</span>
+          <span>Course Catalog</span>
         </button>
       </div>
 
@@ -93,8 +93,8 @@ export const StudentDashboardPage: React.FC<StudentDashboardPageProps> = ({
         <div className="lg:col-span-8 space-y-6">
           {/* Priority 1: CONTINUE LEARNING CARD */}
           {primaryCourse && nextLesson ? (
-            <div className="p-6 sm:p-7 rounded-2xl bg-white dark:bg-[#181C24] border border-[#D9DEE7] dark:border-[#2D3545] shadow-xs relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
+            <div className="interactive-card p-6 sm:p-7 rounded-2xl bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 shadow-xs relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 dark:bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
               
               <div className="flex items-center justify-between gap-3 mb-3">
                 <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
@@ -124,7 +124,7 @@ export const StudentDashboardPage: React.FC<StudentDashboardPageProps> = ({
                       lessonId: nextLesson.id,
                     })
                   }
-                  className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition shadow-sm flex items-center gap-2 cursor-pointer"
+                  className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition shadow-sm flex items-center gap-2 cursor-pointer active:scale-[0.98]"
                 >
                   <Play className="w-4 h-4 fill-current" />
                   <span>Resume Lesson</span>
@@ -133,15 +133,15 @@ export const StudentDashboardPage: React.FC<StudentDashboardPageProps> = ({
                 <button
                   type="button"
                   onClick={() => onNavigate('course_map', { courseId: primaryCourse.id })}
-                  className="px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 font-semibold text-sm transition"
+                  className="px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 font-semibold text-sm transition active:scale-[0.98]"
                 >
-                  View Full Course Map
+                  Course Map
                 </button>
               </div>
             </div>
           ) : (
-            <div className="p-8 rounded-2xl bg-white dark:bg-[#181C24] border border-[#D9DEE7] dark:border-[#2D3545] text-center space-y-4">
-              <div className="w-12 h-12 mx-auto rounded-full bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 flex items-center justify-center">
+            <div className="p-8 rounded-2xl bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 text-center space-y-4">
+              <div className="w-12 h-12 mx-auto rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 flex items-center justify-center">
                 <Compass className="w-6 h-6" />
               </div>
               <div>
@@ -149,13 +149,13 @@ export const StudentDashboardPage: React.FC<StudentDashboardPageProps> = ({
                   Start your learning journey
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  You are not currently enrolled in any course. Discover available courses in our catalog.
+                  Discover available university courses in our catalog to begin.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => onNavigate('catalog')}
-                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition cursor-pointer"
+                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition cursor-pointer active:scale-[0.98]"
               >
                 Browse Course Catalog
               </button>
@@ -176,16 +176,16 @@ export const StudentDashboardPage: React.FC<StudentDashboardPageProps> = ({
                   Recalibrate Mastery: Conditional Logic & Control Flow
                 </h4>
                 <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                  Targeted practice questions with dynamic difficulty based on your latest quiz responses.
+                  Targeted practice questions with dynamic difficulty based on your recent quiz responses.
                 </p>
               </div>
             </div>
             <button
               type="button"
               onClick={() => onNavigate('practice_player', { assessmentId: 'asm-adapt-1' })}
-              className="px-4 py-2.5 rounded-xl bg-white dark:bg-[#181C24] hover:bg-indigo-50 dark:hover:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 text-xs font-bold transition shrink-0 self-start sm:self-auto shadow-2xs cursor-pointer"
+              className="px-4 py-2.5 rounded-xl bg-white dark:bg-[#181C24] hover:bg-indigo-50 dark:hover:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 text-xs font-bold transition shrink-0 self-start sm:self-auto shadow-2xs cursor-pointer active:scale-[0.98]"
             >
-              Start Adaptive Practice →
+              Start Practice →
             </button>
           </div>
 
@@ -198,7 +198,7 @@ export const StudentDashboardPage: React.FC<StudentDashboardPageProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigate('my_learning')}
-                className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+                className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer"
               >
                 <span>View all</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -214,7 +214,7 @@ export const StudentDashboardPage: React.FC<StudentDashboardPageProps> = ({
                   <div
                     key={enr.id}
                     onClick={() => onNavigate('course_map', { courseId: course.id })}
-                    className="p-5 rounded-2xl bg-white dark:bg-[#181C24] border border-[#D9DEE7] dark:border-[#2D3545] hover:border-indigo-300 dark:hover:border-indigo-700 transition shadow-xs cursor-pointer group flex flex-col justify-between"
+                    className="interactive-card p-5 rounded-2xl bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 hover:border-indigo-300 dark:hover:border-indigo-700 transition shadow-xs cursor-pointer group flex flex-col justify-between"
                   >
                     <div>
                       <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-2">
@@ -249,7 +249,7 @@ export const StudentDashboardPage: React.FC<StudentDashboardPageProps> = ({
         {/* Right Insights Column (4 cols) */}
         <div className="lg:col-span-4 space-y-6">
           {/* Gamification Strip */}
-          <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-[#181C24] border border-[#D9DEE7] dark:border-[#2D3545] shadow-xs space-y-4">
+          <div className="p-5 sm:p-6 rounded-2xl bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Gamification Stats
@@ -257,13 +257,13 @@ export const StudentDashboardPage: React.FC<StudentDashboardPageProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigate('achievements')}
-                className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
               >
                 All Badges
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Streak */}
               <div className="p-3.5 rounded-xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-800/60">
                 <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 mb-1">
@@ -291,7 +291,7 @@ export const StudentDashboardPage: React.FC<StudentDashboardPageProps> = ({
             {recentBadge && (
               <div
                 onClick={() => onNavigate('achievements')}
-                className="p-3.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-[#1C212B] flex items-center gap-3 cursor-pointer hover:border-indigo-300 transition"
+                className="interactive-card p-3.5 rounded-xl border border-gray-200/80 dark:border-gray-800/80 bg-gray-50/60 dark:bg-[#1C212B]/70 flex items-center gap-3 cursor-pointer hover:border-indigo-300 transition"
               >
                 <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
                   <Award className="w-5 h-5" />
@@ -309,7 +309,7 @@ export const StudentDashboardPage: React.FC<StudentDashboardPageProps> = ({
           </div>
 
           {/* Academic Learning Snapshot */}
-          <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-[#181C24] border border-[#D9DEE7] dark:border-[#2D3545] shadow-xs space-y-4">
+          <div className="p-5 sm:p-6 rounded-2xl bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Mastery Snapshot
@@ -317,7 +317,7 @@ export const StudentDashboardPage: React.FC<StudentDashboardPageProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigate('progress')}
-                className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
               >
                 View Analytics
               </button>
@@ -343,7 +343,7 @@ export const StudentDashboardPage: React.FC<StudentDashboardPageProps> = ({
             <button
               type="button"
               onClick={() => onNavigate('progress')}
-              className="w-full py-2 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-xs font-semibold text-gray-700 dark:text-gray-300 transition"
+              className="w-full py-2 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-xs font-semibold text-gray-700 dark:text-gray-300 transition cursor-pointer active:scale-[0.98]"
             >
               Open Topic Mastery Matrix
             </button>

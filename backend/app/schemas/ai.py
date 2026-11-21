@@ -10,7 +10,7 @@ class AISimplifyLessonRequest(BaseModel):
     """Request schema for student/teacher lesson tutoring and explanation."""
 
     lesson_id: uuid.UUID = Field(..., description="Required persisted lesson ID")
-    mode: str = Field(default="simplify", pattern="^(simplify|analogy|example|custom)$")
+    mode: str = Field(default="simplify", pattern="^(simplify|analogy|example|diagram|custom)$")
     custom_prompt: Optional[str] = Field(default=None, max_length=500)
     course_title: Optional[str] = None
     topic_title: Optional[str] = None
@@ -106,3 +106,73 @@ class AICandidateRejectResponse(BaseModel):
     candidate_id: uuid.UUID
     status: str = "rejected"
     message: str = "Candidate question rejected."
+
+
+# --- Persistent AI Session Schemas ---
+
+
+class AIAttachmentItem(BaseModel):
+    """Attachment reference sent with student queries (code, markdown, document)."""
+
+    id: Optional[str] = None
+    title: str
+    type: str  # 'code' | 'document' | 'markdown' | 'video' | 'link'
+    content: Optional[str] = None
+
+
+class AISessionCreateRequest(BaseModel):
+    """Request to initiate or resume a persistent session."""
+
+    session_type: str = Field(..., pattern="^(question_generation|lesson_tutoring)$")
+    course_id: uuid.UUID
+    topic_id: Optional[uuid.UUID] = None
+    lesson_id: Optional[uuid.UUID] = None
+    title: Optional[str] = None
+    attachments: Optional[List[AIAttachmentItem]] = Field(default_factory=list)
+
+
+class AISessionMessageItem(BaseModel):
+    """Single chat message in an AI session."""
+
+    id: uuid.UUID
+    session_id: uuid.UUID
+    sender: str  # 'user' | 'agent' | 'system'
+    content: str
+    attachments: List[Any] = Field(default_factory=list)
+    raw_metadata: Dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AISessionResponse(BaseModel):
+    """Summary of a persistent AI session."""
+
+    id: uuid.UUID
+    session_type: str
+    user_id: uuid.UUID
+    course_id: uuid.UUID
+    topic_id: Optional[uuid.UUID] = None
+    lesson_id: Optional[uuid.UUID] = None
+    agy_conversation_id: Optional[str] = None
+    title: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AISessionDetailResponse(AISessionResponse):
+    """Full detail of a persistent session including messages."""
+
+    messages: List[AISessionMessageItem] = Field(default_factory=list)
+
+
+class AISendSessionMessageRequest(BaseModel):
+    """Student or Teacher sending a message / follow-up into a persistent session."""
+
+    content: str = Field(..., min_length=1, max_length=5000)
+    mode: Optional[str] = Field(default="custom", pattern="^(simplify|analogy|example|diagram|custom|refine_questions)$")
+    attachments: Optional[List[AIAttachmentItem]] = Field(default_factory=list)
+

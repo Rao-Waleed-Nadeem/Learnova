@@ -59,18 +59,26 @@ class Settings(BaseSettings):
         description="Allowed origins for CORS requests with credentials",
     )
 
-    # AI & LLM Service Configuration (Phase 9)
+    # AI & LLM Service Configuration (AGY CLI native)
+    AI_PROVIDER: str = Field(
+        default="agy",
+        description="Authoritative AI provider ('agy' for local Antigravity CLI agent, or 'deterministic')",
+    )
+    AGY_MODEL: str = Field(
+        default="flash",
+        description="AGY model identifier (flash, flash_lite, pro)",
+    )
     GEMINI_API_KEY: Optional[str] = Field(
         default=None,
-        description="Google Gemini API key for AI generation (server-side only)",
+        description="Deprecated external Gemini API key",
     )
     GEMINI_MODEL: str = Field(
         default="gemini-2.5-flash",
-        description="Gemini model identifier",
+        description="Deprecated Gemini model identifier",
     )
     AI_TIMEOUT_SECONDS: int = Field(
-        default=15,
-        description="Timeout for external LLM API calls in seconds",
+        default=35,
+        description="Timeout for AI CLI/agent execution in seconds",
     )
     AI_CACHE_TTL_DAYS: int = Field(
         default=30,

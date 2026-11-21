@@ -15,6 +15,7 @@ import {
 import { UserAccount, UserRole } from '../../types';
 import { RoleBadge } from '../../components/admin/RoleBadge';
 import { filterUsers } from '../../utils/adminLogic';
+import { Avatar } from '../../components/ui/Avatar';
 import { AdminNavigationPage } from '../../components/admin/AdminLayout';
 
 interface UserManagementPageProps {
@@ -60,7 +61,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 view-enter-animation">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2">
         <div>
@@ -78,7 +79,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="p-4 rounded-2xl bg-white dark:bg-[#181C24] border border-gray-200 dark:border-gray-800 shadow-xs space-y-3">
+      <div className="p-4 rounded-2xl bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 shadow-xs space-y-3">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           {/* Search Input */}
           <div className="relative md:col-span-2">
@@ -91,13 +92,13 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({
                 setCurrentPageNum(1);
               }}
               placeholder="Search by name or email address..."
-              className="w-full pl-10 pr-9 py-2 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#12161F] text-xs sm:text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full pl-10 pr-9 py-2 rounded-xl border border-gray-200/90 dark:border-gray-700/90 bg-white/90 dark:bg-[#12161F]/90 text-xs sm:text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-0.5"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-0.5 cursor-pointer"
                 aria-label="Clear search"
               >
                 <X className="w-3.5 h-3.5" />
@@ -171,7 +172,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({
       </div>
 
       {/* Users Data Table */}
-      <div className="bg-white dark:bg-[#181C24] rounded-2xl border border-gray-200 dark:border-gray-800 shadow-xs overflow-hidden">
+      <div className="bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs rounded-2xl border border-gray-200/80 dark:border-gray-800/80 shadow-xs overflow-hidden">
         {paginatedUsers.length === 0 ? (
           <div className="p-12 text-center">
             <div className="w-12 h-12 mx-auto rounded-full bg-gray-100 dark:bg-gray-800 text-gray-400 flex items-center justify-center mb-3">
@@ -214,9 +215,11 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({
                       {/* Name & Email */}
                       <td className="py-3 px-4 sm:px-6">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-bold text-xs flex items-center justify-center shrink-0">
-                            {user.avatar || user.name.slice(0, 2).toUpperCase()}
-                          </div>
+                          <Avatar
+                            src={user.avatar}
+                            name={user.name}
+                            className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-bold text-xs"
+                          />
                           <div className="min-w-0">
                             <p className="font-bold text-gray-900 dark:text-white truncate">
                               {user.name}

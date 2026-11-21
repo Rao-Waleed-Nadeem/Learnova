@@ -15,7 +15,7 @@
  * Direct persistence mutations here are strictly non-authoritative when a backend session is active.
  */
 
-import {
+import type {
   Course,
   Topic,
   Lesson,
@@ -38,22 +38,22 @@ import {
   LeaderboardEntry,
   StudentAssessmentSession,
   StudentAssessmentResult,
-} from '../types';
-import {
   UserAccount,
   UserRole,
   AuditEvent,
   ServiceHealthCheck,
+} from '../types/index.ts';
+import {
   validateRoleChange,
   validateAccountStatusChange,
   maskIpAddress,
   generateCorrelationId,
-} from '../utils/adminLogic';
+} from '../utils/adminLogic.ts';
 
 export const CURRENT_ADMIN: UserAccount = {
-  id: 'adm-sarah',
+  id: 'd9a8cd82-8d83-4b54-bcea-64e0ded0f5d4',
   name: 'Sarah Connor',
-  email: 's.connor@learnova.edu',
+  email: 'admin@learnova.edu',
   role: 'administrator',
   isActive: true,
   createdAt: '2026-08-15T08:00:00Z',
@@ -63,18 +63,18 @@ export const CURRENT_ADMIN: UserAccount = {
 };
 
 export const CURRENT_TEACHER: TeacherUser = {
-  id: 'teacher-101',
-  name: 'Dr. Elena Rostova',
-  email: 'e.rostova@learnova.edu',
+  id: 'c669ebe0-8bf3-43e7-816d-20a5f9b2c53a',
+  name: 'Elena Rostova',
+  email: 'teacher@learnova.edu',
   role: 'teacher',
   department: 'Faculty of Computer Science',
 };
 
 const SEED_USERS: UserAccount[] = [
   {
-    id: 'adm-sarah',
+    id: 'd9a8cd82-8d83-4b54-bcea-64e0ded0f5d4',
     name: 'Sarah Connor',
-    email: 's.connor@learnova.edu',
+    email: 'admin@learnova.edu',
     role: 'administrator',
     isActive: true,
     createdAt: '2026-08-15T08:00:00Z',
@@ -83,20 +83,9 @@ const SEED_USERS: UserAccount[] = [
     department: 'System Governance & Security',
   },
   {
-    id: 'adm-marcus',
-    name: 'Marcus Vance',
-    email: 'm.vance@learnova.edu',
-    role: 'administrator',
-    isActive: true,
-    createdAt: '2026-08-20T10:00:00Z',
-    lastActiveAt: '2026-10-17T15:20:00Z',
-    avatar: 'MV',
-    department: 'Academic Operations',
-  },
-  {
-    id: 'teacher-101',
-    name: 'Dr. Elena Rostova',
-    email: 'e.rostova@learnova.edu',
+    id: 'c669ebe0-8bf3-43e7-816d-20a5f9b2c53a',
+    name: 'Elena Rostova',
+    email: 'teacher@learnova.edu',
     role: 'teacher',
     isActive: true,
     createdAt: '2026-09-01T09:00:00Z',
@@ -106,33 +95,9 @@ const SEED_USERS: UserAccount[] = [
     assignedCoursesCount: 3,
   },
   {
-    id: 'teacher-102',
-    name: 'Prof. Alan Turing',
-    email: 'a.turing@learnova.edu',
-    role: 'teacher',
-    isActive: true,
-    createdAt: '2026-09-03T11:00:00Z',
-    lastActiveAt: '2026-10-16T14:30:00Z',
-    avatar: 'AT',
-    department: 'Applied Mathematics & Algorithms',
-    assignedCoursesCount: 2,
-  },
-  {
-    id: 'teacher-103',
-    name: 'Dr. Ada Lovelace',
-    email: 'a.lovelace@learnova.edu',
-    role: 'teacher',
-    isActive: true,
-    createdAt: '2026-09-05T14:00:00Z',
-    lastActiveAt: '2026-10-15T16:45:00Z',
-    avatar: 'AL',
-    department: 'Software Architecture & Engineering',
-    assignedCoursesCount: 1,
-  },
-  {
-    id: 'std-alex',
+    id: '3942ea18-ac60-4c94-8d3b-bdb1db7f8b16',
     name: 'Alex Rivera',
-    email: 'alex.rivera@learnova.edu',
+    email: 'student@learnova.edu',
     role: 'student',
     isActive: true,
     createdAt: '2026-09-10T10:00:00Z',
@@ -141,81 +106,15 @@ const SEED_USERS: UserAccount[] = [
     enrolledCoursesCount: 3,
   },
   {
-    id: 'std-clara',
-    name: 'Clara Vance',
-    email: 'clara.v@learnova.edu',
+    id: '7a1f1f7d-1461-4364-9854-cafc519dde9a',
+    name: 'haseeb',
+    email: 'haseeb@gmail.com',
     role: 'student',
     isActive: true,
-    createdAt: '2026-09-11T12:00:00Z',
-    lastActiveAt: '2026-10-18T07:50:00Z',
-    avatar: 'CV',
-    enrolledCoursesCount: 2,
-  },
-  {
-    id: 'std-marcus',
-    name: 'Marcus Brody',
-    email: 'm.brody@learnova.edu',
-    role: 'student',
-    isActive: false,
-    createdAt: '2026-09-12T13:30:00Z',
-    lastActiveAt: '2026-10-01T11:20:00Z',
-    avatar: 'MB',
-    enrolledCoursesCount: 1,
-  },
-  {
-    id: 'std-sarah',
-    name: 'Sarah Jenkins',
-    email: 'sarah.j@learnova.edu',
-    role: 'student',
-    isActive: true,
-    createdAt: '2026-09-14T09:40:00Z',
-    lastActiveAt: '2026-10-17T18:10:00Z',
-    avatar: 'SJ',
-    enrolledCoursesCount: 2,
-  },
-  {
-    id: 'std-liam',
-    name: 'Liam Zhao',
-    email: 'liam.zhao@learnova.edu',
-    role: 'student',
-    isActive: true,
-    createdAt: '2026-09-15T15:20:00Z',
-    lastActiveAt: '2026-10-17T14:05:00Z',
-    avatar: 'LZ',
-    enrolledCoursesCount: 1,
-  },
-  {
-    id: 'std-priya',
-    name: 'Priya Sharma',
-    email: 'priya.s@learnova.edu',
-    role: 'student',
-    isActive: true,
-    createdAt: '2026-09-18T08:30:00Z',
-    lastActiveAt: '2026-10-16T17:40:00Z',
-    avatar: 'PS',
-    enrolledCoursesCount: 2,
-  },
-  {
-    id: 'std-devon',
-    name: 'Devon Miller',
-    email: 'devon.m@learnova.edu',
-    role: 'student',
-    isActive: true,
-    createdAt: '2026-09-20T16:00:00Z',
-    lastActiveAt: '2026-10-15T10:30:00Z',
-    avatar: 'DM',
-    enrolledCoursesCount: 1,
-  },
-  {
-    id: 'std-hannah',
-    name: 'Hannah Scott',
-    email: 'hannah.s@learnova.edu',
-    role: 'student',
-    isActive: true,
-    createdAt: '2026-09-22T11:15:00Z',
-    lastActiveAt: '2026-10-14T09:15:00Z',
-    avatar: 'HS',
-    enrolledCoursesCount: 1,
+    createdAt: '2026-09-15T10:00:00Z',
+    lastActiveAt: '2026-10-18T09:12:00Z',
+    avatar: 'H',
+    enrolledCoursesCount: 0,
   },
 ];
 
@@ -367,643 +266,38 @@ const SEED_SERVICE_HEALTH: ServiceHealthCheck[] = [
   },
 ];
 
-const SEED_COURSES: Course[] = [
-  {
-    id: 'course-cs101',
-    title: 'Introduction to Computer Science & Python',
-    description: 'Foundational programming concepts, algorithmic reasoning, control structures, and object-oriented principles.',
-    status: 'published',
-    updatedAt: '2026-10-12T14:30:00Z',
-    createdAt: '2026-09-01T09:00:00Z',
-    creatorId: 'teacher-101',
-    creatorName: 'Dr. Elena Rostova',
-    creatorEmail: 'e.rostova@learnova.edu',
-    creatorDepartment: 'Faculty of Computer Science',
-    creatorAvatar: 'ER',
-  },
-  {
-    id: 'course-cs201',
-    title: 'Data Structures and Algorithm Analysis',
-    description: 'Linear and non-linear data structures, trees, graphs, sorting strategies, and Big-O computational complexity.',
-    status: 'published',
-    updatedAt: '2026-10-14T11:15:00Z',
-    createdAt: '2026-09-15T10:00:00Z',
-    creatorId: 'teacher-102',
-    creatorName: 'Prof. Alan Turing',
-    creatorEmail: 'a.turing@learnova.edu',
-    creatorDepartment: 'Applied Mathematics & Algorithms',
-    creatorAvatar: 'AT',
-  },
-  {
-    id: 'course-cs305',
-    title: 'Machine Learning Foundations',
-    description: 'Supervised and unsupervised learning, optimization pipelines, model validation, and gradient descent.',
-    status: 'published',
-    updatedAt: '2026-10-08T16:20:00Z',
-    createdAt: '2026-10-01T08:30:00Z',
-    creatorId: 'teacher-103',
-    creatorName: 'Dr. Ada Lovelace',
-    creatorEmail: 'a.lovelace@learnova.edu',
-    creatorDepartment: 'Software Architecture & Engineering',
-    creatorAvatar: 'AL',
-  },
-];
+const CURRENT_STORAGE_VERSION = 'learnova_v6_clean_db';
+if (typeof localStorage !== 'undefined') {
+  try {
+    if (localStorage.getItem('learnova_storage_version') !== CURRENT_STORAGE_VERSION) {
+      localStorage.clear();
+      localStorage.setItem('learnova_storage_version', CURRENT_STORAGE_VERSION);
+    }
+  } catch {
+    // Ignore storage errors in restrictive environments
+  }
+}
 
-const SEED_TOPICS: Topic[] = [
-  {
-    id: 'topic-syntax',
-    courseId: 'course-cs101',
-    title: 'Syntax, Variables & Data Types',
-    description: 'Core scalar types, memory bindings, arithmetic operators, and string formatting.',
-    order: 1,
-    prerequisiteTopicIds: [],
-    masteryThreshold: 75,
-    updatedAt: '2026-10-10T12:00:00Z',
-    createdAt: '2026-09-02T10:00:00Z',
-  },
-  {
-    id: 'topic-control',
-    courseId: 'course-cs101',
-    title: 'Conditional Logic & Control Flow',
-    description: 'Boolean branching, if-elif-else statements, while loops, and iterator traversal.',
-    order: 2,
-    prerequisiteTopicIds: ['topic-syntax'],
-    masteryThreshold: 75,
-    updatedAt: '2026-10-11T15:00:00Z',
-    createdAt: '2026-09-05T11:00:00Z',
-  },
-  {
-    id: 'topic-functions',
-    courseId: 'course-cs101',
-    title: 'Functions & Modular Programming',
-    description: 'Subroutines, scope resolution, default parameters, return contracts, and purity.',
-    order: 3,
-    prerequisiteTopicIds: ['topic-syntax', 'topic-control'],
-    masteryThreshold: 80,
-    updatedAt: '2026-10-12T16:40:00Z',
-    createdAt: '2026-09-10T09:30:00Z',
-  },
-  {
-    id: 'topic-collections',
-    courseId: 'course-cs101',
-    title: 'Data Collections: Lists & Dictionaries',
-    description: 'Sequence indexing, list comprehensions, associative key-value mapping, and set operations.',
-    order: 4,
-    prerequisiteTopicIds: ['topic-control'],
-    masteryThreshold: 75,
-    updatedAt: '2026-10-13T10:20:00Z',
-    createdAt: '2026-09-12T14:00:00Z',
-  },
-  {
-    id: 'topic-oop',
-    courseId: 'course-cs101',
-    title: 'Object-Oriented Design & Classes',
-    description: 'Class declarations, instances, encapsulating state, inheritance, and dunder methods.',
-    order: 5,
-    prerequisiteTopicIds: ['topic-functions', 'topic-collections'],
-    masteryThreshold: 80,
-    updatedAt: '2026-10-14T09:00:00Z',
-    createdAt: '2026-09-18T13:00:00Z',
-  },
-];
+const SEED_COURSES: Course[] = [];
 
-const SEED_LESSONS: Lesson[] = [
-  {
-    id: 'lesson-vars-1',
-    topicId: 'topic-syntax',
-    courseId: 'course-cs101',
-    title: 'Introduction to Primitive Types and Namespaces',
-    description: 'Understand integers, floats, booleans, and dynamically bound variable references.',
-    order: 1,
-    updatedAt: '2026-10-02T10:00:00Z',
-    createdAt: '2026-09-02T10:00:00Z',
-  },
-  {
-    id: 'lesson-vars-2',
-    topicId: 'topic-syntax',
-    courseId: 'course-cs101',
-    title: 'String Immutability and Interpolation',
-    description: 'Indexing, slicing, and f-string formatting in modern Python.',
-    order: 2,
-    updatedAt: '2026-10-03T11:00:00Z',
-    createdAt: '2026-09-03T11:00:00Z',
-  },
-  {
-    id: 'lesson-ctrl-1',
-    topicId: 'topic-control',
-    courseId: 'course-cs101',
-    title: 'Branching and Short-Circuit Evaluation',
-    description: 'Mastering logical expressions with and, or, and not truth tables.',
-    order: 1,
-    updatedAt: '2026-10-06T14:00:00Z',
-    createdAt: '2026-09-06T14:00:00Z',
-  },
-  {
-    id: 'lesson-ctrl-2',
-    topicId: 'topic-control',
-    courseId: 'course-cs101',
-    title: 'Loops: While and For-In Iterations',
-    description: 'Definite vs indefinite loop patterns, break, continue, and loop-else blocks.',
-    order: 2,
-    updatedAt: '2026-10-07T16:00:00Z',
-    createdAt: '2026-09-07T16:00:00Z',
-  },
-  {
-    id: 'lesson-fn-1',
-    topicId: 'topic-functions',
-    courseId: 'course-cs101',
-    title: 'Function Definition, Arguments & Return Values',
-    description: 'Positional arguments, keyword arguments, and early return guards.',
-    order: 1,
-    updatedAt: '2026-10-10T10:00:00Z',
-    createdAt: '2026-09-10T10:00:00Z',
-  },
-];
+const SEED_TOPICS: Topic[] = [];
 
-const SEED_RESOURCES: LearningResource[] = [
-  {
-    id: 'res-1',
-    lessonId: 'lesson-vars-1',
-    courseId: 'course-cs101',
-    title: 'Python Memory Model & Variables Reference',
-    type: 'document',
-    contentOrUrl: 'https://docs.python.org/3/reference/datamodel.html',
-    fileSize: '1.4 MB PDF',
-    updatedAt: '2026-10-02T10:00:00Z',
-    createdAt: '2026-10-02T10:00:00Z',
-  },
-  {
-    id: 'res-2',
-    lessonId: 'lesson-vars-1',
-    courseId: 'course-cs101',
-    title: 'Scalar Types Example Snippet',
-    type: 'code',
-    contentOrUrl: `# Variable binding examples\nage: int = 21\ngpa: float = 3.85\nis_enrolled: boolean = True\nstudent_name: str = "Elena Rostova"`,
-    updatedAt: '2026-10-03T09:00:00Z',
-    createdAt: '2026-10-03T09:00:00Z',
-  },
-  {
-    id: 'res-3',
-    lessonId: 'lesson-ctrl-1',
-    courseId: 'course-cs101',
-    title: 'Control Flow Lecture Recording',
-    type: 'video',
-    contentOrUrl: 'https://cdn.learnova.edu/lectures/cs101-control-flow.mp4',
-    fileSize: '42 mins HD',
-    updatedAt: '2026-10-06T15:00:00Z',
-    createdAt: '2026-10-06T15:00:00Z',
-  },
-  {
-    id: 'res-4',
-    lessonId: 'lesson-ctrl-1',
-    courseId: 'course-cs101',
-    title: 'Short-Circuit Logic Summary Notes',
-    type: 'markdown',
-    contentOrUrl: `### Short-Circuit Evaluation Rules\n- In \`A and B\`, if \`A\` is false, \`B\` is never evaluated.\n- In \`A or B\`, if \`A\` is true, \`B\` is never evaluated.\n- Always safeguard null or index references using short-circuiting: \`if lst and lst[0] == 42:\``,
-    updatedAt: '2026-10-07T12:00:00Z',
-    createdAt: '2026-10-07T12:00:00Z',
-  },
-];
+const SEED_LESSONS: Lesson[] = [];
 
-const SEED_QUESTIONS: QuestionData[] = [
-  {
-    id: 'q-mc-1',
-    courseId: 'course-cs101',
-    topicId: 'topic-syntax',
-    type: 'multiple_choice',
-    prompt: 'Which of the following is true regarding variable assignment in Python?',
-    difficulty: 'easy',
-    points: 2,
-    explanation: 'Variables in Python are symbolic names bound to objects in memory, not fixed type containers.',
-    status: 'approved',
-    source: 'teacher',
-    options: [
-      { id: 'opt-1', text: 'Variables store references pointing to objects in heap memory', isCorrect: true },
-      { id: 'opt-2', text: 'Variables statically allocate a fixed block of byte registers at compile time', isCorrect: false },
-      { id: 'opt-3', text: 'Variables cannot be rebound to objects of differing types', isCorrect: false },
-      { id: 'opt-4', text: 'Variable names must begin with a dollar sign ($) symbol', isCorrect: false },
-    ],
-    createdAt: '2026-10-01T10:00:00Z',
-    updatedAt: '2026-10-01T10:00:00Z',
-  },
-  {
-    id: 'q-tf-1',
-    courseId: 'course-cs101',
-    topicId: 'topic-syntax',
-    type: 'true_false',
-    prompt: 'In Python, strings are immutable and cannot have individual characters modified in-place.',
-    difficulty: 'easy',
-    points: 1,
-    explanation: 'Attempting `s[0] = "X"` raises a TypeError because string objects do not support item assignment.',
-    status: 'approved',
-    source: 'teacher',
-    correctBool: true,
-    createdAt: '2026-10-02T11:00:00Z',
-    updatedAt: '2026-10-02T11:00:00Z',
-  },
-  {
-    id: 'q-fb-1',
-    courseId: 'course-cs101',
-    topicId: 'topic-control',
-    type: 'fill_blank',
-    prompt: 'In a conditional statement, the keyword used to check additional mutually exclusive conditions after "if" is [blank].',
-    difficulty: 'easy',
-    points: 2,
-    explanation: 'Python uses "elif" as the abbreviation for else-if.',
-    status: 'approved',
-    source: 'teacher',
-    acceptedAnswers: ['elif', 'elif:'],
-    caseSensitive: false,
-    createdAt: '2026-10-05T09:00:00Z',
-    updatedAt: '2026-10-05T09:00:00Z',
-  },
-  {
-    id: 'q-mat-1',
-    courseId: 'course-cs101',
-    topicId: 'topic-control',
-    type: 'matching',
-    prompt: 'Match each loop control statement with its execution behavior:',
-    difficulty: 'medium',
-    points: 3,
-    explanation: 'break exits the loop immediately, continue jumps to next iteration, pass is a null statement.',
-    status: 'approved',
-    source: 'teacher',
-    matchingPairs: [
-      { id: 'p1', left: 'break', right: 'Terminates loop execution immediately' },
-      { id: 'p2', left: 'continue', right: 'Skips remainder of current iteration and proceeds to next' },
-      { id: 'p3', left: 'pass', right: 'Syntactic no-op placeholder that executes nothing' },
-    ],
-    createdAt: '2026-10-06T14:30:00Z',
-    updatedAt: '2026-10-06T14:30:00Z',
-  },
-  {
-    id: 'q-sa-1',
-    courseId: 'course-cs101',
-    topicId: 'topic-functions',
-    type: 'short_answer',
-    prompt: 'Explain what happens when a mutable object (like a list) is passed as a default argument in a function definition.',
-    difficulty: 'hard',
-    points: 4,
-    explanation: 'Default arguments are evaluated once at function definition time, so mutations persist across subsequent invocations.',
-    status: 'approved',
-    source: 'teacher',
-    expectedRubric: 'Must state: 1) Default expressions evaluate once at def time, 2) The same list instance is reused, 3) Mutations persist across calls.',
-    createdAt: '2026-10-08T15:00:00Z',
-    updatedAt: '2026-10-08T15:00:00Z',
-  },
-  {
-    id: 'q-mc-pending',
-    courseId: 'course-cs101',
-    topicId: 'topic-collections',
-    type: 'multiple_choice',
-    prompt: 'What is the average time complexity of key lookup in a Python dictionary?',
-    difficulty: 'medium',
-    points: 2,
-    explanation: 'Dictionaries use hash tables with O(1) expected lookup time.',
-    status: 'pending_review',
-    source: 'ai_generated',
-    options: [
-      { id: 'opt-a', text: 'O(1) average constant time', isCorrect: true },
-      { id: 'opt-b', text: 'O(log n) logarithmic time', isCorrect: false },
-      { id: 'opt-c', text: 'O(n) linear scan time', isCorrect: false },
-      { id: 'opt-d', text: 'O(n^2) quadratic time', isCorrect: false },
-    ],
-    createdAt: '2026-10-14T08:00:00Z',
-    updatedAt: '2026-10-14T08:00:00Z',
-  },
-  {
-    id: 'q-mc-adapt-1',
-    courseId: 'course-cs101',
-    topicId: 'topic-syntax',
-    type: 'multiple_choice',
-    prompt: 'Which arithmetic operator is used in Python for exponentiation (raising to a power)?',
-    difficulty: 'easy',
-    points: 1,
-    explanation: '** is the power operator in Python. ^ is the bitwise XOR operator.',
-    status: 'approved',
-    source: 'teacher',
-    options: [
-      { id: 'opt-pow-1', text: '** (double asterisk)', isCorrect: true },
-      { id: 'opt-pow-2', text: '^ (caret)', isCorrect: false },
-      { id: 'opt-pow-3', text: '// (double slash)', isCorrect: false },
-      { id: 'opt-pow-4', text: 'exp()', isCorrect: false },
-    ],
-    createdAt: '2026-10-02T12:00:00Z',
-    updatedAt: '2026-10-02T12:00:00Z',
-  },
-  {
-    id: 'q-mc-adapt-2',
-    courseId: 'course-cs101',
-    topicId: 'topic-control',
-    type: 'multiple_choice',
-    prompt: 'What will be the output of: print([x * 2 for x in [1, 2, 3]]) ?',
-    difficulty: 'medium',
-    points: 2,
-    explanation: 'A list comprehension doubles each element sequentially, yielding [2, 4, 6].',
-    status: 'approved',
-    source: 'teacher',
-    options: [
-      { id: 'opt-lc-1', text: '[2, 4, 6]', isCorrect: true },
-      { id: 'opt-lc-2', text: '[1, 2, 3, 1, 2, 3]', isCorrect: false },
-      { id: 'opt-lc-3', text: '[2, 2, 2]', isCorrect: false },
-      { id: 'opt-lc-4', text: 'TypeError: list comprehension invalid', isCorrect: false },
-    ],
-    createdAt: '2026-10-06T15:00:00Z',
-    updatedAt: '2026-10-06T15:00:00Z',
-  },
-  {
-    id: 'q-tf-adapt-1',
-    courseId: 'course-cs101',
-    topicId: 'topic-functions',
-    type: 'true_false',
-    prompt: 'In Python, functions are first-class citizens and can be passed as arguments to other functions.',
-    difficulty: 'medium',
-    points: 2,
-    explanation: 'Functions are objects in Python, enabling higher-order functions like map, filter, and decorators.',
-    status: 'approved',
-    source: 'teacher',
-    correctBool: true,
-    createdAt: '2026-10-09T11:00:00Z',
-    updatedAt: '2026-10-09T11:00:00Z',
-  },
-  {
-    id: 'q-mc-adapt-3',
-    courseId: 'course-cs101',
-    topicId: 'topic-oop',
-    type: 'multiple_choice',
-    prompt: 'What algorithm does Python 3 use to calculate the Method Resolution Order (MRO) in multiple inheritance?',
-    difficulty: 'hard',
-    points: 3,
-    explanation: 'Python 3 utilizes the C3 Linearization algorithm to enforce monotonicity and consistent resolution order.',
-    status: 'approved',
-    source: 'teacher',
-    options: [
-      { id: 'opt-mro-1', text: 'C3 Linearization algorithm', isCorrect: true },
-      { id: 'opt-mro-2', text: 'Depth-First Search (DFS) order', isCorrect: false },
-      { id: 'opt-mro-3', text: 'Breadth-First Search (BFS) order', isCorrect: false },
-      { id: 'opt-mro-4', text: 'Topological Kahn sorting', isCorrect: false },
-    ],
-    createdAt: '2026-10-14T10:00:00Z',
-    updatedAt: '2026-10-14T10:00:00Z',
-  },
-];
+const SEED_RESOURCES: LearningResource[] = [];
 
-const SEED_AI_CANDIDATES: AICandidateQuestion[] = [
-  {
-    id: 'cand-1',
-    courseId: 'course-cs101',
-    topicId: 'topic-collections',
-    prompt: 'Which operation creates a shallow copy of a Python dictionary?',
-    type: 'multiple_choice',
-    difficulty: 'medium',
-    points: 2,
-    explanation: 'dict.copy() creates a shallow duplicate where nested references are shared.',
-    sourceContext: 'Lesson 4 Notes: Python Associative Collections and Copy Semantics',
-    status: 'pending_review',
-    options: [
-      { id: '1', text: 'dict.copy()', isCorrect: true },
-      { id: '2', text: 'dict.clone()', isCorrect: false },
-      { id: '3', text: 'dict.deepcopy()', isCorrect: false },
-      { id: '4', text: 'dict.duplicate()', isCorrect: false },
-    ],
-    createdAt: '2026-10-14T09:00:00Z',
-  },
-  {
-    id: 'cand-2',
-    courseId: 'course-cs101',
-    topicId: 'topic-collections',
-    prompt: 'Dictionary keys in Python must be hashable and therefore immutable.',
-    type: 'true_false',
-    difficulty: 'easy',
-    points: 1,
-    explanation: 'Mutable collections such as lists cannot be used as dictionary keys because their hash could change.',
-    sourceContext: 'Data Structures Specification: Mapping Keys',
-    status: 'pending_review',
-    correctBool: true,
-    createdAt: '2026-10-14T09:05:00Z',
-  },
-  {
-    id: 'cand-3',
-    courseId: 'course-cs101',
-    topicId: 'topic-oop',
-    prompt: 'In Python classes, the initial constructor method that instantiates attributes is named [blank].',
-    type: 'fill_blank',
-    difficulty: 'easy',
-    points: 2,
-    explanation: '__init__ is the initializer method automatically called upon instance creation.',
-    sourceContext: 'OOP Module 5: Class Declaration and Instantiation',
-    status: 'pending_review',
-    acceptedAnswers: ['__init__', '__init__(self)'],
-    caseSensitive: true,
-    createdAt: '2026-10-14T09:10:00Z',
-  },
-];
+const SEED_QUESTIONS: QuestionData[] = [];
 
-const SEED_ASSESSMENTS: Assessment[] = [
-  {
-    id: 'asm-1',
-    courseId: 'course-cs101',
-    topicId: 'topic-syntax',
-    title: 'Diagnostic Quiz: Pre-Course Python Proficiency',
-    type: 'diagnostic',
-    instructions: 'Evaluate your baseline familiarity with basic types, variable assignment, and string immutability.',
-    questionIds: ['q-mc-1', 'q-tf-1', 'q-mc-adapt-1'],
-    timeLimitMinutes: 15,
-    maxAttempts: 1,
-    passingScorePercent: 60,
-    status: 'published',
-    updatedAt: '2026-10-03T14:00:00Z',
-    createdAt: '2026-10-02T10:00:00Z',
-  },
-  {
-    id: 'asm-2',
-    courseId: 'course-cs101',
-    topicId: 'topic-control',
-    title: 'Midterm Evaluation: Core Control Flow and Functions',
-    type: 'summative',
-    instructions: 'Comprehensive exam testing branching logic, iteration efficiency, and subroutine scope.',
-    questionIds: ['q-fb-1', 'q-mat-1', 'q-sa-1'],
-    timeLimitMinutes: 45,
-    maxAttempts: 2,
-    passingScorePercent: 70,
-    status: 'published',
-    updatedAt: '2026-10-09T16:00:00Z',
-    createdAt: '2026-10-05T12:00:00Z',
-  },
-  {
-    id: 'asm-adapt-1',
-    courseId: 'course-cs101',
-    topicId: 'topic-control',
-    title: 'Adaptive Practice: Logic, Loops & Functions',
-    type: 'adaptive',
-    instructions: 'Dynamic practice session where subsequent question difficulty calibrates to your sequential responses.',
-    questionIds: ['q-mc-adapt-1', 'q-mc-adapt-2', 'q-mat-1', 'q-tf-adapt-1', 'q-sa-1'],
-    timeLimitMinutes: 20,
-    maxAttempts: 5,
-    passingScorePercent: 75,
-    status: 'published',
-    updatedAt: '2026-10-15T12:00:00Z',
-    createdAt: '2026-10-15T10:00:00Z',
-  },
-  {
-    id: 'asm-final-1',
-    courseId: 'course-cs101',
-    topicId: 'topic-oop',
-    title: 'CS101 Comprehensive Final Examination',
-    type: 'final',
-    instructions: 'Formal summative timed examination covering variables, control structures, subroutines, collections, and OOP. Auto-submitted upon timer expiration.',
-    questionIds: ['q-mc-1', 'q-tf-1', 'q-fb-1', 'q-mat-1', 'q-mc-adapt-2', 'q-tf-adapt-1', 'q-sa-1', 'q-mc-adapt-3'],
-    timeLimitMinutes: 45,
-    maxAttempts: 1,
-    passingScorePercent: 75,
-    status: 'published',
-    updatedAt: '2026-10-16T15:00:00Z',
-    createdAt: '2026-10-16T09:00:00Z',
-  },
-  {
-    id: 'asm-3',
-    courseId: 'course-cs101',
-    topicId: 'topic-collections',
-    title: 'Formative Review: Lists and Dictionaries',
-    type: 'formative',
-    instructions: 'Practice questions for associative lookup and sequence manipulation.',
-    questionIds: [],
-    timeLimitMinutes: 30,
-    maxAttempts: 3,
-    passingScorePercent: 75,
-    status: 'draft',
-    updatedAt: '2026-10-14T10:00:00Z',
-    createdAt: '2026-10-14T08:00:00Z',
-  },
-];
+const SEED_AI_CANDIDATES: AICandidateQuestion[] = [];
 
-const SEED_ATTEMPTS: AssessmentAttempt[] = [
-  {
-    id: 'att-1',
-    learnerId: 'std-101',
-    learnerName: 'Alex Chen',
-    assessmentId: 'asm-1',
-    assessmentTitle: 'Diagnostic Quiz: Pre-Course Python Proficiency',
-    courseId: 'course-cs101',
-    topicId: 'topic-syntax',
-    scorePercent: 100,
-    status: 'completed',
-    completedAt: '2026-10-04T10:30:00Z',
-  },
-  {
-    id: 'att-2',
-    learnerId: 'std-102',
-    learnerName: 'Maya Patel',
-    assessmentId: 'asm-1',
-    assessmentTitle: 'Diagnostic Quiz: Pre-Course Python Proficiency',
-    courseId: 'course-cs101',
-    topicId: 'topic-syntax',
-    scorePercent: 67,
-    status: 'completed',
-    completedAt: '2026-10-04T11:15:00Z',
-  },
-  {
-    id: 'att-3',
-    learnerId: 'std-103',
-    learnerName: 'Liam Davis',
-    assessmentId: 'asm-1',
-    assessmentTitle: 'Diagnostic Quiz: Pre-Course Python Proficiency',
-    courseId: 'course-cs101',
-    topicId: 'topic-syntax',
-    scorePercent: 100,
-    status: 'completed',
-    completedAt: '2026-10-04T12:00:00Z',
-  },
-  {
-    id: 'att-4',
-    learnerId: 'std-104',
-    learnerName: 'Sofia Martinez',
-    assessmentId: 'asm-1',
-    assessmentTitle: 'Diagnostic Quiz: Pre-Course Python Proficiency',
-    courseId: 'course-cs101',
-    topicId: 'topic-syntax',
-    scorePercent: 67,
-    status: 'completed',
-    completedAt: '2026-10-04T13:45:00Z',
-  },
-  {
-    id: 'att-5',
-    learnerId: 'std-105',
-    learnerName: 'Noah Kim',
-    assessmentId: 'asm-2',
-    assessmentTitle: 'Midterm Evaluation: Core Control Flow and Functions',
-    courseId: 'course-cs101',
-    topicId: 'topic-control',
-    scorePercent: 78,
-    status: 'completed',
-    completedAt: '2026-10-10T14:20:00Z',
-  },
-  {
-    id: 'att-6',
-    learnerId: 'std-106',
-    learnerName: 'Emma Watson',
-    assessmentId: 'asm-2',
-    assessmentTitle: 'Midterm Evaluation: Core Control Flow and Functions',
-    courseId: 'course-cs101',
-    topicId: 'topic-control',
-    scorePercent: 55,
-    status: 'completed',
-    completedAt: '2026-10-10T15:00:00Z',
-  },
-  {
-    id: 'att-7',
-    learnerId: 'std-107',
-    learnerName: 'Lucas Oliveira',
-    assessmentId: 'asm-2',
-    assessmentTitle: 'Midterm Evaluation: Core Control Flow and Functions',
-    courseId: 'course-cs101',
-    topicId: 'topic-control',
-    scorePercent: 44,
-    status: 'completed',
-    completedAt: '2026-10-10T15:40:00Z',
-  },
-  {
-    id: 'att-8',
-    learnerId: 'std-108',
-    learnerName: 'Zoe Thorne',
-    assessmentId: 'asm-2',
-    assessmentTitle: 'Midterm Evaluation: Core Control Flow and Functions',
-    courseId: 'course-cs101',
-    topicId: 'topic-control',
-    scorePercent: 89,
-    status: 'completed',
-    completedAt: '2026-10-10T16:10:00Z',
-  },
-  {
-    id: 'att-9',
-    learnerId: 'std-109',
-    learnerName: 'Jordan Reed',
-    assessmentId: 'asm-2',
-    assessmentTitle: 'Midterm Evaluation: Core Control Flow and Functions',
-    courseId: 'course-cs101',
-    topicId: 'topic-control',
-    scorePercent: 50,
-    status: 'completed',
-    completedAt: '2026-10-11T09:30:00Z',
-  },
-  {
-    id: 'att-10',
-    learnerId: 'std-110',
-    learnerName: 'Aria Takahashi',
-    assessmentId: 'asm-2',
-    assessmentTitle: 'Midterm Evaluation: Core Control Flow and Functions',
-    courseId: 'course-cs101',
-    topicId: 'topic-control',
-    scorePercent: 92,
-    status: 'completed',
-    completedAt: '2026-10-11T10:15:00Z',
-  },
-];
+const SEED_ASSESSMENTS: Assessment[] = [];
+
+const SEED_ATTEMPTS: AssessmentAttempt[] = [];
 
 export const CURRENT_STUDENT: StudentUser = {
-  id: 'std-alex',
+  id: '3942ea18-ac60-4c94-8d3b-bdb1db7f8b16',
   name: 'Alex Rivera',
-  email: 'a.rivera@learnova.edu',
+  email: 'student@learnova.edu',
   avatar: 'AR',
   role: 'student',
   bio: 'Computer Science undergraduate passionate about systems software, algorithms, and AI.',
@@ -1015,238 +309,22 @@ export const CURRENT_STUDENT: StudentUser = {
   },
 };
 
-const SEED_ENROLLMENTS: Enrollment[] = [
-  // CS101 Enrollments
-  {
-    id: 'enr-cs101-1',
-    studentId: 'std-alex',
-    courseId: 'course-cs101',
-    status: 'active',
-    enrolledAt: '2026-09-16T09:00:00Z',
-    progressPercent: 65,
-  },
-  {
-    id: 'enr-cs101-2',
-    studentId: 'std-clara',
-    courseId: 'course-cs101',
-    status: 'active',
-    enrolledAt: '2026-09-18T10:15:00Z',
-    progressPercent: 45,
-  },
-  {
-    id: 'enr-cs101-3',
-    studentId: 'std-marcus',
-    courseId: 'course-cs101',
-    status: 'active',
-    enrolledAt: '2026-09-20T11:30:00Z',
-    progressPercent: 30,
-  },
-  {
-    id: 'enr-cs101-4',
-    studentId: 'std-sarah',
-    courseId: 'course-cs101',
-    status: 'active',
-    enrolledAt: '2026-09-22T08:45:00Z',
-    progressPercent: 85,
-  },
-  {
-    id: 'enr-cs101-5',
-    studentId: 'std-liam',
-    courseId: 'course-cs101',
-    status: 'active',
-    enrolledAt: '2026-09-25T14:20:00Z',
-    progressPercent: 20,
-  },
-  {
-    id: 'enr-cs101-6',
-    studentId: 'std-priya',
-    courseId: 'course-cs101',
-    status: 'completed',
-    enrolledAt: '2026-09-15T09:00:00Z',
-    completedAt: '2026-10-12T16:00:00Z',
-    progressPercent: 100,
-  },
+const SEED_ENROLLMENTS: Enrollment[] = [];
 
-  // CS201 Enrollments
-  {
-    id: 'enr-cs201-1',
-    studentId: 'std-alex',
-    courseId: 'course-cs201',
-    status: 'active',
-    enrolledAt: '2026-09-20T13:00:00Z',
-    progressPercent: 50,
-  },
-  {
-    id: 'enr-cs201-2',
-    studentId: 'std-clara',
-    courseId: 'course-cs201',
-    status: 'active',
-    enrolledAt: '2026-09-22T15:30:00Z',
-    progressPercent: 70,
-  },
-  {
-    id: 'enr-cs201-3',
-    studentId: 'std-priya',
-    courseId: 'course-cs201',
-    status: 'active',
-    enrolledAt: '2026-09-26T10:00:00Z',
-    progressPercent: 40,
-  },
-  {
-    id: 'enr-cs201-4',
-    studentId: 'std-devon',
-    courseId: 'course-cs201',
-    status: 'active',
-    enrolledAt: '2026-09-29T11:45:00Z',
-    progressPercent: 15,
-  },
+const SEED_LESSON_COMPLETIONS: LessonCompletion[] = [];
 
-  // CS305 Enrollments
-  {
-    id: 'enr-cs305-1',
-    studentId: 'std-alex',
-    courseId: 'course-cs305',
-    status: 'active',
-    enrolledAt: '2026-10-02T09:30:00Z',
-    progressPercent: 35,
-  },
-  {
-    id: 'enr-cs305-2',
-    studentId: 'std-sarah',
-    courseId: 'course-cs305',
-    status: 'active',
-    enrolledAt: '2026-10-04T14:15:00Z',
-    progressPercent: 60,
-  },
-  {
-    id: 'enr-cs305-3',
-    studentId: 'std-hannah',
-    courseId: 'course-cs305',
-    status: 'active',
-    enrolledAt: '2026-10-05T16:00:00Z',
-    progressPercent: 25,
-  },
-];
-
-const SEED_LESSON_COMPLETIONS: LessonCompletion[] = [
-  {
-    id: 'lc-1',
-    studentId: 'std-alex',
-    courseId: 'course-cs101',
-    topicId: 'topic-syntax',
-    lessonId: 'lesson-vars-1',
-    completedAt: '2026-10-14T10:30:00Z',
-  },
-  {
-    id: 'lc-2',
-    studentId: 'std-alex',
-    courseId: 'course-cs101',
-    topicId: 'topic-syntax',
-    lessonId: 'lesson-vars-2',
-    completedAt: '2026-10-15T11:45:00Z',
-  },
-];
-
-const SEED_MASTERY_STATES: MasteryState[] = [
-  {
-    id: 'ms-syntax',
-    studentId: 'std-alex',
-    courseId: 'course-cs101',
-    topicId: 'topic-syntax',
-    scorePercent: 88,
-    status: 'mastered',
-    lastAssessedAt: '2026-10-14T12:00:00Z',
-  },
-  {
-    id: 'ms-control',
-    studentId: 'std-alex',
-    courseId: 'course-cs101',
-    topicId: 'topic-control',
-    scorePercent: 78,
-    status: 'competent',
-    lastAssessedAt: '2026-10-15T14:30:00Z',
-  },
-  {
-    id: 'ms-functions',
-    studentId: 'std-alex',
-    courseId: 'course-cs101',
-    topicId: 'topic-functions',
-    scorePercent: 62,
-    status: 'developing',
-    lastAssessedAt: '2026-10-16T16:00:00Z',
-  },
-  {
-    id: 'ms-collections',
-    studentId: 'std-alex',
-    courseId: 'course-cs101',
-    topicId: 'topic-collections',
-    scorePercent: -1,
-    status: 'not_assessed',
-  },
-  {
-    id: 'ms-oop',
-    studentId: 'std-alex',
-    courseId: 'course-cs101',
-    topicId: 'topic-oop',
-    scorePercent: -1,
-    status: 'not_assessed',
-  },
-];
+const SEED_MASTERY_STATES: MasteryState[] = [];
 
 const SEED_GAMIFICATION_PROFILE: GamificationProfile = {
-  id: 'gp-alex',
-  studentId: 'std-alex',
-  xp: 520,
-  level: 2,
-  streakDays: 4,
-  lastActiveDate: '2026-10-17',
+  id: 'gp-default',
+  studentId: '',
+  xp: 0,
+  level: 1,
+  streakDays: 0,
+  lastActiveDate: new Date().toISOString().split('T')[0],
 };
 
-const SEED_XP_EVENTS: XPEvent[] = [
-  {
-    id: 'xp-1',
-    studentId: 'std-alex',
-    type: 'lesson_completed',
-    xpEarned: 50,
-    timestamp: '2026-10-14T10:30:00Z',
-    description: 'Completed lesson: Introduction to Primitive Types and Namespaces',
-    relatedId: 'lesson-vars-1',
-  },
-  {
-    id: 'xp-2',
-    studentId: 'std-alex',
-    type: 'lesson_completed',
-    xpEarned: 50,
-    timestamp: '2026-10-15T11:45:00Z',
-    description: 'Completed lesson: String Immutability and Interpolation',
-    relatedId: 'lesson-vars-2',
-  },
-  {
-    id: 'xp-3',
-    studentId: 'std-alex',
-    type: 'diagnostic_completed',
-    xpEarned: 150,
-    timestamp: '2026-10-16T14:00:00Z',
-    description: 'Completed Diagnostic Baseline: Pre-Course Python Proficiency',
-    relatedId: 'asm-1',
-  },
-  {
-    id: 'xp-4',
-    studentId: 'std-alex',
-    type: 'daily_streak',
-    xpEarned: 70,
-    timestamp: '2026-10-17T08:00:00Z',
-    description: '4-day consecutive active study streak bonus',
-  },
-  {
-    id: 'xp-5',
-    studentId: 'std-alex',
-    type: 'badge_earned',
-    xpEarned: 200,
-    timestamp: '2026-10-17T08:05:00Z',
-    description: 'Unlocked achievement badge: Streak Sentinel',
-  },
-];
+const SEED_XP_EVENTS: XPEvent[] = [];
 
 const SEED_BADGES: Badge[] = [
   {
@@ -1255,8 +333,7 @@ const SEED_BADGES: Badge[] = [
     description: 'Enrolled in a course and completed the first curriculum unit.',
     icon: 'Footprints',
     category: 'achievement',
-    isUnlocked: true,
-    earnedAt: '2026-09-16T09:15:00Z',
+    isUnlocked: false,
   },
   {
     id: 'badge-diagnostic',
@@ -1264,8 +341,7 @@ const SEED_BADGES: Badge[] = [
     description: 'Completed initial diagnostic baseline assessment to calibrate mastery.',
     icon: 'Compass',
     category: 'achievement',
-    isUnlocked: true,
-    earnedAt: '2026-10-16T14:00:00Z',
+    isUnlocked: false,
   },
   {
     id: 'badge-syntax-master',
@@ -1273,8 +349,7 @@ const SEED_BADGES: Badge[] = [
     description: 'Achieved 85%+ mastery in Syntax, Variables & Primitive Data Types.',
     icon: 'Code',
     category: 'mastery',
-    isUnlocked: true,
-    earnedAt: '2026-10-14T12:00:00Z',
+    isUnlocked: false,
   },
   {
     id: 'badge-streak',
@@ -1282,8 +357,7 @@ const SEED_BADGES: Badge[] = [
     description: 'Maintained a 3-day or greater continuous learning streak.',
     icon: 'Flame',
     category: 'streak',
-    isUnlocked: true,
-    earnedAt: '2026-10-17T08:05:00Z',
+    isUnlocked: false,
   },
   {
     id: 'badge-adaptive-ace',
@@ -1361,7 +435,7 @@ const SEED_LEADERBOARD: LeaderboardEntry[] = [
     xp: 520,
     level: 2,
     earnedBadgesCount: 4,
-    isCurrentUser: true,
+    isCurrentUser: false,
     badges: [
       { id: 'badge-first-step', title: 'First Step', icon: 'Footprints', description: 'Enrolled and completed first lesson' },
       { id: 'badge-diagnostic', title: 'Diagnostic Pioneer', icon: 'Compass', description: 'Completed baseline diagnostic' },
@@ -1419,6 +493,23 @@ const SEED_LEADERBOARD: LeaderboardEntry[] = [
   },
 ];
 
+function getLocalStorageStore(): Storage | null {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      return localStorage;
+    }
+    if (typeof window !== 'undefined' && window.localStorage) {
+      return window.localStorage;
+    }
+    if (typeof globalThis !== 'undefined' && (globalThis as any).localStorage) {
+      return (globalThis as any).localStorage;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 class StorageService {
   private get<T>(key: string, seed: T): T {
     try {
@@ -1443,49 +534,7 @@ class StorageService {
 
   // Courses
   getCourses(): Course[] {
-    const list = this.get<Course[]>('courses', SEED_COURSES);
-    return list.map((c) => {
-      if (!c.creatorName) {
-        if (c.id === 'course-cs101') {
-          return {
-            ...c,
-            creatorId: 'teacher-101',
-            creatorName: 'Dr. Elena Rostova',
-            creatorEmail: 'e.rostova@learnova.edu',
-            creatorDepartment: 'Faculty of Computer Science',
-            creatorAvatar: 'ER',
-          };
-        } else if (c.id === 'course-cs201') {
-          return {
-            ...c,
-            creatorId: 'teacher-102',
-            creatorName: 'Prof. Alan Turing',
-            creatorEmail: 'a.turing@learnova.edu',
-            creatorDepartment: 'Applied Mathematics & Algorithms',
-            creatorAvatar: 'AT',
-          };
-        } else if (c.id === 'course-cs305') {
-          return {
-            ...c,
-            creatorId: 'teacher-103',
-            creatorName: 'Dr. Ada Lovelace',
-            creatorEmail: 'a.lovelace@learnova.edu',
-            creatorDepartment: 'Software Architecture & Engineering',
-            creatorAvatar: 'AL',
-          };
-        } else {
-          return {
-            ...c,
-            creatorId: 'teacher-101',
-            creatorName: 'Dr. Elena Rostova',
-            creatorEmail: 'e.rostova@learnova.edu',
-            creatorDepartment: 'Faculty of Computer Science',
-            creatorAvatar: 'ER',
-          };
-        }
-      }
-      return c;
-    });
+    return this.get<Course[]>('courses', SEED_COURSES);
   }
 
   getCourse(id: string): Course | undefined {
@@ -1638,6 +687,7 @@ class StorageService {
           id: `q-approved-${cand.id}`,
           courseId: cand.courseId,
           topicId: cand.topicId,
+          lessonId: cand.lessonId,
           type: cand.type,
           prompt: cand.prompt,
           difficulty: cand.difficulty,
@@ -1657,6 +707,17 @@ class StorageService {
       }
     }
     return cand;
+  }
+
+  deleteCandidate(id: string): void {
+    const list = this.getCandidates().filter((c) => c.id !== id);
+    this.set('candidates', list);
+  }
+
+  deleteCandidates(ids: string[]): void {
+    const idSet = new Set(ids);
+    const list = this.getCandidates().filter((c) => !idSet.has(c.id));
+    this.set('candidates', list);
   }
 
   // Assessments
@@ -1705,12 +766,7 @@ class StorageService {
   }
 
   getEnrollments(): Enrollment[] {
-    const list = this.get<Enrollment[]>('enrollments', SEED_ENROLLMENTS);
-    if (!list || list.length <= 1) {
-      this.set('enrollments', SEED_ENROLLMENTS);
-      return SEED_ENROLLMENTS;
-    }
-    return list;
+    return this.get<Enrollment[]>('enrollments', SEED_ENROLLMENTS);
   }
 
   getEnrollment(courseId: string): Enrollment | undefined {
@@ -1749,6 +805,10 @@ class StorageService {
 
   getLessonCompletions(): LessonCompletion[] {
     return this.get<LessonCompletion[]>('lesson_completions', SEED_LESSON_COMPLETIONS);
+  }
+
+  saveLessonCompletions(completions: LessonCompletion[]): void {
+    this.set('lesson_completions', completions);
   }
 
   isLessonCompleted(lessonId: string): boolean {
@@ -1865,6 +925,10 @@ class StorageService {
     return this.get<Badge[]>('badges', SEED_BADGES);
   }
 
+  saveBadges(badges: Badge[]): void {
+    this.set('badges', badges);
+  }
+
   unlockBadge(badgeId: string): Badge | undefined {
     const badges = this.getBadges();
     const b = badges.find((badge) => badge.id === badgeId);
@@ -1883,19 +947,42 @@ class StorageService {
     const student = this.getStudentUser();
     const badges = this.getBadges().filter((b) => b.isUnlocked);
 
+    let hasCurrent = false;
     const updated = list.map((entry) => {
-      if (entry.isCurrentUser || entry.studentId === student.id) {
+      const isMe = entry.studentId === student.id || (student.name && entry.displayName === student.name);
+      if (isMe) {
+        hasCurrent = true;
         return {
           ...entry,
+          studentId: student.id,
           displayName: student.name,
+          avatar: student.avatar || (student.name ? student.name.slice(0, 2).toUpperCase() : 'ST'),
           xp: profile.xp,
           level: profile.level,
           earnedBadgesCount: badges.length,
+          isCurrentUser: true,
           badges: badges.map((b) => ({ id: b.id, title: b.title, icon: b.icon, description: b.description })),
         };
       }
-      return entry;
+      return {
+        ...entry,
+        isCurrentUser: false,
+      };
     });
+
+    if (!hasCurrent && student?.id) {
+      updated.push({
+        rank: updated.length + 1,
+        studentId: student.id,
+        displayName: student.name,
+        avatar: student.avatar || (student.name ? student.name.slice(0, 2).toUpperCase() : 'ST'),
+        xp: profile.xp,
+        level: profile.level,
+        earnedBadgesCount: badges.length,
+        isCurrentUser: true,
+        badges: badges.map((b) => ({ id: b.id, title: b.title, icon: b.icon, description: b.description })),
+      });
+    }
 
     updated.sort((a, b) => b.xp - a.xp);
     return updated.map((entry, idx) => ({ ...entry, rank: idx + 1 }));
@@ -2196,8 +1283,43 @@ class StorageService {
     return updated;
   }
 
+  getPersistedPortalMode(): 'student' | 'teacher' | 'admin' | 'public' | null {
+    return this.get<'student' | 'teacher' | 'admin' | 'public' | null>('portal_mode', null);
+  }
+
+  setPersistedPortalMode(mode: 'student' | 'teacher' | 'admin' | 'public' | null): void {
+    if (mode) {
+      this.set('portal_mode', mode);
+    } else {
+      const store = getLocalStorageStore();
+      if (store) {
+        store.removeItem('learnova_portal_mode');
+      }
+    }
+  }
+
+  clearSessionCredentials(): void {
+    const store = getLocalStorageStore();
+    if (store) {
+      store.removeItem('learnova_access_token');
+      store.removeItem('learnova_current_user');
+      store.removeItem('learnova_portal_mode');
+      store.removeItem('learnova_student_user');
+      store.removeItem('learnova_admin_user');
+      store.removeItem('learnova_badges');
+      store.removeItem('learnova_gamification_profile');
+      store.removeItem('learnova_enrollments');
+      store.removeItem('learnova_lesson_completions');
+      store.removeItem('learnova_mastery_states');
+      store.removeItem('learnova_xp_events');
+    }
+  }
+
   resetAllData(): void {
-    localStorage.clear();
+    const store = getLocalStorageStore();
+    if (store) {
+      store.clear();
+    }
   }
 }
 

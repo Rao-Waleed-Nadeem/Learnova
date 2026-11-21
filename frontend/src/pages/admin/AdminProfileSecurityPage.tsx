@@ -94,7 +94,7 @@ export const AdminProfileSecurityPage: React.FC<AdminProfileSecurityPageProps> =
   };
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-4xl pb-12 view-enter-animation">
       {/* Header */}
       <div className="pb-2">
         <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
@@ -106,7 +106,7 @@ export const AdminProfileSecurityPage: React.FC<AdminProfileSecurityPageProps> =
       </div>
 
       {/* Profile Overview Card */}
-      <div className="p-6 rounded-2xl bg-white dark:bg-[#181C24] border border-gray-200 dark:border-gray-800 shadow-xs space-y-4">
+      <div className="p-6 rounded-2xl bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 shadow-xs space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-800">
           <div className="flex items-center gap-2">
             <UserCog className="w-4 h-4 text-purple-600 dark:text-purple-400" />
@@ -135,7 +135,7 @@ export const AdminProfileSecurityPage: React.FC<AdminProfileSecurityPageProps> =
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#12161F] text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200/90 dark:border-gray-700/90 bg-white/90 dark:bg-[#12161F]/90 text-gray-900 dark:text-white shadow-2xs focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
               </div>
 
@@ -148,7 +148,7 @@ export const AdminProfileSecurityPage: React.FC<AdminProfileSecurityPageProps> =
                   required
                   value={department}
                   onChange={(e) => setDepartment(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#12161F] text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200/90 dark:border-gray-700/90 bg-white/90 dark:bg-[#12161F]/90 text-gray-900 dark:text-white shadow-2xs focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
               </div>
             </div>
@@ -156,7 +156,7 @@ export const AdminProfileSecurityPage: React.FC<AdminProfileSecurityPageProps> =
             <div className="flex justify-end pt-2">
               <button
                 type="submit"
-                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 transition cursor-pointer"
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 transition cursor-pointer active:scale-[0.98]"
               >
                 Save Changes
               </button>
@@ -181,7 +181,7 @@ export const AdminProfileSecurityPage: React.FC<AdminProfileSecurityPageProps> =
       </div>
 
       {/* Password Rotation Card */}
-      <div className="p-6 rounded-2xl bg-white dark:bg-[#181C24] border border-gray-200 dark:border-gray-800 shadow-xs space-y-4">
+      <div className="p-6 rounded-2xl bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 shadow-xs space-y-4">
         <div className="flex items-center gap-2 pb-3 border-b border-gray-100 dark:border-gray-800">
           <Key className="w-4 h-4 text-purple-600 dark:text-purple-400" />
           <h2 className="text-base font-bold text-gray-900 dark:text-white">
@@ -200,7 +200,7 @@ export const AdminProfileSecurityPage: React.FC<AdminProfileSecurityPageProps> =
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
               placeholder="••••••••••••"
-              className="w-full sm:w-80 px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#12161F] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full sm:w-80 px-3 py-2 rounded-xl border border-gray-200/90 dark:border-gray-700/90 bg-white/90 dark:bg-[#12161F]/90 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs"
             />
           </div>
 
@@ -215,7 +215,7 @@ export const AdminProfileSecurityPage: React.FC<AdminProfileSecurityPageProps> =
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="Minimum 8 characters"
-                className="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#12161F] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full px-3 py-2 rounded-xl border border-gray-200/90 dark:border-gray-700/90 bg-white/90 dark:bg-[#12161F]/90 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs"
               />
             </div>
 
@@ -229,15 +229,15 @@ export const AdminProfileSecurityPage: React.FC<AdminProfileSecurityPageProps> =
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Confirm new password"
-                className="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#12161F] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full px-3 py-2 rounded-xl border border-gray-200/90 dark:border-gray-700/90 bg-white/90 dark:bg-[#12161F]/90 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs"
               />
             </div>
           </div>
 
           {/* Password Strength Checklist */}
-          <div className="p-3 rounded-xl bg-gray-50 dark:bg-[#12161F] border border-gray-200/80 dark:border-gray-800 space-y-1 text-[11px]">
+          <div className="p-3 rounded-xl bg-gray-50/80 dark:bg-[#12161F] border border-gray-200/80 dark:border-gray-800 space-y-1 text-[11px]">
             <p className="font-semibold text-gray-700 dark:text-gray-300">Password Policy Criteria:</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 pt-1">
               <span className={`flex items-center gap-1 ${hasMinLength ? 'text-emerald-600 font-bold' : 'text-gray-400'}`}>
                 {hasMinLength ? '✓' : '•'} 8+ Characters
               </span>
@@ -264,7 +264,7 @@ export const AdminProfileSecurityPage: React.FC<AdminProfileSecurityPageProps> =
             <button
               type="submit"
               disabled={isUpdatingPassword || !isPassValid}
-              className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer"
+              className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer active:scale-[0.98]"
             >
               {isUpdatingPassword ? 'Hashing & Updating...' : 'Update Password'}
             </button>
@@ -273,7 +273,7 @@ export const AdminProfileSecurityPage: React.FC<AdminProfileSecurityPageProps> =
       </div>
 
       {/* Active Session Management */}
-      <div className="p-6 rounded-2xl bg-white dark:bg-[#181C24] border border-gray-200 dark:border-gray-800 shadow-xs space-y-4">
+      <div className="p-6 rounded-2xl bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 shadow-xs space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-800">
           <div className="flex items-center gap-2">
             <Laptop className="w-4 h-4 text-purple-600 dark:text-purple-400" />
@@ -301,7 +301,7 @@ export const AdminProfileSecurityPage: React.FC<AdminProfileSecurityPageProps> =
           <button
             type="button"
             onClick={onSignOut}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer active:scale-[0.98]"
           >
             Sign Out
           </button>

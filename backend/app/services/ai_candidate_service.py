@@ -9,7 +9,7 @@ from sqlalchemy import desc, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.ai.adapter import AIGenerateRequest, GeminiServiceAdapter, ILLMServiceAdapter
+from app.ai.adapter import AIGenerateRequest, AgyServiceAdapter, ILLMServiceAdapter
 from app.core.config import settings
 from app.models.ai import AICandidateQuestion
 from app.models.course import Course
@@ -33,10 +33,9 @@ class AICandidateService:
     @classmethod
     def get_adapter(cls) -> ILLMServiceAdapter:
         if cls._adapter is None:
-            cls._adapter = GeminiServiceAdapter(
-                api_key=settings.GEMINI_API_KEY,
-                model=settings.GEMINI_MODEL,
-                timeout_seconds=settings.AI_TIMEOUT_SECONDS,
+            cls._adapter = AgyServiceAdapter(
+                model=getattr(settings, "AGY_MODEL", "flash"),
+                timeout_seconds=getattr(settings, "AI_TIMEOUT_SECONDS", 35),
             )
         return cls._adapter
 
@@ -96,8 +95,8 @@ class AICandidateService:
                 answer_key=draft.answer_key,
                 status="pending_review",
                 provider=gen_result.source,
-                model=settings.GEMINI_MODEL,
-                prompt_version="v1",
+                model="agy-flash",
+                prompt_version="v2",
             )
             db.add(cand)
             saved_candidates.append(cand)
@@ -177,7 +176,7 @@ class AICandidateService:
             prompt_str = updates.prompt.strip()
             if not prompt_str:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail="Prompt cannot be empty",
                 )
             cand.prompt = prompt_str

@@ -11,24 +11,43 @@
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lexend:wght@300;400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;0,6..72,700;1,6..72,400&family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Poppins:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script>
       (function() {
         try {
-          var saved = localStorage.getItem('learnova_theme');
+          var saved = localStorage.getItem('learnova_theme') || 'light';
           var isDark = saved === 'dark' || (saved === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          var root = document.documentElement;
           if (isDark) {
-            document.documentElement.setAttribute('data-theme', 'dark');
-            document.documentElement.classList.add('dark');
+            root.setAttribute('data-theme', 'dark');
+            root.classList.add('dark');
           } else {
-            document.documentElement.setAttribute('data-theme', 'light');
-            document.documentElement.classList.remove('dark');
+            root.setAttribute('data-theme', 'light');
+            root.classList.remove('dark');
           }
+          var palette = localStorage.getItem('learnova_palette') || 'indigo';
+          root.setAttribute('data-palette', palette);
+          var font = localStorage.getItem('learnova_font') || 'inter';
+          root.setAttribute('data-font', font);
+          var fontFamilies = {
+            inter: "'Inter', system-ui, sans-serif",
+            jakarta: "'Plus Jakarta Sans', system-ui, sans-serif",
+            outfit: "'Outfit', system-ui, sans-serif",
+            lexend: "'Lexend', system-ui, sans-serif",
+            poppins: "'Poppins', system-ui, sans-serif",
+            space: "'Space Grotesk', system-ui, sans-serif",
+            serif: "'Inter', system-ui, sans-serif"
+          };
+          if (fontFamilies[font]) {
+            root.style.setProperty('--font-sans', fontFamilies[font]);
+          }
+          var motion = localStorage.getItem('learnova_motion') || 'expressive';
+          root.setAttribute('data-motion', motion);
         } catch (e) {}
       })();
     </script>
   </head>
-  <body class="font-sans antialiased min-h-screen bg-[#F5F7FA] dark:bg-[#0F1218] text-[#1F2937] dark:text-[#F3F4F6]">
+  <body class="antialiased min-h-screen bg-[#F5F7FA] dark:bg-[#0F1218] text-[#1F2937] dark:text-[#F3F4F6]">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

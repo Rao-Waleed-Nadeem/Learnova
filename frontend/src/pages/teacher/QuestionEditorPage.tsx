@@ -107,6 +107,13 @@ export const QuestionEditorPage: React.FC<QuestionEditorPageProps> = ({
   // Filter topics for the selected course
   const availableTopics = topics.filter((t) => t.courseId === courseId);
 
+  // When courses load, ensure default courseId is selected
+  useEffect(() => {
+    if (!courseId && courses.length > 0) {
+      setCourseId(courses[0].id);
+    }
+  }, [courses, courseId]);
+
   // When course changes, adjust topic selection if needed
   useEffect(() => {
     if (availableTopics.length > 0 && !availableTopics.some((t) => t.id === topicId)) {
@@ -214,8 +221,8 @@ export const QuestionEditorPage: React.FC<QuestionEditorPageProps> = ({
 
       <form onSubmit={handleSave} className="space-y-6 max-w-4xl">
         {/* Course and Topic Association */}
-        <div className="bg-white rounded-xl border border-[#D9DEE7] p-5 shadow-2xs space-y-4">
-          <h2 className="text-sm font-bold text-[#1F2937] pb-2 border-b border-[#D9DEE7]">
+        <div className="bg-white dark:bg-[#181C24] rounded-xl border border-[#D9DEE7] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545] p-5 shadow-2xs space-y-4">
+          <h2 className="text-sm font-bold text-[#1F2937] dark:text-white dark:text-white dark:text-white pb-2 border-b border-[#D9DEE7] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545]">
             1. Curriculum Association &amp; Metadata
           </h2>
 
@@ -230,7 +237,7 @@ export const QuestionEditorPage: React.FC<QuestionEditorPageProps> = ({
                 id="q-course"
                 value={courseId}
                 onChange={(e) => setCourseId(e.target.value)}
-                className="w-full bg-white border border-[#D9DEE7] text-sm rounded-lg px-3.5 py-2.5 focus:border-[#3156D3] focus:outline-none"
+                className="w-full bg-white dark:bg-[#12161F] dark:text-white border border-[#D9DEE7] dark:border-[#2D3545] text-sm rounded-lg px-3.5 py-2.5 focus:border-[#3156D3] focus:outline-none"
               >
                 {courses.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -250,7 +257,7 @@ export const QuestionEditorPage: React.FC<QuestionEditorPageProps> = ({
                 id="q-topic"
                 value={topicId}
                 onChange={(e) => setTopicId(e.target.value)}
-                className="w-full bg-white border border-[#D9DEE7] text-sm rounded-lg px-3.5 py-2.5 focus:border-[#3156D3] focus:outline-none"
+                className="w-full bg-white dark:bg-[#12161F] dark:text-white border border-[#D9DEE7] dark:border-[#2D3545] text-sm rounded-lg px-3.5 py-2.5 focus:border-[#3156D3] focus:outline-none"
               >
                 {availableTopics.map((t) => (
                   <option key={t.id} value={t.id}>
@@ -267,7 +274,7 @@ export const QuestionEditorPage: React.FC<QuestionEditorPageProps> = ({
                 id="q-diff"
                 value={difficulty}
                 onChange={(e) => setDifficulty(e.target.value as Difficulty)}
-                className="w-full bg-white border border-[#D9DEE7] text-sm rounded-lg px-3.5 py-2 focus:border-[#3156D3] focus:outline-none"
+                className="w-full bg-white dark:bg-[#12161F] dark:text-white border border-[#D9DEE7] dark:border-[#2D3545] text-sm rounded-lg px-3.5 py-2 focus:border-[#3156D3] focus:outline-none"
               >
                 <option value="easy">Easy</option>
                 <option value="medium">Medium</option>
@@ -283,7 +290,7 @@ export const QuestionEditorPage: React.FC<QuestionEditorPageProps> = ({
                 max="20"
                 value={points}
                 onChange={(e) => setPoints(parseInt(e.target.value, 10) || 1)}
-                className="w-full bg-white border border-[#D9DEE7] text-sm rounded-lg px-3.5 py-2 focus:border-[#3156D3] focus:outline-none"
+                className="w-full bg-white dark:bg-[#12161F] dark:text-white border border-[#D9DEE7] dark:border-[#2D3545] text-sm rounded-lg px-3.5 py-2 focus:border-[#3156D3] focus:outline-none"
               />
             </FormField>
 
@@ -292,7 +299,7 @@ export const QuestionEditorPage: React.FC<QuestionEditorPageProps> = ({
                 id="q-status"
                 value={status}
                 onChange={(e) => setStatus(e.target.value as any)}
-                className="w-full bg-white border border-[#D9DEE7] text-sm rounded-lg px-3.5 py-2 focus:border-[#3156D3] focus:outline-none"
+                className="w-full bg-white dark:bg-[#12161F] dark:text-white border border-[#D9DEE7] dark:border-[#2D3545] text-sm rounded-lg px-3.5 py-2 focus:border-[#3156D3] focus:outline-none"
               >
                 <option value="approved">Approved for Assessments</option>
                 <option value="draft">Draft (Work in progress)</option>
@@ -303,13 +310,13 @@ export const QuestionEditorPage: React.FC<QuestionEditorPageProps> = ({
         </div>
 
         {/* Question Type Selector */}
-        <div className="bg-white rounded-xl border border-[#D9DEE7] p-5 shadow-2xs space-y-3">
-          <div className="flex items-center justify-between pb-2 border-b border-[#D9DEE7]">
-            <h2 className="text-sm font-bold text-[#1F2937]">2. Select Question Type</h2>
-            <span className="text-xs text-[#5B6472]">5 supported formats</span>
+        <div className="bg-white dark:bg-[#181C24] rounded-xl border border-[#D9DEE7] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545] p-5 shadow-2xs space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-[#D9DEE7] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545]">
+            <h2 className="text-sm font-bold text-[#1F2937] dark:text-white dark:text-white dark:text-white">2. Select Question Type</h2>
+            <span className="text-xs text-[#5B6472] dark:text-gray-400 dark:text-gray-400 dark:text-gray-400">5 supported formats</span>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2.5">
             {[
               { id: 'multiple_choice', label: 'Multiple Choice' },
               { id: 'true_false', label: 'True / False' },
@@ -326,7 +333,7 @@ export const QuestionEditorPage: React.FC<QuestionEditorPageProps> = ({
                   className={`p-3 rounded-lg border text-xs font-semibold text-center transition-all cursor-pointer ${
                     isSelected
                       ? 'bg-[#E8EEFF] border-[#3156D3] text-[#2646B8] shadow-xs'
-                      : 'bg-white border-[#D9DEE7] text-[#5B6472] hover:bg-gray-50'
+                      : 'bg-white border-[#D9DEE7] text-[#5B6472] dark:text-gray-400 dark:text-gray-400 dark:text-gray-400 hover:bg-gray-50 dark:bg-[#1C212B] dark:bg-[#1C212B] dark:bg-[#1C212B]'
                   }`}
                 >
                   {t.label}
@@ -337,8 +344,8 @@ export const QuestionEditorPage: React.FC<QuestionEditorPageProps> = ({
         </div>
 
         {/* Question Prompt */}
-        <div className="bg-white rounded-xl border border-[#D9DEE7] p-5 shadow-2xs space-y-4">
-          <h2 className="text-sm font-bold text-[#1F2937] pb-2 border-b border-[#D9DEE7]">
+        <div className="bg-white dark:bg-[#181C24] rounded-xl border border-[#D9DEE7] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545] p-5 shadow-2xs space-y-4">
+          <h2 className="text-sm font-bold text-[#1F2937] dark:text-white dark:text-white dark:text-white pb-2 border-b border-[#D9DEE7] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545]">
             3. Question Stem &amp; Prompt
           </h2>
 
@@ -358,15 +365,15 @@ export const QuestionEditorPage: React.FC<QuestionEditorPageProps> = ({
                 if (fieldErrors.prompt) setFieldErrors({ ...fieldErrors, prompt: '' });
               }}
               placeholder="e.g. Which keyword declares an asynchronous function in Python?"
-              className="w-full bg-white border border-[#D9DEE7] text-sm rounded-lg px-3.5 py-2.5 focus:border-[#3156D3] focus:outline-none"
+              className="w-full bg-white dark:bg-[#12161F] dark:text-white border border-[#D9DEE7] dark:border-[#2D3545] text-sm rounded-lg px-3.5 py-2.5 focus:border-[#3156D3] focus:outline-none"
             />
           </FormField>
         </div>
 
         {/* Type-Specific Answer Controls */}
-        <div className="bg-white rounded-xl border border-[#D9DEE7] p-5 shadow-2xs space-y-4">
-          <div className="flex items-center justify-between pb-2 border-b border-[#D9DEE7]">
-            <h2 className="text-sm font-bold text-[#1F2937]">
+        <div className="bg-white dark:bg-[#181C24] rounded-xl border border-[#D9DEE7] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545] p-5 shadow-2xs space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-[#D9DEE7] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545]">
+            <h2 className="text-sm font-bold text-[#1F2937] dark:text-white dark:text-white dark:text-white">
               4. Answer Configuration ({type.replace('_', ' ')})
             </h2>
             <span className="text-xs font-medium text-[#3156D3]">Answer Key Mode</span>
@@ -375,7 +382,7 @@ export const QuestionEditorPage: React.FC<QuestionEditorPageProps> = ({
           {/* Multiple Choice Editor */}
           {type === 'multiple_choice' && (
             <div className="space-y-3">
-              <p className="text-xs text-[#5B6472]">
+              <p className="text-xs text-[#5B6472] dark:text-gray-400 dark:text-gray-400 dark:text-gray-400">
                 Provide at least 2 options and select the radio button for the correct answer.
               </p>
               {fieldErrors.options && (
@@ -400,7 +407,7 @@ export const QuestionEditorPage: React.FC<QuestionEditorPageProps> = ({
                         }}
                         className="w-4 h-4 text-[#3156D3] focus:ring-[#3156D3]"
                       />
-                      <span className="text-xs font-bold text-[#5B6472]">
+                      <span className="text-xs font-bold text-[#5B6472] dark:text-gray-400 dark:text-gray-400 dark:text-gray-400">
                         {String.fromCharCode(65 + idx)}
                       </span>
                     </label>
@@ -415,7 +422,7 @@ export const QuestionEditorPage: React.FC<QuestionEditorPageProps> = ({
                         );
                       }}
                       placeholder={`Option ${String.fromCharCode(65 + idx)}`}
-                      className={`flex-1 bg-white border text-xs rounded-lg px-3 py-2 focus:outline-none ${
+                      className={`flex-1 bg-white dark:bg-[#12161F] dark:text-white border text-xs rounded-lg px-3 py-2 focus:outline-none ${
                         opt.isCorrect
                           ? 'border-[#18794E] bg-[#EAF7F0]/30 font-medium'
                           : 'border-[#D9DEE7]'
@@ -461,15 +468,15 @@ export const QuestionEditorPage: React.FC<QuestionEditorPageProps> = ({
           {/* True / False Editor */}
           {type === 'true_false' && (
             <div className="space-y-3">
-              <p className="text-xs text-[#5B6472]">Select the correct factual answer.</p>
-              <div className="grid grid-cols-2 gap-4 max-w-sm">
+              <p className="text-xs text-[#5B6472] dark:text-gray-400 dark:text-gray-400 dark:text-gray-400">Select the correct factual answer.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-sm">
                 <button
                   type="button"
                   onClick={() => setTfCorrect(true)}
                   className={`p-4 rounded-xl border text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${
                     tfCorrect === true
                       ? 'bg-[#EAF7F0] border-[#18794E] text-[#18794E] shadow-xs'
-                      : 'bg-white border-[#D9DEE7] text-[#5B6472] hover:bg-gray-50'
+                      : 'bg-white border-[#D9DEE7] text-[#5B6472] dark:text-gray-400 dark:text-gray-400 dark:text-gray-400 hover:bg-gray-50 dark:bg-[#1C212B] dark:bg-[#1C212B] dark:bg-[#1C212B]'
                   }`}
                 >
                   <span>True</span>
@@ -485,7 +492,7 @@ export const QuestionEditorPage: React.FC<QuestionEditorPageProps> = ({
                   className={`p-4 rounded-xl border text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${
                     tfCorrect === false
                       ? 'bg-[#EAF7F0] border-[#18794E] text-[#18794E] shadow-xs'
-                      : 'bg-white border-[#D9DEE7] text-[#5B6472] hover:bg-gray-50'
+                      : 'bg-white border-[#D9DEE7] text-[#5B6472] dark:text-gray-400 dark:text-gray-400 dark:text-gray-400 hover:bg-gray-50 dark:bg-[#1C212B] dark:bg-[#1C212B] dark:bg-[#1C212B]'
                   }`}
                 >
                   <span>False</span>
@@ -502,7 +509,7 @@ export const QuestionEditorPage: React.FC<QuestionEditorPageProps> = ({
           {/* Fill in the Blank Editor */}
           {type === 'fill_blank' && (
             <div className="space-y-3">
-              <p className="text-xs text-[#5B6472]">
+              <p className="text-xs text-[#5B6472] dark:text-gray-400 dark:text-gray-400 dark:text-gray-400">
                 Specify one or more accepted string answers for automatic grading normalization.
               </p>
               {fieldErrors.acceptedAnswers && (
@@ -512,7 +519,7 @@ export const QuestionEditorPage: React.FC<QuestionEditorPageProps> = ({
               <div className="space-y-2">
                 {acceptedAnswers.map((ans, idx) => (
                   <div key={idx} className="flex items-center gap-2">
-                    <span className="text-xs text-[#737D8C] font-mono">#{idx + 1}</span>
+                    <span className="text-xs text-[#737D8C] dark:text-gray-400 dark:text-gray-400 dark:text-gray-400 font-mono">#{idx + 1}</span>
                     <input
                       type="text"
                       value={ans}
@@ -523,7 +530,7 @@ export const QuestionEditorPage: React.FC<QuestionEditorPageProps> = ({
                         setAcceptedAnswers(copy);
                       }}
                       placeholder="e.g., async"
-                      className="flex-1 font-mono bg-white border border-[#D9DEE7] text-xs rounded-lg px-3 py-2 focus:border-[#3156D3] focus:outline-none"
+                      className="flex-1 font-mono bg-white dark:bg-[#12161F] dark:text-white border border-[#D9DEE7] dark:border-[#2D3545] text-xs rounded-lg px-3 py-2 focus:border-[#3156D3] focus:outline-none"
                     />
                     {acceptedAnswers.length > 1 && (
                       <button
@@ -553,7 +560,7 @@ export const QuestionEditorPage: React.FC<QuestionEditorPageProps> = ({
                   Add Accepted Alternative
                 </Button>
 
-                <label className="flex items-center gap-2 text-xs text-[#5B6472] cursor-pointer">
+                <label className="flex items-center gap-2 text-xs text-[#5B6472] dark:text-gray-400 dark:text-gray-400 dark:text-gray-400 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={caseSensitive}
@@ -569,7 +576,7 @@ export const QuestionEditorPage: React.FC<QuestionEditorPageProps> = ({
           {/* Matching Pairs Editor */}
           {type === 'matching' && (
             <div className="space-y-3">
-              <p className="text-xs text-[#5B6472]">
+              <p className="text-xs text-[#5B6472] dark:text-gray-400 dark:text-gray-400 dark:text-gray-400">
                 Define pairs of left terms and corresponding right definitions.
               </p>
               {fieldErrors.matchingPairs && (
@@ -589,7 +596,7 @@ export const QuestionEditorPage: React.FC<QuestionEditorPageProps> = ({
                         );
                       }}
                       placeholder={`Left Item ${idx + 1}`}
-                      className="flex-1 bg-white border border-[#D9DEE7] text-xs rounded-lg px-3 py-2 focus:border-[#3156D3] focus:outline-none"
+                      className="flex-1 bg-white dark:bg-[#12161F] dark:text-white border border-[#D9DEE7] dark:border-[#2D3545] text-xs rounded-lg px-3 py-2 focus:border-[#3156D3] focus:outline-none"
                     />
                     <ArrowRight className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                     <input
@@ -602,7 +609,7 @@ export const QuestionEditorPage: React.FC<QuestionEditorPageProps> = ({
                         );
                       }}
                       placeholder={`Matching Definition ${idx + 1}`}
-                      className="flex-1 bg-white border border-[#D9DEE7] text-xs rounded-lg px-3 py-2 focus:border-[#3156D3] focus:outline-none"
+                      className="flex-1 bg-white dark:bg-[#12161F] dark:text-white border border-[#D9DEE7] dark:border-[#2D3545] text-xs rounded-lg px-3 py-2 focus:border-[#3156D3] focus:outline-none"
                     />
                     {matchingPairs.length > 2 && (
                       <button
@@ -656,7 +663,7 @@ export const QuestionEditorPage: React.FC<QuestionEditorPageProps> = ({
                   value={expectedRubric}
                   onChange={(e) => setExpectedRubric(e.target.value)}
                   placeholder="e.g. Student must mention: 1) GIL mutex prevents parallel byte-code execution across threads, 2) Multi-processing is required for CPU-bound parallelism."
-                  className="w-full bg-white border border-[#D9DEE7] text-xs rounded-lg px-3.5 py-2.5 focus:border-[#3156D3] focus:outline-none font-mono"
+                  className="w-full bg-white dark:bg-[#12161F] dark:text-white border border-[#D9DEE7] dark:border-[#2D3545] text-xs rounded-lg px-3.5 py-2.5 focus:border-[#3156D3] focus:outline-none font-mono"
                 />
               </FormField>
             </div>
@@ -664,8 +671,8 @@ export const QuestionEditorPage: React.FC<QuestionEditorPageProps> = ({
         </div>
 
         {/* Pedagogical Explanation */}
-        <div className="bg-white rounded-xl border border-[#D9DEE7] p-5 shadow-2xs space-y-3">
-          <h2 className="text-sm font-bold text-[#1F2937] pb-2 border-b border-[#D9DEE7]">
+        <div className="bg-white dark:bg-[#181C24] rounded-xl border border-[#D9DEE7] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545] p-5 shadow-2xs space-y-3">
+          <h2 className="text-sm font-bold text-[#1F2937] dark:text-white dark:text-white dark:text-white pb-2 border-b border-[#D9DEE7] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545]">
             5. Pedagogical Rationale &amp; Explanation
           </h2>
           <FormField
@@ -679,13 +686,13 @@ export const QuestionEditorPage: React.FC<QuestionEditorPageProps> = ({
               value={explanation}
               onChange={(e) => setExplanation(e.target.value)}
               placeholder="Explain why the correct answer is valid and clarify common misconceptions..."
-              className="w-full bg-white border border-[#D9DEE7] text-xs rounded-lg px-3.5 py-2.5 focus:border-[#3156D3] focus:outline-none"
+              className="w-full bg-white dark:bg-[#12161F] dark:text-white border border-[#D9DEE7] dark:border-[#2D3545] text-xs rounded-lg px-3.5 py-2.5 focus:border-[#3156D3] focus:outline-none"
             />
           </FormField>
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-between pt-4 border-t border-[#D9DEE7]">
+        <div className="flex items-center justify-between pt-4 border-t border-[#D9DEE7] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545]">
           <Button
             type="button"
             variant="secondary"

@@ -43,6 +43,15 @@ class PasswordChangeRequest(BaseModel):
     new_password: str = Field(..., min_length=8, max_length=128)
 
 
+class GoogleAuthRequest(BaseModel):
+    """Payload for Google OAuth 2.0 authentication."""
+
+    credential: str = Field(..., min_length=1, description="Google ID Token (JWT) or OAuth authorization code")
+    email: Optional[EmailStr] = Field(default=None, description="Optional fallback email for dev/mock mode")
+    full_name: Optional[str] = Field(default=None, description="Optional full name from Google profile")
+    avatar_url: Optional[str] = Field(default=None, description="Optional avatar picture URL from Google")
+
+
 class MessageResponse(BaseModel):
     """Generic status or success message response."""
 

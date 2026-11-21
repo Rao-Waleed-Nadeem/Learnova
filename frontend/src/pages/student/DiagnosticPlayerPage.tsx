@@ -86,9 +86,9 @@ export const DiagnosticPlayerPage: React.FC<DiagnosticPlayerPageProps> = ({
 
   if (!currentQuestion) {
     return (
-      <div className="p-12 text-center">
-        <p className="text-sm text-gray-500">No questions found in this assessment.</p>
-        <button type="button" onClick={onExit} className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs">
+      <div className="p-12 text-center bg-white dark:bg-[#181C24] rounded-2xl border border-gray-200 dark:border-gray-800">
+        <p className="text-sm text-gray-500 dark:text-gray-400">No questions found in this assessment.</p>
+        <button type="button" onClick={onExit} className="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold cursor-pointer">
           Return to Map
         </button>
       </div>

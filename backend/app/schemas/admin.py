@@ -81,6 +81,58 @@ class AdminUserListResponse(BaseModel):
     offset: int
 
 
+class AdminUserCourseSummary(BaseModel):
+    """Course association summary for user detail inspection."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    title: str
+    status: str
+    relationship: str  # "creator", "instructor", "enrolled"
+    enrolled_students_count: Optional[int] = None
+    topics_count: Optional[int] = None
+    enrollment_status: Optional[str] = None
+    progress_percent: Optional[float] = None
+    completed_lessons: Optional[int] = None
+    total_lessons: Optional[int] = None
+
+
+class AdminTeacherMetrics(BaseModel):
+    """Authoring and instructional metrics for teacher accounts."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    authored_questions_count: int = 0
+    created_assessments_count: int = 0
+    published_courses_count: int = 0
+    total_students_taught: int = 0
+
+
+class AdminStudentMetrics(BaseModel):
+    """Learning and gamification metrics for student accounts."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    xp: int = 0
+    level: int = 1
+    completed_lessons_count: int = 0
+    average_assessment_score: Optional[float] = None
+
+
+class AdminUserSecurityProfile(BaseModel):
+    """Security and authorization profile for account governance."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    auth_method: str = "Argon2id / bcrypt + JWT Bearer"
+    account_status: str
+    role_scope: str
+    last_active_ip: Optional[str] = None
+    active_sessions_count: int = 0
+    total_audit_events: int = 0
+
+
 class AdminUserDetailResponse(BaseModel):
     """Detailed user inspection with academic association metrics."""
 
@@ -91,6 +143,13 @@ class AdminUserDetailResponse(BaseModel):
     assigned_courses_count: int
     completed_attempts_count: int
     security_audit_events_count: int
+    last_active_at: Optional[datetime] = None
+    last_active_ip: Optional[str] = None
+    active_sessions_count: int = 0
+    courses: List[AdminUserCourseSummary] = Field(default_factory=list)
+    teacher_metrics: Optional[AdminTeacherMetrics] = None
+    student_metrics: Optional[AdminStudentMetrics] = None
+    security_profile: Optional[AdminUserSecurityProfile] = None
 
 
 # ============================================================================

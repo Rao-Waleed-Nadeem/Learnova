@@ -17,7 +17,9 @@ from app.models.course import Course
 from app.models.course_teacher import CourseTeacher
 from app.models.enrollment import Enrollment
 from app.models.lesson import Lesson
+from app.models.lesson_completion import LessonCompletion
 from app.models.outbox import DomainOutboxEvent
+from app.models.question import Question
 from app.models.role import Role
 from app.models.security_audit_event import SecurityAuditEvent
 from app.models.session import UserSession
@@ -30,8 +32,12 @@ from app.schemas.admin import (
     AdminDashboardResponse,
     AdminEnrollmentSummary,
     AdminSecurityAuditSummary,
+    AdminStudentMetrics,
+    AdminTeacherMetrics,
+    AdminUserCourseSummary,
     AdminUserDetailResponse,
     AdminUserListResponse,
+    AdminUserSecurityProfile,
     AdminUserSummary,
     SecurityAuditEventResponse,
     SystemHealthAI,
@@ -414,7 +420,7 @@ def get_user_detail(
     admin_user: User,
     user_id: uuid.UUID,
 ) -> AdminUserDetailResponse:
-    """Detailed single user inspection including curriculum and activity metrics."""
+    """Detailed single user inspection including curriculum, activity, and security telemetry."""
     target_user = (
         db.query(User)
         .options(joinedload(User.role), joinedload(User.profile))
@@ -426,6 +432,8 @@ def get_user_detail(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User with ID {user_id} not found.",
         )
+
+    role_name = target_user.role.name if target_user.role else "student"
 
     enrolled_count = (
         db.query(func.count(Enrollment.id))
@@ -450,9 +458,196 @@ def get_user_detail(
     )
     audit_events_count = (
         db.query(func.count(SecurityAuditEvent.id))
-        .filter(SecurityAuditEvent.actor_id == user_id)
+        .filter(
+            or_(
+                SecurityAuditEvent.actor_id == user_id,
+                SecurityAuditEvent.target_id == str(user_id),
+            )
+        )
         .scalar()
         or 0
+    )
+
+    # 1. Latest Activity & IP
+    latest_audit = (
+        db.query(SecurityAuditEvent)
+        .filter(
+            or_(
+                SecurityAuditEvent.actor_id == user_id,
+                SecurityAuditEvent.target_id == str(user_id),
+            )
+        )
+        .order_by(SecurityAuditEvent.created_at.desc())
+        .first()
+    )
+    last_active_at = latest_audit.created_at if latest_audit else (target_user.updated_at or target_user.created_at)
+    last_active_ip = latest_audit.ip_address_safe if latest_audit else None
+
+    # 2. Active Sessions
+    now = datetime.now(timezone.utc)
+    active_sessions_count = (
+        db.query(func.count(UserSession.id))
+        .filter(
+            UserSession.user_id == user_id,
+            UserSession.is_revoked.is_(False),
+            UserSession.expires_at > now,
+        )
+        .scalar()
+        or 0
+    )
+
+    # 3. Courses summary
+    courses_summary: List[AdminUserCourseSummary] = []
+    if role_name == "teacher":
+        teacher_courses = (
+            db.query(Course)
+            .outerjoin(CourseTeacher, CourseTeacher.course_id == Course.id)
+            .filter(
+                or_(
+                    Course.creator_id == user_id,
+                    CourseTeacher.teacher_id == user_id,
+                )
+            )
+            .distinct()
+            .all()
+        )
+        for c in teacher_courses:
+            enrolled_students = (
+                db.query(func.count(Enrollment.id))
+                .filter(Enrollment.course_id == c.id)
+                .scalar()
+                or 0
+            )
+            topics_count = (
+                db.query(func.count(Topic.id))
+                .filter(Topic.course_id == c.id)
+                .scalar()
+                or 0
+            )
+            courses_summary.append(
+                AdminUserCourseSummary(
+                    id=c.id,
+                    title=c.title,
+                    status=c.status,
+                    relationship="creator" if c.creator_id == user_id else "instructor",
+                    enrolled_students_count=enrolled_students,
+                    topics_count=topics_count,
+                )
+            )
+    elif role_name == "student":
+        student_enrollments = (
+            db.query(Enrollment, Course)
+            .join(Course, Course.id == Enrollment.course_id)
+            .filter(Enrollment.student_id == user_id)
+            .all()
+        )
+        for enr, c in student_enrollments:
+            completed_lessons = (
+                db.query(func.count(LessonCompletion.id))
+                .join(Lesson, Lesson.id == LessonCompletion.lesson_id)
+                .join(Topic, Topic.id == Lesson.topic_id)
+                .filter(
+                    LessonCompletion.student_id == user_id,
+                    Topic.course_id == c.id,
+                )
+                .scalar()
+                or 0
+            )
+            total_lessons = (
+                db.query(func.count(Lesson.id))
+                .join(Topic, Topic.id == Lesson.topic_id)
+                .filter(Topic.course_id == c.id)
+                .scalar()
+                or 0
+            )
+            progress_pct = round((completed_lessons / total_lessons * 100.0), 1) if total_lessons > 0 else 0.0
+            courses_summary.append(
+                AdminUserCourseSummary(
+                    id=c.id,
+                    title=c.title,
+                    status=c.status,
+                    relationship="enrolled",
+                    enrollment_status=enr.status,
+                    progress_percent=progress_pct,
+                    completed_lessons=completed_lessons,
+                    total_lessons=total_lessons,
+                )
+            )
+
+    # 4. Teacher Metrics
+    teacher_metrics = None
+    if role_name == "teacher":
+        authored_questions = (
+            db.query(func.count(Question.id))
+            .filter(Question.author_id == user_id)
+            .scalar()
+            or 0
+        )
+        created_assessments = (
+            db.query(func.count(Assessment.id))
+            .filter(Assessment.creator_id == user_id)
+            .scalar()
+            or 0
+        )
+        published_courses = sum(1 for c in courses_summary if c.status == "published")
+        total_students = sum(c.enrolled_students_count or 0 for c in courses_summary)
+
+        teacher_metrics = AdminTeacherMetrics(
+            authored_questions_count=authored_questions,
+            created_assessments_count=created_assessments,
+            published_courses_count=published_courses,
+            total_students_taught=total_students,
+        )
+
+    # 5. Student Metrics
+    student_metrics = None
+    if role_name == "student":
+        from app.models.gamification import GamificationProfile
+
+        profile_record = db.query(GamificationProfile).filter(GamificationProfile.student_id == user_id).first()
+        xp = profile_record.xp if profile_record else 0
+        level = profile_record.level if profile_record else 1
+
+        completed_lessons_count = (
+            db.query(func.count(LessonCompletion.id))
+            .filter(LessonCompletion.student_id == user_id)
+            .scalar()
+            or 0
+        )
+        avg_score = (
+            db.query(func.avg(AssessmentAttempt.score))
+            .filter(
+                AssessmentAttempt.student_id == user_id,
+                AssessmentAttempt.status.in_(("graded", "submitted")),
+            )
+            .scalar()
+        )
+
+        student_metrics = AdminStudentMetrics(
+            xp=xp,
+            level=level,
+            completed_lessons_count=completed_lessons_count,
+            average_assessment_score=round(float(avg_score), 1) if avg_score is not None else None,
+        )
+
+    # 6. Security Profile
+    role_scope = (
+        "Full Governance & Security Administration (SRS §3.2.9)"
+        if role_name == "administrator"
+        else (
+            "Faculty Authorization: Curriculum authoring, question banking, assessment scheduling, and class analytics"
+            if role_name == "teacher"
+            else "Learner Authorization: Interactive lesson workspace, diagnostic baselines, adaptive practice, and gamification"
+        )
+    )
+
+    security_profile = AdminUserSecurityProfile(
+        auth_method="Argon2id / bcrypt + JWT Bearer",
+        account_status="Active" if target_user.is_active else "Deactivated",
+        role_scope=role_scope,
+        last_active_ip=last_active_ip,
+        active_sessions_count=active_sessions_count,
+        total_audit_events=audit_events_count,
     )
 
     return AdminUserDetailResponse(
@@ -461,6 +656,13 @@ def get_user_detail(
         assigned_courses_count=assigned_count,
         completed_attempts_count=completed_attempts,
         security_audit_events_count=audit_events_count,
+        last_active_at=last_active_at,
+        last_active_ip=last_active_ip,
+        active_sessions_count=active_sessions_count,
+        courses=courses_summary,
+        teacher_metrics=teacher_metrics,
+        student_metrics=student_metrics,
+        security_profile=security_profile,
     )
 
 

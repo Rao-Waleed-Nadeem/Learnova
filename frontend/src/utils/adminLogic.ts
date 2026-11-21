@@ -205,22 +205,45 @@ export function filterAuditEvents(
   searchQuery: string
 ): AuditEvent[] {
   const q = searchQuery.trim().toLowerCase();
+  const normalizedAction = (actionFilter || 'all').trim().toLowerCase();
+  const normalizedOutcome = (outcomeFilter || 'all').trim().toLowerCase();
 
   return events.filter((ev) => {
-    if (actionFilter && actionFilter !== 'all' && ev.action !== actionFilter) {
-      return false;
+    // Action filter: case-insensitive match
+    if (normalizedAction !== 'all') {
+      const evAction = (ev.action || '').toLowerCase();
+      if (evAction !== normalizedAction && !evAction.includes(normalizedAction)) {
+        return false;
+      }
     }
 
-    if (outcomeFilter && outcomeFilter !== 'all' && ev.outcome !== outcomeFilter) {
-      return false;
+    // Outcome filter: case-insensitive match
+    if (normalizedOutcome !== 'all') {
+      const evOutcome = (ev.outcome || '').toLowerCase();
+      if (evOutcome !== normalizedOutcome) {
+        if (
+          (normalizedOutcome === 'blocked' || normalizedOutcome === 'denied') &&
+          (evOutcome === 'denied' || evOutcome === 'blocked')
+        ) {
+          // match
+        } else if (
+          normalizedOutcome === 'failure' &&
+          (evOutcome === 'denied' || evOutcome === 'blocked' || evOutcome === 'failed')
+        ) {
+          // match
+        } else {
+          return false;
+        }
+      }
     }
 
     if (q) {
-      const matchActor = ev.actorName.toLowerCase().includes(q) || ev.actorEmail.toLowerCase().includes(q);
-      const matchTarget = ev.targetName.toLowerCase().includes(q) || ev.targetId.toLowerCase().includes(q);
-      const matchCorrelation = ev.correlationId.toLowerCase().includes(q);
+      const matchAction = (ev.action || '').toLowerCase().includes(q);
+      const matchActor = (ev.actorName || '').toLowerCase().includes(q) || (ev.actorEmail || '').toLowerCase().includes(q);
+      const matchTarget = (ev.targetName || '').toLowerCase().includes(q) || (ev.targetId || '').toLowerCase().includes(q);
+      const matchCorrelation = (ev.correlationId || '').toLowerCase().includes(q);
       const matchReason = ev.reason ? ev.reason.toLowerCase().includes(q) : false;
-      if (!matchActor && !matchTarget && !matchCorrelation && !matchReason) {
+      if (!matchAction && !matchActor && !matchTarget && !matchCorrelation && !matchReason) {
         return false;
       }
     }

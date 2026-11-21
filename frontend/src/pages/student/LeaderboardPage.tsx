@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { LeaderboardEntry } from '../../types';
 import { Trophy, Award, Zap, X, Shield, Users, Eye, EyeOff } from 'lucide-react';
 import { StudentNavigationPage } from '../../components/student/StudentLayout';
+import { Avatar } from '../../components/ui/Avatar';
 import {
   gamificationApi,
   mapBackendLeaderboardToLeaderboard,
@@ -19,9 +20,17 @@ export const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
   currentStudentId,
   onNavigate,
 }) => {
-  const [selectedEntry, setSelectedEntry] = useState<LeaderboardEntry | null>(null);
+  const cachedOptedInKey = `learnova_leaderboard_opted_in_${currentStudentId}`;
   const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>(initialLeaderboard);
-  const [optedIn, setOptedIn] = useState<boolean>(true);
+  const [optedIn, setOptedIn] = useState<boolean>(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const stored = localStorage.getItem(cachedOptedInKey);
+      if (stored !== null) {
+        return stored === 'true';
+      }
+    }
+    return true;
+  });
   const [isTogglingOptIn, setIsTogglingOptIn] = useState(false);
 
   useEffect(() => {
@@ -30,10 +39,16 @@ export const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
       .getLeaderboard()
       .then((res: BackendLeaderboardResponse) => {
         if (!isMounted) return;
-        if (res.leaderboard && res.leaderboard.length > 0) {
-          setLeaderboardData(res.leaderboard.map(mapBackendLeaderboardToLeaderboard));
+        const items = res.entries || res.leaderboard;
+        if (items && items.length > 0) {
+          setLeaderboardData(items.map(mapBackendLeaderboardToLeaderboard));
         }
-        setOptedIn(res.current_user_opted_in);
+        if (res.current_user_opted_in !== undefined) {
+          setOptedIn(res.current_user_opted_in);
+          if (typeof window !== 'undefined' && window.localStorage) {
+            localStorage.setItem(cachedOptedInKey, String(res.current_user_opted_in));
+          }
+        }
       })
       .catch(() => {
         // Fall back to initial prop
@@ -42,17 +57,27 @@ export const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [cachedOptedInKey]);
 
   const handleToggleOptIn = async () => {
     setIsTogglingOptIn(true);
     try {
       const nextVal = !optedIn;
-      await gamificationApi.updateProfile({ is_opted_in_leaderboard: nextVal });
       setOptedIn(nextVal);
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem(cachedOptedInKey, String(nextVal));
+      }
+      await gamificationApi.updateProfile({ is_opted_in_leaderboard: nextVal });
       const res = await gamificationApi.getLeaderboard();
-      if (res.leaderboard) {
-        setLeaderboardData(res.leaderboard.map(mapBackendLeaderboardToLeaderboard));
+      const items = res.entries || res.leaderboard;
+      if (items && items.length > 0) {
+        setLeaderboardData(items.map(mapBackendLeaderboardToLeaderboard));
+      }
+      if (res.current_user_opted_in !== undefined) {
+        setOptedIn(res.current_user_opted_in);
+        if (typeof window !== 'undefined' && window.localStorage) {
+          localStorage.setItem(cachedOptedInKey, String(res.current_user_opted_in));
+        }
       }
     } catch (e) {
       console.warn('Failed to update leaderboard privacy:', e);
@@ -64,7 +89,7 @@ export const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
   const activeLeaderboard = leaderboardData.length > 0 ? leaderboardData : initialLeaderboard;
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-6 max-w-4xl mx-auto view-enter-animation">
       {/* Header */}
       <div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight flex items-center gap-2.5">
@@ -77,7 +102,7 @@ export const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
       </div>
 
       {/* Privacy Opt-In Status Banner */}
-      <div className="p-4 rounded-xl bg-gray-50 dark:bg-[#1C212B] border border-gray-200 dark:border-gray-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+      <div className="p-4 rounded-2xl bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs">
         <div className="flex items-center gap-2.5">
           {optedIn ? (
             <Eye className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
@@ -99,9 +124,9 @@ export const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
           type="button"
           onClick={handleToggleOptIn}
           disabled={isTogglingOptIn}
-          className={`px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer self-start sm:self-auto ${
+          className={`px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer self-start sm:self-auto active:scale-[0.98] ${
             optedIn
-              ? 'border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+              ? 'border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
               : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-2xs'
           }`}
         >
@@ -110,28 +135,29 @@ export const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
       </div>
 
       {/* Leaderboard Table / Cards */}
-      <div className="bg-white dark:bg-[#181C24] border border-[#D9DEE7] dark:border-[#2D3545] rounded-2xl shadow-xs overflow-hidden">
+      <div className="bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 rounded-2xl shadow-xs overflow-hidden">
         <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs font-bold text-gray-700 dark:text-gray-300">
-            <Users className="w-4 h-4 text-indigo-600" />
+            <Users className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
             <span>Top Scholars ({activeLeaderboard.length} Ranked)</span>
           </div>
           <span className="text-[11px] text-gray-500 dark:text-gray-400">
-            Click any scholar to inspect public badges
+            Verified academic standing across all enrolled scholars
           </span>
         </div>
 
         <div className="divide-y divide-gray-100 dark:divide-gray-800">
           {activeLeaderboard.map((entry) => {
-            const isMe = entry.isCurrentUser || entry.studentId === currentStudentId;
+            const isMe =
+              entry.studentId === currentStudentId ||
+              Boolean(entry.isCurrentUser && (!currentStudentId || entry.studentId === currentStudentId));
 
             return (
               <div
                 key={entry.studentId}
-                onClick={() => setSelectedEntry(entry)}
-                className={`p-4 sm:p-5 flex items-center justify-between gap-4 cursor-pointer transition ${
+                className={`p-4 sm:p-5 flex items-center justify-between gap-4 select-none ${
                   isMe
-                    ? 'bg-indigo-50/70 dark:bg-indigo-950/30 border-l-4 border-indigo-600'
+                    ? 'bg-indigo-50/70 dark:bg-indigo-950/40 ring-1 ring-inset ring-indigo-500/25'
                     : 'hover:bg-gray-50/60 dark:hover:bg-[#1C212B]'
                 }`}
               >
@@ -140,20 +166,23 @@ export const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                   <div
                     className={`w-7 h-7 rounded-lg font-black text-xs flex items-center justify-center shrink-0 ${
                       entry.rank === 1
-                        ? 'bg-amber-400 text-amber-950 shadow-xs'
+                        ? 'bg-amber-400 text-amber-950 shadow-xs ring-1 ring-amber-400/50'
                         : entry.rank === 2
                         ? 'bg-gray-300 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                         : entry.rank === 3
-                        ? 'bg-amber-700 text-amber-100'
+                        ? 'bg-amber-700/80 text-white'
                         : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
                     }`}
                   >
                     {entry.rank}
                   </div>
 
-                  <div className="w-9 h-9 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
-                    {entry.avatar || entry.displayName.slice(0, 2).toUpperCase()}
-                  </div>
+                  <Avatar
+                    src={entry.avatar}
+                    name={entry.displayName}
+                    fallbackText={entry.displayName ? entry.displayName.slice(0, 2).toUpperCase() : 'ST'}
+                    className="w-9 h-9 rounded-full bg-indigo-600 text-white font-bold text-xs"
+                  />
 
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
@@ -172,98 +201,19 @@ export const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                   </div>
                 </div>
 
-                {/* Right: XP & Inspect Badges Action */}
-                <div className="flex items-center gap-4 shrink-0">
+                {/* Right: XP Score */}
+                <div className="flex items-center gap-3 shrink-0">
                   <div className="text-right">
                     <span className="text-sm sm:text-base font-black text-indigo-900 dark:text-indigo-200 block">
                       {entry.xp} XP
                     </span>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedEntry(entry);
-                    }}
-                    className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5 transition"
-                  >
-                    <Award className="w-3.5 h-3.5 text-amber-500" />
-                    <span className="hidden sm:inline">View Badges</span>
-                  </button>
                 </div>
               </div>
             );
           })}
         </div>
       </div>
-
-      {/* Peer Badges Inspection Modal */}
-      {selectedEntry && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="bg-white dark:bg-[#181C24] border border-[#D9DEE7] dark:border-[#2D3545] rounded-2xl p-6 sm:p-7 max-w-md w-full shadow-2xl relative animate-in fade-in zoom-in-95 duration-150">
-            <button
-              type="button"
-              onClick={() => setSelectedEntry(null)}
-              className="absolute top-4 right-4 p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
-              aria-label="Close modal"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-full bg-indigo-600 text-white font-black text-sm flex items-center justify-center">
-                {selectedEntry.avatar || selectedEntry.displayName.slice(0, 2).toUpperCase()}
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                  {selectedEntry.displayName}
-                </h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Rank #{selectedEntry.rank} • Level {selectedEntry.level} • {selectedEntry.xp} XP
-                </p>
-              </div>
-            </div>
-
-            <div className="border-t border-gray-100 dark:border-gray-800 pt-4 space-y-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 block">
-                Public Unlocked Badges ({selectedEntry.badges.length})
-              </span>
-
-              {selectedEntry.badges.length > 0 ? (
-                <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
-                  {selectedEntry.badges.map((b) => (
-                    <div
-                      key={b.id}
-                      className="p-3 rounded-xl bg-gray-50 dark:bg-[#1C212B] border border-gray-200 dark:border-gray-800 flex items-center gap-3 text-xs"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                        <Award className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-gray-900 dark:text-white">{b.title}</h4>
-                        <p className="text-gray-500 dark:text-gray-400">{b.description}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-gray-500 italic">No public badges displayed.</p>
-              )}
-            </div>
-
-            <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800">
-              <button
-                type="button"
-                onClick={() => setSelectedEntry(null)}
-                className="w-full py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-xs font-bold text-gray-800 dark:text-gray-200 transition"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

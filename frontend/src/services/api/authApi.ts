@@ -4,7 +4,7 @@
  * Automatically passes `credentials: 'include'` for HttpOnly refresh cookie management.
  */
 
-import { StudentUser } from '../../types';
+import type { StudentUser } from '../../types/index.ts';
 
 export interface UserProfileResponse {
   id: string;
@@ -49,6 +49,13 @@ export interface UserLoginRequest {
   password: string;
 }
 
+export interface GoogleAuthRequest {
+  credential: string;
+  email?: string;
+  full_name?: string;
+  avatar_url?: string;
+}
+
 export interface PasswordChangeRequest {
   current_password: string;
   new_password: string;
@@ -66,18 +73,133 @@ export interface MessageResponse {
 }
 
 const API_BASE = '/api/v1';
+export const TOKEN_STORAGE_KEY = 'learnova_access_token';
+export const USER_STORAGE_KEY = 'learnova_current_user';
+
+function getLocalStorage(): Storage | null {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      return localStorage;
+    }
+    if (typeof window !== 'undefined' && window.localStorage) {
+      return window.localStorage;
+    }
+    if (typeof globalThis !== 'undefined' && (globalThis as any).localStorage) {
+      return (globalThis as any).localStorage;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
 
 class AuthApiClient {
   private accessToken: string | null = null;
   private isRefreshing = false;
   private refreshSubscribers: Array<(token: string) => void> = [];
 
+  constructor() {
+    const store = getLocalStorage();
+    if (store) {
+      try {
+        this.accessToken = store.getItem(TOKEN_STORAGE_KEY);
+      } catch {
+        this.accessToken = null;
+      }
+    }
+  }
+
   public setAccessToken(token: string | null): void {
     this.accessToken = token;
+    const store = getLocalStorage();
+    if (store) {
+      try {
+        if (token) {
+          store.setItem(TOKEN_STORAGE_KEY, token);
+        } else {
+          store.removeItem(TOKEN_STORAGE_KEY);
+        }
+      } catch (e) {
+        console.warn('Failed to persist access token:', e);
+      }
+    }
   }
 
   public getAccessToken(): string | null {
+    if (!this.accessToken) {
+      const store = getLocalStorage();
+      if (store) {
+        try {
+          this.accessToken = store.getItem(TOKEN_STORAGE_KEY);
+        } catch {
+          this.accessToken = null;
+        }
+      }
+    }
     return this.accessToken;
+  }
+
+  public getStoredUser(): UserResponse | null {
+    const store = getLocalStorage();
+    if (store) {
+      try {
+        const raw = store.getItem(USER_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  public setStoredUser(user: UserResponse | null): void {
+    const store = getLocalStorage();
+    if (store) {
+      try {
+        if (user) {
+          store.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+        } else {
+          store.removeItem(USER_STORAGE_KEY);
+        }
+      } catch (e) {
+        console.warn('Failed to persist user profile:', e);
+      }
+    }
+  }
+
+  public clearSession(): void {
+    this.setAccessToken(null);
+    this.setStoredUser(null);
+  }
+
+  public async restoreSession(): Promise<UserResponse | null> {
+    const token = this.getAccessToken();
+    if (token) {
+      try {
+        const user = await this.getMe();
+        this.setStoredUser(user);
+        return user;
+      } catch (err) {
+        // If 401, request() already tried silent refresh.
+      }
+    }
+
+    // Try silent cookie refresh as fallback
+    try {
+      const res = await this.refresh();
+      if (res?.access_token) {
+        this.setAccessToken(res.access_token);
+        const user = await this.getMe();
+        this.setStoredUser(user);
+        return user;
+      }
+    } catch {
+      // Unauthenticated
+    }
+
+    this.setAccessToken(null);
+    this.setStoredUser(null);
+    return null;
   }
 
   private onTokenRefreshed(token: string) {
@@ -155,7 +277,16 @@ class AuthApiClient {
       throw new Error(errorMessage);
     }
 
-    return response.json();
+    if (response.status === 204 || response.headers.get('content-length') === '0') {
+      return {} as T;
+    }
+
+    const text = await response.text();
+    if (!text || text.trim() === '') {
+      return {} as T;
+    }
+
+    return JSON.parse(text);
   }
 
   public async register(payload: UserRegisterRequest): Promise<TokenResponse> {
@@ -164,6 +295,9 @@ class AuthApiClient {
       body: JSON.stringify(payload),
     });
     this.setAccessToken(data.access_token);
+    if (data.user) {
+      this.setStoredUser(data.user);
+    }
     return data;
   }
 
@@ -173,6 +307,21 @@ class AuthApiClient {
       body: JSON.stringify(payload),
     });
     this.setAccessToken(data.access_token);
+    if (data.user) {
+      this.setStoredUser(data.user);
+    }
+    return data;
+  }
+
+  public async loginWithGoogle(payload: GoogleAuthRequest): Promise<TokenResponse> {
+    const data = await this.request<TokenResponse>('/auth/google', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    this.setAccessToken(data.access_token);
+    if (data.user) {
+      this.setStoredUser(data.user);
+    }
     return data;
   }
 
@@ -190,9 +339,11 @@ class AuthApiClient {
         method: 'POST',
       });
       this.setAccessToken(null);
+      this.setStoredUser(null);
       return data;
     } catch (err) {
       this.setAccessToken(null);
+      this.setStoredUser(null);
       throw err;
     }
   }

@@ -38,7 +38,7 @@ export const AccessDeniedPage: React.FC<AccessDeniedPageProps> = ({ onSwitchPort
             Authenticate as Administrator
           </button>
 
-          <div className="grid grid-cols-2 gap-2 pt-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
             <button
               type="button"
               onClick={() => onSwitchPortal('student')}

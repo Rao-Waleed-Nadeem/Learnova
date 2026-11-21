@@ -18,13 +18,70 @@ from app.schemas.ai import (
     AICandidateRejectResponse,
     AICandidateUpdateRequest,
     AIGenerateQuestionsRequest,
+    AISendSessionMessageRequest,
+    AISessionCreateRequest,
+    AISessionDetailResponse,
+    AISessionMessageItem,
+    AISessionResponse,
     AISimplifyLessonRequest,
     AISimplifyLessonResponse,
 )
 from app.services.ai_candidate_service import AICandidateService
 from app.services.ai_service import AIService
+from app.services.ai_session_service import AISessionService
 
 router = APIRouter()
+
+
+@router.post(
+    "/sessions",
+    response_model=AISessionResponse,
+    status_code=status.HTTP_200_OK,
+)
+def get_or_create_session(
+    payload: AISessionCreateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Retrieve an existing persistent session or initialize a new AGY conversation."""
+    return AISessionService.get_or_create_session(db=db, req=payload, actor=current_user)
+
+
+@router.get(
+    "/sessions/{session_id}/messages",
+    response_model=List[AISessionMessageItem],
+    status_code=status.HTTP_200_OK,
+)
+def get_session_messages(
+    session_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Retrieve full conversation message history for an active session."""
+    messages = AISessionService.get_session_messages(db=db, session_id=session_id, actor=current_user)
+    return [AISessionMessageItem.model_validate(m) for m in messages]
+
+
+@router.post(
+    "/sessions/{session_id}/messages",
+    response_model=AISessionMessageItem,
+    status_code=status.HTTP_200_OK,
+)
+def send_session_message(
+    session_id: UUID,
+    payload: AISendSessionMessageRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Send student/teacher message, attach resources, execute AGY terminal agent, and return reply."""
+    _, agent_msg = AISessionService.send_message(
+        db=db,
+        session_id=session_id,
+        req=payload,
+        actor=current_user,
+    )
+    return AISessionMessageItem.model_validate(agent_msg)
+
 
 
 @router.post(

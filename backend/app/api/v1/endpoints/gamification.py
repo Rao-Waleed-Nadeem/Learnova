@@ -12,6 +12,8 @@ from app.db.session import get_db
 from app.models.gamification import Badge, Challenge, UserBadge, UserChallenge, XPLedger
 from app.models.user import User
 from app.schemas.gamification import (
+    AwardXPRequest,
+    AwardXPResponse,
     BadgeItemResponse,
     BadgesListResponse,
     ChallengeItemResponse,
@@ -82,6 +84,80 @@ def update_gamification_profile(
         streak_days=profile.streak_days,
         last_active_date=profile.last_active_date,
         is_opted_in_leaderboard=profile.is_opted_in_leaderboard,
+    )
+
+
+@router.post(
+    "/gamification/events",
+    response_model=AwardXPResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Award XP and evaluate gamification milestones",
+)
+def record_gamification_event(
+    payload: AwardXPRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> AwardXPResponse:
+    """Award XP to the authenticated student, update streaks, and evaluate badges and challenges."""
+    profile = GamificationService.get_or_create_profile(db, current_user.id)
+
+    key = payload.idempotency_key or f"xp:{current_user.id}:{payload.event_type}:{payload.related_id or uuid.uuid4().hex}"
+    ledger_entry, is_newly_awarded = GamificationService.award_xp_idempotent(
+        db=db,
+        student_id=current_user.id,
+        event_type=payload.event_type,
+        xp_amount=payload.xp_amount,
+        description=payload.description,
+        idempotency_key=key,
+        related_id=payload.related_id,
+    )
+
+    # Track unlocked badges before and after evaluation
+    existing_badge_rows = (
+        db.query(UserBadge.badge_id)
+        .filter(UserBadge.student_id == current_user.id)
+        .all()
+    )
+    existing_badge_ids = {row[0] for row in existing_badge_rows}
+
+    GamificationService.update_streak(db, profile)
+    GamificationService.evaluate_badges(db, current_user.id)
+
+    # Evaluate challenge progression based on event type
+    if payload.event_type in ("lesson_completed", "lesson.completed"):
+        GamificationService.evaluate_challenges(db, current_user.id, "lesson_count", 1)
+    elif payload.event_type in ("practice_completed", "adaptive_completed"):
+        GamificationService.evaluate_challenges(db, current_user.id, "practice_count", 1)
+
+    db.commit()
+    db.refresh(profile)
+
+    new_badge_rows = (
+        db.query(UserBadge.badge_id)
+        .filter(UserBadge.student_id == current_user.id)
+        .all()
+    )
+    new_badge_ids = {row[0] for row in new_badge_rows}
+    newly_unlocked = list(new_badge_ids - existing_badge_ids)
+
+    lvl_info = GamificationService.calculate_level(profile.xp)
+    profile_response = GamificationProfileResponse(
+        student_id=profile.student_id,
+        xp=profile.xp,
+        level=profile.level,
+        current_level_floor_xp=lvl_info["current_level_floor_xp"],
+        next_level_xp=lvl_info["next_level_xp"],
+        progress_percent=lvl_info["progress_percent"],
+        streak_days=profile.streak_days,
+        last_active_date=profile.last_active_date,
+        is_opted_in_leaderboard=profile.is_opted_in_leaderboard,
+    )
+
+    return AwardXPResponse(
+        profile=profile_response,
+        xp_awarded=payload.xp_amount if is_newly_awarded else 0,
+        is_newly_awarded=is_newly_awarded,
+        newly_unlocked_badges=newly_unlocked,
     )
 
 
@@ -209,6 +285,7 @@ def get_leaderboard(
         current_user_entry=LeaderboardEntryResponse(**result["current_user_entry"])
         if result["current_user_entry"]
         else None,
+        current_user_opted_in=result.get("current_user_opted_in", True),
         total_ranked=result["total_ranked"],
     )
 

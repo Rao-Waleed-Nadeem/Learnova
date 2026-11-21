@@ -40,11 +40,11 @@ export const DiagnosticIntroPage: React.FC<DiagnosticIntroPageProps> = ({
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 py-4">
+    <div className="max-w-2xl mx-auto space-y-6 py-4 view-enter-animation">
       {/* Back button */}
       <button
         type="button"
-        onClick={() => onNavigate('course_map', { courseId: course?.id || '' })}
+        onClick={() => onNavigate('course_map', { courseId: course?.id || courses[0]?.id || '' })}
         className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
       >
         <ArrowLeft className="w-4 h-4" />
@@ -61,7 +61,7 @@ export const DiagnosticIntroPage: React.FC<DiagnosticIntroPageProps> = ({
             {assessment.title}
           </h1>
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-            Course: <strong>{course?.title}</strong> • Target Unit: <strong>{topic?.title}</strong>
+            Course: <strong>{course?.title || 'Computer Science & Python'}</strong> • Target Unit: <strong>{topic?.title || 'Foundations & Prerequisite Diagnostic'}</strong>
           </p>
         </div>
 
@@ -77,7 +77,7 @@ export const DiagnosticIntroPage: React.FC<DiagnosticIntroPageProps> = ({
         </div>
 
         {/* Assessment Parameters */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
           <div className="p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#181C24]">
             <span className="text-gray-500 dark:text-gray-400 block mb-1">Time Limit</span>
             <div className="flex items-center gap-1 font-bold text-gray-900 dark:text-white">

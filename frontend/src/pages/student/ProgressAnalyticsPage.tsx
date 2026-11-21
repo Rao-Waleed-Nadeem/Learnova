@@ -52,7 +52,7 @@ export const ProgressAnalyticsPage: React.FC<ProgressAnalyticsPageProps> = ({
   const masteredCount = courseMasteryStates.filter((m) => m.status === 'mastered').length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 view-enter-animation">
       {/* Header and Course Filter */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -88,7 +88,7 @@ export const ProgressAnalyticsPage: React.FC<ProgressAnalyticsPageProps> = ({
 
       {/* Summary Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="p-5 rounded-2xl bg-white dark:bg-[#181C24] border border-[#D9DEE7] dark:border-[#2D3545] shadow-xs">
+        <div className="interactive-card p-5 rounded-2xl bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 shadow-xs">
           <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 block mb-1">
             Assessed Topics
           </span>
@@ -97,7 +97,7 @@ export const ProgressAnalyticsPage: React.FC<ProgressAnalyticsPageProps> = ({
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-white dark:bg-[#181C24] border border-[#D9DEE7] dark:border-[#2D3545] shadow-xs">
+        <div className="interactive-card p-5 rounded-2xl bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 shadow-xs">
           <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block mb-1">
             Mastered Units (85%+)
           </span>
@@ -106,7 +106,7 @@ export const ProgressAnalyticsPage: React.FC<ProgressAnalyticsPageProps> = ({
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-white dark:bg-[#181C24] border border-[#D9DEE7] dark:border-[#2D3545] shadow-xs">
+        <div className="interactive-card p-5 rounded-2xl bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 shadow-xs">
           <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 block mb-1">
             Completed Lessons
           </span>
@@ -121,9 +121,9 @@ export const ProgressAnalyticsPage: React.FC<ProgressAnalyticsPageProps> = ({
         <button
           type="button"
           onClick={() => setActiveTab('mastery')}
-          className={`pb-3 transition border-b-2 ${
+          className={`pb-3 transition border-b-2 cursor-pointer ${
             activeTab === 'mastery'
-              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 font-bold'
               : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
           }`}
         >
@@ -133,9 +133,9 @@ export const ProgressAnalyticsPage: React.FC<ProgressAnalyticsPageProps> = ({
         <button
           type="button"
           onClick={() => setActiveTab('attempts')}
-          className={`pb-3 transition border-b-2 ${
+          className={`pb-3 transition border-b-2 cursor-pointer ${
             activeTab === 'attempts'
-              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 font-bold'
               : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
           }`}
         >
@@ -145,9 +145,9 @@ export const ProgressAnalyticsPage: React.FC<ProgressAnalyticsPageProps> = ({
         <button
           type="button"
           onClick={() => setActiveTab('lessons')}
-          className={`pb-3 transition border-b-2 ${
+          className={`pb-3 transition border-b-2 cursor-pointer ${
             activeTab === 'lessons'
-              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 font-bold'
               : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
           }`}
         >
@@ -157,7 +157,7 @@ export const ProgressAnalyticsPage: React.FC<ProgressAnalyticsPageProps> = ({
 
       {/* TAB 1: TOPIC MASTERY MATRIX */}
       {activeTab === 'mastery' && (
-        <div className="bg-white dark:bg-[#181C24] border border-[#D9DEE7] dark:border-[#2D3545] rounded-2xl shadow-xs overflow-hidden">
+        <div className="bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 rounded-2xl shadow-xs overflow-hidden">
           <div className="p-5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
             <h3 className="text-base font-bold text-gray-900 dark:text-white">
               Syllabus Units & Cognitive Mastery Status
@@ -226,7 +226,7 @@ export const ProgressAnalyticsPage: React.FC<ProgressAnalyticsPageProps> = ({
                     <button
                       type="button"
                       onClick={() => onNavigate('course_map', { courseId: activeCourse.id })}
-                      className="p-1 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400"
+                      className="p-1 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer"
                       title="View on Map"
                     >
                       <ArrowRight className="w-4 h-4" />
@@ -241,7 +241,7 @@ export const ProgressAnalyticsPage: React.FC<ProgressAnalyticsPageProps> = ({
 
       {/* TAB 2: ASSESSMENT HISTORY */}
       {activeTab === 'attempts' && (
-        <div className="bg-white dark:bg-[#181C24] border border-[#D9DEE7] dark:border-[#2D3545] rounded-2xl shadow-xs overflow-hidden">
+        <div className="bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 rounded-2xl shadow-xs overflow-hidden">
           <div className="p-5 border-b border-gray-100 dark:border-gray-800">
             <h3 className="text-base font-bold text-gray-900 dark:text-white">
               Assessment Attempt Records

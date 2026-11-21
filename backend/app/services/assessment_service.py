@@ -194,7 +194,7 @@ class AssessmentService:
                 assigned_pts = item.points if item.points is not None else question.points
                 if assigned_pts <= 0:
                     raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                         detail=f"Points for question {item.question_id} must be positive",
                     )
 
@@ -309,7 +309,7 @@ class AssessmentService:
         if req.title is not None:
             if not req.title.strip():
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail="Assessment title cannot be empty",
                 )
             assessment.title = req.title.strip()
@@ -378,7 +378,7 @@ class AssessmentService:
                 assigned_pts = item.points if item.points is not None else question.points
                 if assigned_pts <= 0:
                     raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                         detail=f"Points for question {item.question_id} must be positive",
                     )
 
@@ -426,14 +426,14 @@ class AssessmentService:
         # Quality Gate 1: Must contain at least 1 question
         if not assessment.assessment_questions or len(assessment.assessment_questions) == 0:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Assessment must contain at least 1 question before publication",
             )
 
         # Quality Gate 2: Total points must be greater than 0
         if assessment.total_points <= 0:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Assessment total points must be greater than 0 before publication",
             )
 

@@ -8,7 +8,15 @@ import { UserAccount, AuditEvent } from '../../types';
 import { ServiceHealthCheck } from '../../utils/adminLogic';
 
 export interface AdminDashboardResponse {
-  users_summary: {
+  users?: {
+    total: number;
+    students: number;
+    teachers: number;
+    administrators: number;
+    active: number;
+    inactive: number;
+  };
+  users_summary?: {
     total: number;
     students: number;
     teachers: number;
@@ -16,31 +24,54 @@ export interface AdminDashboardResponse {
     active: number;
     deactivated: number;
   };
-  curriculum_summary: {
+  curriculum?: {
+    total_courses: number;
+    published_courses: number;
+    draft_courses: number;
+    total_topics: number;
+    total_lessons: number;
+  };
+  curriculum_summary?: {
     courses: number;
     published_courses: number;
     draft_courses: number;
     topics: number;
     lessons: number;
-    resources: number;
+    resources?: number;
   };
-  enrollment_summary: {
+  enrollments?: {
+    total_enrollments: number;
+    active_enrollments: number;
+    completed_enrollments: number;
+  };
+  enrollment_summary?: {
     total: number;
     active: number;
     completed: number;
-    dropped: number;
+    dropped?: number;
   };
-  assessment_summary: {
+  assessments?: {
     total_assessments: number;
-    published_assessments: number;
     total_attempts: number;
     completed_attempts: number;
   };
-  security_summary: {
+  assessment_summary?: {
+    total_assessments: number;
+    published_assessments?: number;
+    total_attempts: number;
+    completed_attempts: number;
+  };
+  security_audit?: {
+    total_events_24h: number;
+    blocked_events_24h: number;
+    failure_events_24h: number;
+  };
+  security_summary?: {
     total_events_24h: number;
     failures_blocked_24h: number;
-    unique_active_users_24h: number;
+    unique_active_users_24h?: number;
   };
+  generated_at?: string;
 }
 
 export interface SystemHealthResponse {
@@ -63,6 +94,71 @@ export interface SystemHealthResponse {
     status: 'operational' | 'disabled' | 'error';
     configured_provider: string;
   };
+}
+
+export interface AdminUserCourseSummary {
+  id: string;
+  title: string;
+  status: string;
+  relationship: 'creator' | 'instructor' | 'enrolled';
+  enrolled_students_count?: number;
+  topics_count?: number;
+  enrollment_status?: string;
+  progress_percent?: number;
+  completed_lessons?: number;
+  total_lessons?: number;
+}
+
+export interface AdminTeacherMetrics {
+  authored_questions_count: number;
+  created_assessments_count: number;
+  published_courses_count: number;
+  total_students_taught: number;
+}
+
+export interface AdminStudentMetrics {
+  xp: number;
+  level: number;
+  completed_lessons_count: number;
+  average_assessment_score?: number | null;
+}
+
+export interface AdminUserSecurityProfile {
+  auth_method: string;
+  account_status: string;
+  role_scope: string;
+  last_active_ip?: string | null;
+  active_sessions_count: number;
+  total_audit_events: number;
+}
+
+export interface AdminUserDetailResponse {
+  user: {
+    id: string;
+    email: string;
+    full_name: string;
+    role: string;
+    is_active: boolean;
+    created_at: string;
+    updated_at?: string;
+    profile?: {
+      department?: string | null;
+      bio?: string | null;
+      avatar_url?: string | null;
+      preferences?: Record<string, any>;
+    };
+  };
+  enrolled_courses_count: number;
+  assigned_courses_count: number;
+  completed_attempts_count: number;
+  security_audit_events_count: number;
+  last_active_at?: string | null;
+  last_active_ip?: string | null;
+  active_sessions_count: number;
+  courses: AdminUserCourseSummary[];
+  teacher_metrics?: AdminTeacherMetrics | null;
+  student_metrics?: AdminStudentMetrics | null;
+  security_profile?: AdminUserSecurityProfile | null;
 }
 
 export interface AdminUserListResponse {
@@ -89,16 +185,59 @@ export interface TeacherDashboardResponse {
   assigned_courses: any[];
 }
 
+export interface BackendTopicMasteryDistributionItem {
+  topic_id: string;
+  topic_title: string;
+  threshold: number;
+  average_mastery_percent?: number | null;
+  assessed_students_count: number;
+  mastered_count: number;
+  competent_count: number;
+  developing_count: number;
+  not_assessed_count: number;
+  is_class_weak: boolean;
+}
+
+export interface BackendScoreDistributionBands {
+  '0-49%'?: number;
+  '50-69%'?: number;
+  '70-84%'?: number;
+  '85-100%'?: number;
+  band_0_49?: number;
+  band_50_69?: number;
+  band_70_84?: number;
+  band_85_100?: number;
+}
+
+export interface BackendAtRiskStudentItem {
+  student_id: string;
+  student_name: string;
+  student_email: string;
+  weak_topics_count: number;
+  average_mastery_percent?: number | null;
+}
+
+export interface BackendAssessmentSummaryItem {
+  assessment_id: string;
+  title: string;
+  type: string;
+  total_attempts: number;
+  completed_attempts: number;
+  average_score_percent?: number | null;
+  highest_score_percent?: number | null;
+  lowest_score_percent?: number | null;
+}
+
 export interface TeacherCourseAnalyticsResponse {
   course_id: string;
   course_title: string;
   enrolled_students_count: number;
-  active_students_count: number;
-  completion_rate_percent: number;
-  average_course_mastery_percent: number;
-  topic_mastery_distribution: any[];
-  assessment_summaries: any[];
-  at_risk_students: any[];
+  overall_average_mastery?: number | null;
+  topic_mastery_distribution: BackendTopicMasteryDistributionItem[];
+  weak_concepts: BackendTopicMasteryDistributionItem[];
+  score_distribution: BackendScoreDistributionBands;
+  assessment_summaries: BackendAssessmentSummaryItem[];
+  at_risk_students: BackendAtRiskStudentItem[];
 }
 
 class AdminApiClient {
@@ -119,17 +258,29 @@ class AdminApiClient {
   // ADM-02: User Directory
   public async listUsers(params?: {
     query?: string;
+    search?: string;
     role?: string;
     is_active?: boolean;
     page?: number;
     page_size?: number;
+    limit?: number;
+    offset?: number;
   }): Promise<AdminUserListResponse> {
     const q = new URLSearchParams();
-    if (params?.query) q.set('query', params.query);
+    const searchTerm = params?.search || params?.query;
+    if (searchTerm) q.set('search', searchTerm);
     if (params?.role && params.role !== 'all') q.set('role', params.role);
     if (params?.is_active !== undefined) q.set('is_active', String(params.is_active));
-    if (params?.page) q.set('page', String(params.page));
-    if (params?.page_size) q.set('page_size', String(params.page_size));
+
+    const limit = params?.limit || params?.page_size || 50;
+    q.set('limit', String(limit));
+
+    const offset = params?.offset !== undefined
+      ? params.offset
+      : params?.page
+      ? (params.page - 1) * limit
+      : 0;
+    if (offset > 0) q.set('offset', String(offset));
 
     const qs = q.toString();
     const url = qs ? `/admin/users?${qs}` : '/admin/users';
@@ -139,8 +290,8 @@ class AdminApiClient {
   }
 
   // ADM-03: User Details
-  public async getUserDetail(userId: string): Promise<any> {
-    return authApi.request<any>(`/admin/users/${userId}`, {
+  public async getUserDetail(userId: string): Promise<AdminUserDetailResponse> {
+    return authApi.request<AdminUserDetailResponse>(`/admin/users/${userId}`, {
       method: 'GET',
     });
   }
@@ -171,17 +322,33 @@ class AdminApiClient {
     outcome?: string;
     start_date?: string;
     end_date?: string;
+    from_date?: string;
+    to_date?: string;
     page?: number;
     page_size?: number;
+    limit?: number;
+    offset?: number;
   }): Promise<AdminAuditLogListResponse> {
     const q = new URLSearchParams();
     if (params?.actor_id) q.set('actor_id', params.actor_id);
     if (params?.action && params.action !== 'all') q.set('action', params.action);
     if (params?.outcome && params.outcome !== 'all') q.set('outcome', params.outcome);
-    if (params?.start_date) q.set('start_date', params.start_date);
-    if (params?.end_date) q.set('end_date', params.end_date);
-    if (params?.page) q.set('page', String(params.page));
-    if (params?.page_size) q.set('page_size', String(params.page_size));
+
+    const fromDate = params?.from_date || params?.start_date;
+    if (fromDate) q.set('from_date', fromDate);
+
+    const toDate = params?.to_date || params?.end_date;
+    if (toDate) q.set('to_date', toDate);
+
+    const limit = params?.limit || params?.page_size || 50;
+    q.set('limit', String(limit));
+
+    const offset = params?.offset !== undefined
+      ? params.offset
+      : params?.page
+      ? (params.page - 1) * limit
+      : 0;
+    if (offset > 0) q.set('offset', String(offset));
 
     const qs = q.toString();
     const url = qs ? `/admin/audit-logs?${qs}` : '/admin/audit-logs';
@@ -197,8 +364,12 @@ class AdminApiClient {
     });
   }
 
-  public async getTeacherCourseAnalytics(courseId: string): Promise<TeacherCourseAnalyticsResponse> {
-    return authApi.request<TeacherCourseAnalyticsResponse>(`/teacher/courses/${courseId}/analytics`, {
+  public async getTeacherCourseAnalytics(
+    courseId: string,
+    timeframe: 'all' | '30d' | '7d' = 'all'
+  ): Promise<TeacherCourseAnalyticsResponse> {
+    const q = timeframe && timeframe !== 'all' ? `?timeframe=${timeframe}` : '';
+    return authApi.request<TeacherCourseAnalyticsResponse>(`/teacher/courses/${courseId}/analytics${q}`, {
       method: 'GET',
     });
   }

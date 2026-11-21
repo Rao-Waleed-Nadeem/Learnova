@@ -159,6 +159,22 @@ def create_lesson(
     return CurriculumService.create_lesson(db=db, topic_id=topic_id, data=data)
 
 
+# ============================================================================
+# Student Completion & Resource Activity Endpoints
+# ============================================================================
+
+@router.get("/lessons/completions", response_model=List[LessonCompletionResponse])
+def get_lesson_completions(
+    course_id: Optional[UUID] = None,
+    current_user: User = Depends(require_role("student")),
+    db: Session = Depends(get_db),
+):
+    """Retrieve recorded lesson completions for the enrolled student."""
+    return EnrollmentService.get_student_lesson_completions(
+        db=db, student_id=current_user.id, course_id=course_id
+    )
+
+
 @router.get("/lessons/{lesson_id}", response_model=LessonResponse)
 def get_lesson(
     lesson_id: UUID,
@@ -230,10 +246,6 @@ def delete_resource(
     _verify_resource_teacher_authorization(db=db, resource_id=resource_id, current_user=current_user)
     CurriculumService.delete_resource(db=db, resource_id=resource_id)
 
-
-# ============================================================================
-# Student Completion & Resource Activity Endpoints
-# ============================================================================
 
 @router.post("/lessons/{lesson_id}/complete", response_model=LessonCompletionResponse)
 def complete_lesson(

@@ -5,6 +5,7 @@ from app.ai.adapter import (
     AIGenerateResult,
     AISimplifyRequest,
     AISimplifyResult,
+    AgyServiceAdapter,
     CandidateQuestionDraft,
     GeminiServiceAdapter,
     ILLMServiceAdapter,
@@ -12,6 +13,7 @@ from app.ai.adapter import (
 
 __all__ = [
     "ILLMServiceAdapter",
+    "AgyServiceAdapter",
     "GeminiServiceAdapter",
     "AISimplifyRequest",
     "AISimplifyResult",

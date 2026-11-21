@@ -15,6 +15,7 @@ from app.core.dependencies import (
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.auth import (
+    GoogleAuthRequest,
     MessageResponse,
     TokenRefreshResponse,
     TokenResponse,
@@ -78,6 +79,37 @@ def login(
     user_agent = request.headers.get("user-agent")
 
     user, access_token, refresh_token = auth_service.login_user(
+        db=db,
+        request=payload,
+        ip_address=ip,
+        user_agent=user_agent,
+    )
+
+    set_refresh_token_cookie(response, refresh_token)
+    return TokenResponse(
+        access_token=access_token,
+        token_type="bearer",
+        user=UserResponse.model_validate(user),
+    )
+
+
+@router.post(
+    "/google",
+    response_model=TokenResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Authenticate or register with Google OAuth 2.0 / Gmail",
+)
+def google_auth(
+    payload: GoogleAuthRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+) -> TokenResponse:
+    """Authenticate existing account or auto-provision student account via Google OAuth."""
+    ip = get_client_ip(request)
+    user_agent = request.headers.get("user-agent")
+
+    user, access_token, refresh_token = auth_service.authenticate_google_user(
         db=db,
         request=payload,
         ip_address=ip,

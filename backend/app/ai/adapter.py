@@ -4,13 +4,35 @@ import json
 import logging
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
 
 import httpx
 
+from app.ai.agy_adapter import AgyCliAdapter
 from app.core.sanitizer import scrub_pii
 
 logger = logging.getLogger(__name__)
+
+PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
+
+
+def _load_prompt_template(filename: str) -> str:
+    """Read prompt markdown template with backward-compatible fallback."""
+    candidates = [filename]
+    if filename in ("generate_question.md", "context.md"):
+        candidates = ["generate_question.md", "context.md"]
+    elif filename in ("simplification.md", "content.md"):
+        candidates = ["simplification.md", "content.md"]
+
+    for cand in candidates:
+        file_path = PROMPTS_DIR / cand
+        if file_path.exists():
+            try:
+                return file_path.read_text(encoding="utf-8")
+            except Exception as exc:
+                logger.warning("Error reading %s: %s", cand, exc)
+    return ""
 
 
 @dataclass
@@ -79,6 +101,157 @@ class ILLMServiceAdapter(Protocol):
     def generate_questions(self, req: AIGenerateRequest) -> AIGenerateResult:
         """Generate candidate assessment questions from curriculum topic context."""
         ...
+
+
+class AgyServiceAdapter:
+    """Authoritative Antigravity CLI (agy / agentapi) adapter conforming to ILLMServiceAdapter protocol."""
+
+    def __init__(
+        self,
+        cli_adapter: Optional[AgyCliAdapter] = None,
+        model: str = "flash",
+        timeout_seconds: int = 35,
+    ):
+        self.cli = cli_adapter or AgyCliAdapter(default_model=model)
+        self.model = model
+        self.timeout_seconds = timeout_seconds
+
+    def simplify_lesson(self, req: AISimplifyRequest) -> AISimplifyResult:
+        """Generate educational lesson explanation via local AGY agent CLI with deterministic fallback."""
+        clean_custom_prompt = scrub_pii(req.custom_prompt) if req.custom_prompt else None
+        clean_content = scrub_pii(req.lesson_content[:2000] if req.lesson_content else "Foundational curriculum concepts")
+
+        instructions = ""
+        if req.mode == "analogy":
+            instructions = (
+                "Explain the following educational topic using a vivid, memorable real-world analogy. "
+                "Keep it clear, friendly, and grounded in everyday experience."
+            )
+        elif req.mode == "example":
+            instructions = (
+                "Provide a concrete, step-by-step worked example with annotated code or problem breakdown "
+                "for this lesson concept."
+            )
+        elif req.mode == "custom" and clean_custom_prompt:
+            instructions = (
+                "Answer the student's specific question within the exact context of this lesson."
+            )
+        else:
+            instructions = (
+                "Provide a clear, simplified explanation of the core concept in plain language. "
+                "Use 2-3 short paragraphs, bullet points for key takeaways, and highlight why this concept matters."
+            )
+
+        master_template = _load_prompt_template("simplification.md")
+        system_directive = (
+            master_template
+            if master_template
+            else (
+                "[Directive: Do NOT run any workspace tools, bash commands, or file searches. Formulate your response immediately as formatted Markdown.]\n\n"
+                "You are Learnova's Academic AI Assistant, an authoritative educational tutor."
+            )
+        )
+
+        prompt = (
+            f"{system_directive}\n\n"
+            "<curriculum_context>\n"
+            f"Course: {req.course_title}\n"
+            f"Topic: {req.topic_title}\n"
+            f"Lesson: {req.lesson_title}\n"
+            f"Lesson Material: {clean_content}\n"
+            "</curriculum_context>\n\n"
+            f"<task_instructions>\n{instructions}\n</task_instructions>\n"
+        )
+        if req.mode == "custom" and clean_custom_prompt:
+            prompt += f"\n<student_query>\n{clean_custom_prompt}\n</student_query>\n"
+
+        conv_id = self.cli.new_conversation(
+            prompt=prompt,
+            title=f"Tutoring: {req.lesson_title[:30]}",
+            model=self.model,
+        )
+
+        if conv_id:
+            text, _ = self.cli.wait_for_latest_response(
+                conversation_id=conv_id,
+                previous_step_count=0,
+                timeout_seconds=self.timeout_seconds,
+            )
+            if text and text.strip():
+                return AISimplifyResult(
+                    explanation=text.strip(),
+                    source="agy_cli",
+                    prompt_used=clean_custom_prompt or req.mode,
+                )
+
+        return self._deterministic_simplify(req)
+
+    def generate_questions(self, req: AIGenerateRequest) -> AIGenerateResult:
+        """Generate candidate assessment questions via local AGY agent CLI with deterministic fallback."""
+        count = max(1, min(req.count, 5))
+        allowed_types = req.question_types if req.question_types else ["multiple_choice"]
+        allowed_types_str = ", ".join(allowed_types)
+        clean_source = scrub_pii(req.source_content[:2000]) if req.source_content else "Standard curriculum concepts"
+
+        master_template = _load_prompt_template("generate_question.md")
+        system_directive = (
+            master_template
+            if master_template
+            else (
+                "[Directive: Do NOT execute workspace tools or inspect files. Generate questions directly and output ONLY a valid JSON code block containing the array.]\n\n"
+                "You are an educational assessment expert for Learnova Teacher Portal.\n"
+                "Return ONLY a valid JSON array of objects within a ```json code block."
+            )
+        )
+
+        prompt = (
+            f"{system_directive}\n\n"
+            "<curriculum_context>\n"
+            f"Course: '{req.course_title or 'Computer Science'}'\n"
+            f"Topic: '{req.topic_title or 'Core Concepts'}'\n"
+            f"Source Learning Resource: '{clean_source}'\n"
+            f"Allowed Question Types: {allowed_types_str}\n"
+            f"Difficulty: '{req.difficulty or 'medium'}'\n"
+            f"Target Question Count: {count}\n"
+            "</curriculum_context>\n\n"
+            f"Generate exactly {count} candidate assessment questions based strictly on the above curriculum context. "
+            "Output ONLY a valid JSON array within a ```json code block matching the specified schema."
+        )
+
+        conv_id = self.cli.new_conversation(
+            prompt=prompt,
+            title=f"Questions: {req.topic_title[:30]}",
+            model=self.model,
+        )
+
+        if conv_id:
+            text, _ = self.cli.wait_for_latest_response(
+                conversation_id=conv_id,
+                previous_step_count=0,
+                timeout_seconds=self.timeout_seconds,
+            )
+            if text:
+                parsed = self.cli.extract_json_array(text)
+                if parsed:
+                    normalized = self._normalize_candidates(parsed, req.difficulty)
+                    if normalized:
+                        return AIGenerateResult(
+                            candidates=normalized,
+                            source="agy_cli",
+                        )
+
+        return self._deterministic_generate(req)
+
+    def _normalize_candidates(
+        self, raw_list: List[Dict[str, Any]], fallback_diff: str
+    ) -> List[CandidateQuestionDraft]:
+        return _normalize_candidates_helper(raw_list, fallback_diff)
+
+    def _deterministic_simplify(self, req: AISimplifyRequest) -> AISimplifyResult:
+        return _deterministic_simplify_helper(req)
+
+    def _deterministic_generate(self, req: AIGenerateRequest) -> AIGenerateResult:
+        return _deterministic_generate_helper(req)
 
 
 class GeminiServiceAdapter:
@@ -275,317 +448,376 @@ class GeminiServiceAdapter:
     def _normalize_candidates(
         self, raw_list: List[Dict[str, Any]], fallback_diff: str
     ) -> List[CandidateQuestionDraft]:
-        """Convert raw LLM JSON items into validated CandidateQuestionDraft objects."""
-        drafts: List[CandidateQuestionDraft] = []
-        valid_types = {
-            "multiple_choice",
-            "true_false",
-            "fill_blank",
-            "matching",
-            "short_answer",
-        }
-
-        for item in raw_list:
-            if not isinstance(item, dict):
-                continue
-            prompt = str(item.get("prompt", "")).strip()
-            if not prompt:
-                continue
-            q_type = str(item.get("type", "multiple_choice")).strip()
-            if q_type not in valid_types:
-                q_type = "multiple_choice"
-
-            difficulty = str(item.get("difficulty", fallback_diff)).lower().strip()
-            if difficulty not in ("easy", "medium", "hard"):
-                difficulty = fallback_diff
-
-            points = item.get("points")
-            if not isinstance(points, int) or points <= 0:
-                points = 3 if difficulty == "hard" else (2 if difficulty == "medium" else 1)
-
-            explanation = item.get("explanation")
-            source_context = item.get("sourceContext") or item.get("source_context")
-
-            # Format payload & answer_key per question type
-            payload: Dict[str, Any] = {}
-            answer_key: Dict[str, Any] = {}
-
-            if q_type == "multiple_choice":
-                opts = item.get("options", [])
-                formatted_opts = []
-                correct_ids = []
-                for i, opt in enumerate(opts, start=1):
-                    opt_id = str(opt.get("id", i))
-                    opt_text = str(opt.get("text", "")).strip()
-                    is_correct = bool(opt.get("isCorrect") or opt.get("is_correct"))
-                    formatted_opts.append({"id": opt_id, "text": opt_text})
-                    if is_correct:
-                        correct_ids.append(opt_id)
-
-                if not correct_ids and formatted_opts:
-                    correct_ids = [formatted_opts[0]["id"]]
-
-                payload = {"options": formatted_opts}
-                answer_key = {
-                    "correct_option_ids": correct_ids,
-                    "is_multiple_correct_allowed": len(correct_ids) > 1,
-                }
-
-            elif q_type == "true_false":
-                correct_bool = bool(item.get("correctBool") if "correctBool" in item else item.get("correct_bool", True))
-                payload = {}
-                answer_key = {"correct_bool": correct_bool}
-
-            elif q_type == "fill_blank":
-                accepted = item.get("acceptedAnswers") or item.get("accepted_answers", ["answer"])
-                if isinstance(accepted, str):
-                    accepted = [accepted]
-                payload = {}
-                answer_key = {
-                    "accepted_answers": [str(a).strip() for a in accepted if str(a).strip()],
-                    "case_sensitive": bool(item.get("caseSensitive", False)),
-                }
-
-            elif q_type == "matching":
-                raw_pairs = item.get("matchingPairs") or item.get("matching_pairs", [])
-                pairs_payload = []
-                pairs_key = {}
-                for idx, p in enumerate(raw_pairs, start=1):
-                    pair_id = str(p.get("id", f"p{idx}"))
-                    left = str(p.get("left", "")).strip()
-                    right = str(p.get("right", "")).strip()
-                    pairs_payload.append({"id": pair_id, "left": left, "right": right})
-                    if left and right:
-                        pairs_key[left] = right
-
-                payload = {"matching_pairs": pairs_payload}
-                answer_key = {"pairs": pairs_key}
-
-            else:  # short_answer
-                rubric = str(item.get("expectedRubric") or item.get("expected_rubric", "")).strip()
-                payload = {}
-                answer_key = {
-                    "expected_rubric": rubric,
-                    "grading_mode": "manual_review",
-                }
-
-            drafts.append(
-                CandidateQuestionDraft(
-                    prompt=prompt,
-                    type=q_type,
-                    difficulty=difficulty,
-                    points=points,
-                    explanation=explanation,
-                    source_context=source_context,
-                    payload=payload,
-                    answer_key=answer_key,
-                )
-            )
-
-        return drafts
+        return _normalize_candidates_helper(raw_list, fallback_diff)
 
     def _deterministic_simplify(self, req: AISimplifyRequest) -> AISimplifyResult:
-        """Deterministic academic tutor fallback mirroring proven pedagogical templates."""
-        lesson_title = req.lesson_title or "Lesson"
-        topic_title = req.topic_title or "Topic"
-        course_title = req.course_title or "Course"
-        custom_prompt = (req.custom_prompt or "").strip()
-
-        if req.mode == "analogy":
-            explanation = (
-                f"### Real-World Analogy for {lesson_title}\n\n"
-                f"Think of **{lesson_title}** like an **organized postal sorting station**:\n\n"
-                f"- **Data & Inputs:** Letters arriving with specific recipient addresses (variables and inputs).\n"
-                f"- **Operations & Rules:** The sorting conveyor belts that route mail based on size, priority, and destination (control logic and functions).\n"
-                f"- **Outputs & State:** Mail bags loaded onto trucks for delivery (returns and modified state).\n\n"
-                f"Just like a mail center ensures no letter is lost by applying consistent routing rules, **{lesson_title}** ensures deterministic execution in {course_title}."
-            )
-        elif req.mode == "example":
-            explanation = (
-                f"### Step-by-Step Worked Example: {lesson_title}\n\n"
-                f"Here is a concrete walk-through illustrating how **{lesson_title}** works in practice:\n\n"
-                "```python\n"
-                f"# 1. Initialize state for {topic_title}\n"
-                "def process_item(value: int) -> dict:\n"
-                f'    """Demonstrates {lesson_title} principles."""\n'
-                "    if value < 0:\n"
-                '        return {"status": "rejected", "value": value}\n'
-                "    \n"
-                "    # 2. Transform input deterministically\n"
-                "    transformed = value * 2\n"
-                '    return {"status": "success", "result": transformed}\n\n'
-                "# Test execution\n"
-                "result = process_item(10)\n"
-                "print(result) # Output: {'status': 'success', 'result': 20}\n"
-                "```\n\n"
-                "**Walkthrough:**\n"
-                "1. **Input Guard:** The condition checks validity before processing.\n"
-                "2. **State Transformation:** Output is calculated without side effects.\n"
-                "3. **Predictable Contract:** The returned dictionary guarantees consumers know the status."
-            )
-        elif req.mode == "custom" and custom_prompt:
-            explanation = (
-                "### Contextual Clarification\n\n"
-                f'Regarding your question: *"**{custom_prompt}**"*\n\n'
-                f"In **{lesson_title}** ({topic_title}), this concept connects directly to how operations are orchestrated in {course_title}:\n\n"
-                "- **Core Principle:** Each module maintains its own local scope and passes data explicitly.\n"
-                "- **Key Takeaway:** By keeping inputs predictable, you prevent unexpected side effects across your program.\n"
-                "- **Best Practice:** Always inspect intermediate values and verify assumptions through small unit tests."
-            )
-        else:
-            explanation = (
-                f"### Simplified Explanation: {lesson_title}\n\n"
-                f"**{lesson_title}** is a core building block in **{topic_title}** that helps organize and execute logic cleanly.\n\n"
-                "#### 3 Key Concepts to Remember:\n"
-                "- **Modularity:** Breaking down complex tasks into manageable, testable steps.\n"
-                "- **State Predictability:** Knowing exactly what data enters and what result exits.\n"
-                f"- **Reusability:** Writing the logic once and applying it safely across different parts of {course_title}.\n\n"
-                f"> *Pro-tip:* When practicing {lesson_title}, start with the simplest edge case first, then scale to complex input scenarios!"
-            )
-
-        return AISimplifyResult(
-            explanation=explanation,
-            source="deterministic_fallback",
-            prompt_used=custom_prompt or req.mode,
-        )
+        return _deterministic_simplify_helper(req)
 
     def _deterministic_generate(self, req: AIGenerateRequest) -> AIGenerateResult:
-        """Deterministic educational question generator producing valid pedagogical drafts."""
-        safe_types = req.question_types if req.question_types else ["multiple_choice"]
-        count = max(1, min(req.count, 5))
-        diff = req.difficulty if req.difficulty in ("easy", "medium", "hard") else "medium"
-        pts = 3 if diff == "hard" else (2 if diff == "medium" else 1)
+        return _deterministic_generate_helper(req)
 
-        topic_title = req.topic_title or "this topic"
-        course_title = req.course_title or "Curriculum"
-        source_excerpt = req.source_content[:100] + "..." if req.source_content else f"Curriculum Topic: {topic_title}"
 
-        candidates: List[CandidateQuestionDraft] = []
-        for i in range(count):
-            q_type = safe_types[i % len(safe_types)]
-            if q_type == "multiple_choice":
-                candidates.append(
-                    CandidateQuestionDraft(
-                        prompt=f"In the context of {topic_title}, which statement best evaluates the fundamental principle?",
-                        type="multiple_choice",
-                        difficulty=diff,
-                        points=pts,
-                        explanation=f"Under {topic_title}, this principle ensures predictable behavior and modularity.",
-                        source_context=source_excerpt,
-                        payload={
-                            "options": [
-                                {
-                                    "id": "opt-1",
-                                    "text": "It establishes invariant state transitions across module boundaries",
-                                },
-                                {
-                                    "id": "opt-2",
-                                    "text": "It eliminates the need for execution stack frames",
-                                },
-                                {
-                                    "id": "opt-3",
-                                    "text": "It forces all expressions to resolve in static compilation time",
-                                },
-                                {
-                                    "id": "opt-4",
-                                    "text": "It guarantees linear memory allocation regardless of data size",
-                                },
-                            ]
-                        },
-                        answer_key={
-                            "correct_option_ids": ["opt-1"],
-                            "is_multiple_correct_allowed": False,
-                        },
-                    )
-                )
-            elif q_type == "true_false":
-                candidates.append(
-                    CandidateQuestionDraft(
-                        prompt=f"Prerequisite knowledge in {topic_title} is required before downstream advanced topics can be unlocked.",
-                        type="true_false",
-                        difficulty=diff,
-                        points=1,
-                        explanation="Curriculum prerequisites enforce a Directed Acyclic Graph (DAG) ensuring learners have foundational competency.",
-                        source_context=f"Syllabus for {course_title}",
-                        payload={},
-                        answer_key={"correct_bool": True},
-                    )
-                )
-            elif q_type == "fill_blank":
-                candidates.append(
-                    CandidateQuestionDraft(
-                        prompt=f"The primary mechanism used to manage computational resources in {topic_title} is known as [blank].",
-                        type="fill_blank",
-                        difficulty=diff,
-                        points=pts,
-                        explanation="Resource management and garbage collection/deallocation form core requirements in this domain.",
-                        source_context=f"Module resources on {topic_title}",
-                        payload={},
-                        answer_key={
-                            "accepted_answers": [
-                                "garbage collection",
-                                "memory management",
-                                "allocation",
-                            ],
-                            "case_sensitive": False,
-                        },
-                    )
-                )
-            elif q_type == "matching":
-                candidates.append(
-                    CandidateQuestionDraft(
-                        prompt=f"Match each concept of {topic_title} with its operational definition:",
-                        type="matching",
-                        difficulty=diff,
-                        points=4,
-                        explanation="Correctly identifying structural definitions verifies conceptual synthesis.",
-                        source_context=f"Reference guide for {topic_title}",
-                        payload={
-                            "matching_pairs": [
-                                {
-                                    "id": "p1",
-                                    "left": "Encapsulation",
-                                    "right": "Bundling data with corresponding operating methods",
-                                },
-                                {
-                                    "id": "p2",
-                                    "left": "Polymorphism",
-                                    "right": "Presenting the same interface for differing underlying forms",
-                                },
-                                {
-                                    "id": "p3",
-                                    "left": "Abstraction",
-                                    "right": "Hiding internal implementation details from consumers",
-                                },
-                            ]
-                        },
-                        answer_key={
-                            "pairs": {
-                                "Encapsulation": "Bundling data with corresponding operating methods",
-                                "Polymorphism": "Presenting the same interface for differing underlying forms",
-                                "Abstraction": "Hiding internal implementation details from consumers",
-                            }
-                        },
-                    )
-                )
-            else:  # short_answer
-                candidates.append(
-                    CandidateQuestionDraft(
-                        prompt=f"Explain why circular dependencies are invalid in curriculum prerequisite structures for {topic_title}.",
-                        type="short_answer",
-                        difficulty=diff,
-                        points=3,
-                        explanation="Circular dependencies create deadlock where neither topic can be unlocked first.",
-                        source_context="Learnova Architecture Guide",
-                        payload={},
-                        answer_key={
-                            "expected_rubric": "Must mention: 1) Deadlock or inability to start either topic, 2) Directed Acyclic Graph requirement, 3) Learner progression deadlock.",
-                            "grading_mode": "manual_review",
-                        },
-                    )
-                )
+def _normalize_candidates_helper(
+    raw_list: List[Dict[str, Any]], fallback_diff: str
+) -> List[CandidateQuestionDraft]:
+    """Convert raw LLM JSON items into validated CandidateQuestionDraft objects."""
+    drafts: List[CandidateQuestionDraft] = []
+    valid_types = {
+        "multiple_choice",
+        "true_false",
+        "fill_blank",
+        "matching",
+        "short_answer",
+    }
 
-        return AIGenerateResult(
-            candidates=candidates,
-            source="deterministic_fallback",
+    for item in raw_list:
+        if not isinstance(item, dict):
+            continue
+        prompt = str(item.get("prompt", "")).strip()
+        if not prompt:
+            continue
+        q_type = str(item.get("type", "multiple_choice")).strip()
+        if q_type not in valid_types:
+            q_type = "multiple_choice"
+
+        difficulty = str(item.get("difficulty", fallback_diff)).lower().strip()
+        if difficulty not in ("easy", "medium", "hard"):
+            difficulty = fallback_diff
+
+        points = item.get("points")
+        if not isinstance(points, int) or points <= 0:
+            points = 3 if difficulty == "hard" else (2 if difficulty == "medium" else 1)
+
+        explanation = item.get("explanation")
+        source_context = item.get("sourceContext") or item.get("source_context")
+
+        # Format payload & answer_key per question type
+        payload: Dict[str, Any] = {}
+        answer_key: Dict[str, Any] = {}
+
+        if q_type == "multiple_choice":
+            opts = item.get("options", [])
+            formatted_opts = []
+            correct_ids = []
+            for i, opt in enumerate(opts, start=1):
+                opt_id = str(opt.get("id", i))
+                opt_text = str(opt.get("text", "")).strip()
+                is_correct = bool(opt.get("isCorrect") or opt.get("is_correct"))
+                formatted_opts.append({"id": opt_id, "text": opt_text})
+                if is_correct:
+                    correct_ids.append(opt_id)
+
+            if not correct_ids and formatted_opts:
+                correct_ids = [formatted_opts[0]["id"]]
+
+            payload = {"options": formatted_opts}
+            answer_key = {
+                "correct_option_ids": correct_ids,
+                "is_multiple_correct_allowed": len(correct_ids) > 1,
+            }
+
+        elif q_type == "true_false":
+            correct_bool = bool(item.get("correctBool") if "correctBool" in item else item.get("correct_bool", True))
+            payload = {}
+            answer_key = {"correct_bool": correct_bool}
+
+        elif q_type == "fill_blank":
+            accepted = item.get("acceptedAnswers") or item.get("accepted_answers", ["answer"])
+            if isinstance(accepted, str):
+                accepted = [accepted]
+            payload = {}
+            answer_key = {
+                "accepted_answers": [str(a).strip() for a in accepted if str(a).strip()],
+                "case_sensitive": bool(item.get("caseSensitive", False)),
+            }
+
+        elif q_type == "matching":
+            raw_pairs = item.get("matchingPairs") or item.get("matching_pairs", [])
+            pairs_payload = []
+            pairs_key = {}
+            for idx, p in enumerate(raw_pairs, start=1):
+                pair_id = str(p.get("id", f"p{idx}"))
+                left = str(p.get("left", "")).strip()
+                right = str(p.get("right", "")).strip()
+                pairs_payload.append({"id": pair_id, "left": left, "right": right})
+                if left and right:
+                    pairs_key[left] = right
+
+            payload = {"matching_pairs": pairs_payload}
+            answer_key = {"pairs": pairs_key}
+
+        else:  # short_answer
+            rubric = str(item.get("expectedRubric") or item.get("expected_rubric", "")).strip()
+            payload = {}
+            answer_key = {
+                "expected_rubric": rubric,
+                "grading_mode": "manual_review",
+            }
+
+        drafts.append(
+            CandidateQuestionDraft(
+                prompt=prompt,
+                type=q_type,
+                difficulty=difficulty,
+                points=points,
+                explanation=explanation,
+                source_context=source_context,
+                payload=payload,
+                answer_key=answer_key,
+            )
         )
+
+    return drafts
+
+
+def _deterministic_simplify_helper(req: AISimplifyRequest) -> AISimplifyResult:
+    """Deterministic academic tutor fallback mirroring proven pedagogical templates with Mermaid diagrams."""
+    lesson_title = req.lesson_title or "Lesson"
+    topic_title = req.topic_title or "Topic"
+    course_title = req.course_title or "Course"
+    custom_prompt = (req.custom_prompt or "").strip()
+
+    if req.mode == "diagram":
+        explanation = (
+            f"### 🗺️ Visual Architecture Diagram: {lesson_title}\n\n"
+            "Below is the architectural flow illustrating how data and state transitions operate in this unit:\n\n"
+            "```mermaid\n"
+            "flowchart TD\n"
+            f'    A["Inbound Data / Prerequisite Context"] --> B["{lesson_title} Validation Gate"]\n'
+            '    B --> C{"Input Invariants Satisfied?"}\n'
+            f'    C -->|Yes - Valid| D["Core Transformation Engine: {topic_title}"]\n'
+            '    C -->|No - Invalid| E["Safe Error Quarantine / Fallback"]\n'
+            f'    D --> F["Deterministic Output State in {course_title}"]\n'
+            "```\n\n"
+            "#### Architectural Pipeline Stages:\n"
+            f"- **Validation Gate:** Ensures incoming parameters strictly match the contract for {lesson_title}.\n"
+            "- **Transformation Engine:** Executes pure, side-effect-free calculations.\n"
+            "- **Deterministic Output:** Guaranteed state transition delivered to downstream consumers."
+        )
+    elif req.mode == "analogy":
+        explanation = (
+            f"### 💡 Real-World Analogy for {lesson_title}\n\n"
+            f"Think of **{lesson_title}** like an **organized postal sorting station**:\n\n"
+            "```mermaid\n"
+            "flowchart LR\n"
+            '    A["Incoming Mail (Inputs)"] --> B["Conveyor Scanner (Validation)"]\n'
+            '    B --> C["Automated Sorter (Processing)"]\n'
+            '    C --> D["Delivery Truck (Output)"]\n'
+            "```\n\n"
+            f"- **Data & Inputs:** Letters arriving with specific recipient addresses (variables and inputs).\n"
+            f"- **Operations & Rules:** The sorting conveyor belts that route mail based on size, priority, and destination (control logic and functions).\n"
+            f"- **Outputs & State:** Mail bags loaded onto trucks for delivery (returns and modified state).\n\n"
+            f"> *Key Insight:* Just like a mail center ensures no letter is lost by applying consistent routing rules, **{lesson_title}** ensures deterministic execution in {course_title}."
+        )
+    elif req.mode == "example":
+        explanation = (
+            f"### ⚙️ Step-by-Step Worked Example: {lesson_title}\n\n"
+            "```mermaid\n"
+            "sequenceDiagram\n"
+            '    participant Caller as Application Context\n'
+            f'    participant Unit as {lesson_title} Worker\n'
+            '    Caller->>Unit: process_unit(items)\n'
+            '    Note over Unit: Validate non-empty payload\n'
+            '    Unit->>Unit: Compute deterministic state\n'
+            '    Unit-->>Caller: Return immutable result dict\n'
+            "```\n\n"
+            "Here is a concrete walk-through illustrating how **{lesson_title}** works in practice:\n\n"
+            "```python\n"
+            f"# 1. Initialize state for {topic_title}\n"
+            "def process_item(value: int) -> dict:\n"
+            f'    """Demonstrates {lesson_title} principles."""\n'
+            "    if value < 0:\n"
+            '        return {"status": "rejected", "value": value}\n'
+            "    \n"
+            "    # 2. Transform input deterministically\n"
+            "    transformed = value * 2\n"
+            '    return {"status": "success", "result": transformed}\n\n'
+            "# Test execution\n"
+            "result = process_item(10)\n"
+            "print(result) # Output: {'status': 'success', 'result': 20}\n"
+            "```\n\n"
+            "**Walkthrough:**\n"
+            "1. **Input Guard:** The condition checks validity before processing.\n"
+            "2. **State Transformation:** Output is calculated without side effects.\n"
+            "3. **Predictable Contract:** The returned dictionary guarantees consumers know the status."
+        )
+    elif req.mode == "custom" and custom_prompt:
+        explanation = (
+            f"### 🎯 Contextual Clarification: {lesson_title}\n\n"
+            f'Regarding your question: *"**{custom_prompt}**"*\n\n'
+            "```mermaid\n"
+            "flowchart TD\n"
+            f'    A["Student Inquiry: {custom_prompt[:35]}"] --> B["Curriculum Grounding: {topic_title}"]\n'
+            f'    B --> C["Core Invariant in {lesson_title}"]\n'
+            '    C --> D["Mastery Outcome"]\n'
+            "```\n\n"
+            f"In **{lesson_title}** ({topic_title}), this concept connects directly to how operations are orchestrated in {course_title}:\n\n"
+            "- **Core Principle:** Each module maintains its own local scope and passes data explicitly.\n"
+            "- **Key Takeaway:** By keeping inputs predictable, you prevent unexpected side effects across your program.\n"
+            "- **Best Practice:** Always inspect intermediate values and verify assumptions through small unit tests."
+        )
+    else:
+        explanation = (
+            f"### 🎯 5-Second Mental Model: {lesson_title}\n\n"
+            f"**{lesson_title}** is a core building block in **{topic_title}** that helps organize and execute logic cleanly.\n\n"
+            "### 🗺️ Visual Architecture Diagram\n\n"
+            "```mermaid\n"
+            "flowchart TD\n"
+            f'    A["Input State"] --> B["{lesson_title} Invariant Check"]\n'
+            f'    B --> C["Deterministic Processor: {topic_title}"]\n'
+            '    C --> D["Validated Output State"]\n'
+            "```\n\n"
+            "#### 3 Key Concepts to Remember:\n"
+            "- **Modularity:** Breaking down complex tasks into manageable, testable steps.\n"
+            "- **State Predictability:** Knowing exactly what data enters and what result exits.\n"
+            f"- **Reusability:** Writing the logic once and applying it safely across different parts of {course_title}.\n\n"
+            f"> *Pro-tip:* When practicing {lesson_title}, start with the simplest edge case first, then scale to complex input scenarios!"
+        )
+
+    return AISimplifyResult(
+        explanation=explanation,
+        source="deterministic_fallback",
+        prompt_used=custom_prompt or req.mode,
+    )
+
+
+def _deterministic_generate_helper(req: AIGenerateRequest) -> AIGenerateResult:
+    """Deterministic educational question generator producing valid pedagogical drafts."""
+    safe_types = req.question_types if req.question_types else ["multiple_choice"]
+    count = max(1, min(req.count, 5))
+    diff = req.difficulty if req.difficulty in ("easy", "medium", "hard") else "medium"
+    pts = 3 if diff == "hard" else (2 if diff == "medium" else 1)
+
+    topic_title = req.topic_title or "this topic"
+    course_title = req.course_title or "Curriculum"
+    source_excerpt = req.source_content[:100] + "..." if req.source_content else f"Curriculum Topic: {topic_title}"
+
+    candidates: List[CandidateQuestionDraft] = []
+    for i in range(count):
+        q_type = safe_types[i % len(safe_types)]
+        if q_type == "multiple_choice":
+            candidates.append(
+                CandidateQuestionDraft(
+                    prompt=f"In the context of {topic_title}, which statement best evaluates the fundamental principle?",
+                    type="multiple_choice",
+                    difficulty=diff,
+                    points=pts,
+                    explanation=f"Under {topic_title}, this principle ensures predictable behavior and modularity.",
+                    source_context=source_excerpt,
+                    payload={
+                        "options": [
+                            {
+                                "id": "opt-1",
+                                "text": "It establishes invariant state transitions across module boundaries",
+                            },
+                            {
+                                "id": "opt-2",
+                                "text": "It eliminates the need for execution stack frames",
+                            },
+                            {
+                                "id": "opt-3",
+                                "text": "It forces all expressions to resolve in static compilation time",
+                            },
+                            {
+                                "id": "opt-4",
+                                "text": "It guarantees linear memory allocation regardless of data size",
+                            },
+                        ]
+                    },
+                    answer_key={
+                        "correct_option_ids": ["opt-1"],
+                        "is_multiple_correct_allowed": False,
+                    },
+                )
+            )
+        elif q_type == "true_false":
+            candidates.append(
+                CandidateQuestionDraft(
+                    prompt=f"Prerequisite knowledge in {topic_title} is required before downstream advanced topics can be unlocked.",
+                    type="true_false",
+                    difficulty=diff,
+                    points=1,
+                    explanation="Curriculum prerequisites enforce a Directed Acyclic Graph (DAG) ensuring learners have foundational competency.",
+                    source_context=f"Syllabus for {course_title}",
+                    payload={},
+                    answer_key={"correct_bool": True},
+                )
+            )
+        elif q_type == "fill_blank":
+            candidates.append(
+                CandidateQuestionDraft(
+                    prompt=f"The primary mechanism used to manage computational resources in {topic_title} is known as [blank].",
+                    type="fill_blank",
+                    difficulty=diff,
+                    points=pts,
+                    explanation="Resource management and garbage collection/deallocation form core requirements in this domain.",
+                    source_context=f"Module resources on {topic_title}",
+                    payload={},
+                    answer_key={
+                        "accepted_answers": [
+                            "garbage collection",
+                            "memory management",
+                            "allocation",
+                        ],
+                        "case_sensitive": False,
+                    },
+                )
+            )
+        elif q_type == "matching":
+            candidates.append(
+                CandidateQuestionDraft(
+                    prompt=f"Match each concept of {topic_title} with its operational definition:",
+                    type="matching",
+                    difficulty=diff,
+                    points=4,
+                    explanation="Correctly identifying structural definitions verifies conceptual synthesis.",
+                    source_context=f"Reference guide for {topic_title}",
+                    payload={
+                        "matching_pairs": [
+                            {
+                                "id": "p1",
+                                "left": "Encapsulation",
+                                "right": "Bundling data with corresponding operating methods",
+                            },
+                            {
+                                "id": "p2",
+                                "left": "Polymorphism",
+                                "right": "Presenting the same interface for differing underlying forms",
+                            },
+                            {
+                                "id": "p3",
+                                "left": "Abstraction",
+                                "right": "Hiding internal implementation details from consumers",
+                            },
+                        ]
+                    },
+                    answer_key={
+                        "pairs": {
+                            "Encapsulation": "Bundling data with corresponding operating methods",
+                            "Polymorphism": "Presenting the same interface for differing underlying forms",
+                            "Abstraction": "Hiding internal implementation details from consumers",
+                        }
+                    },
+                )
+            )
+        else:  # short_answer
+            candidates.append(
+                CandidateQuestionDraft(
+                    prompt=f"Explain why circular dependencies are invalid in curriculum prerequisite structures for {topic_title}.",
+                    type="short_answer",
+                    difficulty=diff,
+                    points=3,
+                    explanation="Circular dependencies create deadlock where neither topic can be unlocked first.",
+                    source_context="Learnova Architecture Guide",
+                    payload={},
+                    answer_key={
+                        "expected_rubric": "Must mention: 1) Deadlock or inability to start either topic, 2) Directed Acyclic Graph requirement, 3) Learner progression deadlock.",
+                        "grading_mode": "manual_review",
+                    },
+                )
+            )
+
+    return AIGenerateResult(
+        candidates=candidates,
+        source="deterministic_fallback",
+    )

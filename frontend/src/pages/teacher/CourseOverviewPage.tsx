@@ -75,7 +75,7 @@ export const CourseOverviewPage: React.FC<CourseOverviewPageProps> = ({
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 view-enter-animation">
       <PageHeader
         breadcrumbs={[
           { label: 'Courses', onClick: () => onNavigate('courses') },
@@ -123,36 +123,36 @@ export const CourseOverviewPage: React.FC<CourseOverviewPageProps> = ({
       />
 
       {/* Top Summary Metadata Panel */}
-      <div className="bg-white rounded-xl border border-[#D9DEE7] p-6 shadow-2xs">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-center divide-x divide-gray-100">
+      <div className="bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs rounded-2xl border border-gray-200/80 dark:border-gray-800/80 p-6 shadow-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-center sm:divide-x divide-gray-100 dark:divide-gray-800">
           <div className="px-2">
-            <span className="text-xs uppercase font-semibold text-[#737D8C] block mb-1">Topics</span>
-            <span className="text-2xl font-bold text-[#1F2937]">{topics.length}</span>
-            <span className="text-[11px] text-[#5B6472] block mt-0.5">curriculum units</span>
+            <span className="text-xs uppercase font-semibold text-gray-500 dark:text-gray-400 block mb-1">Topics</span>
+            <span className="text-2xl font-bold text-gray-900 dark:text-white dark:text-white dark:text-white dark:text-white">{topics.length}</span>
+            <span className="text-[11px] text-gray-500 dark:text-gray-400 block mt-0.5">curriculum units</span>
           </div>
           <div className="px-2">
-            <span className="text-xs uppercase font-semibold text-[#737D8C] block mb-1">Lessons</span>
-            <span className="text-2xl font-bold text-[#1F2937]">{lessons.length}</span>
-            <span className="text-[11px] text-[#5B6472] block mt-0.5">structured lessons</span>
+            <span className="text-xs uppercase font-semibold text-gray-500 dark:text-gray-400 block mb-1">Lessons</span>
+            <span className="text-2xl font-bold text-gray-900 dark:text-white dark:text-white dark:text-white dark:text-white">{lessons.length}</span>
+            <span className="text-[11px] text-gray-500 dark:text-gray-400 block mt-0.5">structured lessons</span>
           </div>
           <div className="px-2">
-            <span className="text-xs uppercase font-semibold text-[#737D8C] block mb-1">Resources</span>
-            <span className="text-2xl font-bold text-[#1F2937]">{resources.length}</span>
-            <span className="text-[11px] text-[#5B6472] block mt-0.5">attached materials</span>
+            <span className="text-xs uppercase font-semibold text-gray-500 dark:text-gray-400 block mb-1">Resources</span>
+            <span className="text-2xl font-bold text-gray-900 dark:text-white dark:text-white dark:text-white dark:text-white">{resources.length}</span>
+            <span className="text-[11px] text-gray-500 dark:text-gray-400 block mt-0.5">attached materials</span>
           </div>
           <div className="px-2">
-            <span className="text-xs uppercase font-semibold text-[#737D8C] block mb-1">Assessments</span>
-            <span className="text-2xl font-bold text-[#1F2937]">{assessments.length}</span>
-            <span className="text-[11px] text-[#5B6472] block mt-0.5">evaluation tests</span>
+            <span className="text-xs uppercase font-semibold text-gray-500 dark:text-gray-400 block mb-1">Assessments</span>
+            <span className="text-2xl font-bold text-gray-900 dark:text-white dark:text-white dark:text-white dark:text-white">{assessments.length}</span>
+            <span className="text-[11px] text-gray-500 dark:text-gray-400 block mt-0.5">evaluation tests</span>
           </div>
         </div>
 
-        <div className="mt-5 pt-4 border-t border-gray-100 flex items-center justify-between text-xs text-[#5B6472]">
+        <div className="mt-5 pt-4 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
           <span>
             Created: {new Date(course.createdAt).toLocaleDateString()} • Last updated:{' '}
             {new Date(course.updatedAt).toLocaleDateString()}
           </span>
-          <span className="font-medium text-[#3156D3]">
+          <span className="font-medium text-indigo-600 dark:text-indigo-400">
             {course.status === 'published' ? 'Active in learner catalogue' : 'Private to instructor'}
           </span>
         </div>
@@ -160,31 +160,31 @@ export const CourseOverviewPage: React.FC<CourseOverviewPageProps> = ({
 
       {/* 4 Main Navigation Cards */}
       <div>
-        <h2 className="text-base font-bold text-[#1F2937] mb-3">Course Management Workspaces</h2>
+        <h2 className="text-base font-bold text-gray-900 dark:text-white dark:text-white dark:text-white dark:text-white mb-3">Course Management Workspaces</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Card 1: Curriculum */}
           <div
             onClick={() => onNavigate('curriculum', { courseId: course.id })}
-            className="bg-white p-5 rounded-xl border border-[#D9DEE7] hover:border-[#3156D3] hover:shadow-sm transition-all cursor-pointer flex flex-col justify-between group"
+            className="interactive-card bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs p-5 rounded-2xl border border-gray-200/80 dark:border-gray-800/80 hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-sm transition-all cursor-pointer flex flex-col justify-between group"
           >
             <div>
               <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-xl bg-[#E8EEFF] text-[#3156D3] flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
                   <Layers className="w-5 h-5" />
                 </div>
-                <span className="text-xs font-semibold text-[#5B6472] bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
+                <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 px-2.5 py-0.5 rounded-full border border-gray-200 dark:border-gray-700">
                   {topics.length} Topics
                 </span>
               </div>
-              <h3 className="text-base font-semibold text-[#1F2937] group-hover:text-[#3156D3] transition-colors">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white dark:text-white dark:text-white dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                 Curriculum &amp; Hierarchy
               </h3>
-              <p className="text-xs text-[#5B6472] mt-1.5 leading-relaxed">
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1.5 leading-relaxed">
                 Structure the course syllabus into topics, sub-lessons, reorder nodes, and manage
                 acyclic prerequisite dependencies.
               </p>
             </div>
-            <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs font-medium text-[#3156D3]">
+            <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between text-xs font-medium text-indigo-600 dark:text-indigo-400">
               <span>Open Curriculum Editor</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </div>
@@ -193,26 +193,26 @@ export const CourseOverviewPage: React.FC<CourseOverviewPageProps> = ({
           {/* Card 2: Learning Resources */}
           <div
             onClick={() => onNavigate('resources', { courseId: course.id })}
-            className="bg-white p-5 rounded-xl border border-[#D9DEE7] hover:border-[#3156D3] hover:shadow-sm transition-all cursor-pointer flex flex-col justify-between group"
+            className="interactive-card bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs p-5 rounded-2xl border border-gray-200/80 dark:border-gray-800/80 hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-sm transition-all cursor-pointer flex flex-col justify-between group"
           >
             <div>
               <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-xl bg-[#EFF8FF] text-[#175CD3] flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
                   <FileText className="w-5 h-5" />
                 </div>
-                <span className="text-xs font-semibold text-[#5B6472] bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
+                <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 px-2.5 py-0.5 rounded-full border border-gray-200 dark:border-gray-700">
                   {resources.length} Files/Links
                 </span>
               </div>
-              <h3 className="text-base font-semibold text-[#1F2937] group-hover:text-[#3156D3] transition-colors">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white dark:text-white dark:text-white dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                 Learning Resources
               </h3>
-              <p className="text-xs text-[#5B6472] mt-1.5 leading-relaxed">
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1.5 leading-relaxed">
                 Attach syllabi, lecture video links, Markdown study notes, and sample code snippets
                 directly to course lessons.
               </p>
             </div>
-            <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs font-medium text-[#3156D3]">
+            <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between text-xs font-medium text-indigo-600 dark:text-indigo-400">
               <span>Manage Learning Resources</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </div>
@@ -221,26 +221,26 @@ export const CourseOverviewPage: React.FC<CourseOverviewPageProps> = ({
           {/* Card 3: Assessments */}
           <div
             onClick={() => onNavigate('assessments', { courseId: course.id })}
-            className="bg-white p-5 rounded-xl border border-[#D9DEE7] hover:border-[#3156D3] hover:shadow-sm transition-all cursor-pointer flex flex-col justify-between group"
+            className="interactive-card bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs p-5 rounded-2xl border border-gray-200/80 dark:border-gray-800/80 hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-sm transition-all cursor-pointer flex flex-col justify-between group"
           >
             <div>
               <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-xl bg-[#FFF5D6] text-[#946200] flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 flex items-center justify-center">
                   <ClipboardCheck className="w-5 h-5" />
                 </div>
-                <span className="text-xs font-semibold text-[#5B6472] bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
+                <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 px-2.5 py-0.5 rounded-full border border-gray-200 dark:border-gray-700">
                   {assessments.length} Tests
                 </span>
               </div>
-              <h3 className="text-base font-semibold text-[#1F2937] group-hover:text-[#3156D3] transition-colors">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white dark:text-white dark:text-white dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                 Assessments &amp; Quizzes
               </h3>
-              <p className="text-xs text-[#5B6472] mt-1.5 leading-relaxed">
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1.5 leading-relaxed">
                 Build diagnostic, formative, and summative assessments from the question bank with custom
                 timing and attempt rules.
               </p>
             </div>
-            <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs font-medium text-[#3156D3]">
+            <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between text-xs font-medium text-indigo-600 dark:text-indigo-400">
               <span>Open Course Assessments</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </div>
@@ -249,26 +249,26 @@ export const CourseOverviewPage: React.FC<CourseOverviewPageProps> = ({
           {/* Card 4: Analytics */}
           <div
             onClick={() => onNavigate('analytics', { courseId: course.id })}
-            className="bg-white p-5 rounded-xl border border-[#D9DEE7] hover:border-[#3156D3] hover:shadow-sm transition-all cursor-pointer flex flex-col justify-between group"
+            className="interactive-card bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs p-5 rounded-2xl border border-gray-200/80 dark:border-gray-800/80 hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-sm transition-all cursor-pointer flex flex-col justify-between group"
           >
             <div>
               <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-xl bg-[#EAF7F0] text-[#18794E] flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
                   <BarChart3 className="w-5 h-5" />
                 </div>
-                <span className="text-xs font-semibold text-[#18794E] bg-[#EAF7F0] px-2 py-0.5 rounded border border-[#18794E]/20">
+                <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
                   Academic Mastery
                 </span>
               </div>
-              <h3 className="text-base font-semibold text-[#1F2937] group-hover:text-[#3156D3] transition-colors">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white dark:text-white dark:text-white dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                 Course Progress &amp; Analytics
               </h3>
-              <p className="text-xs text-[#5B6472] mt-1.5 leading-relaxed">
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1.5 leading-relaxed">
                 Inspect topic mastery heatmaps, cohort attempt score distributions, and identify struggling
                 curriculum units.
               </p>
             </div>
-            <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs font-medium text-[#3156D3]">
+            <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between text-xs font-medium text-indigo-600 dark:text-indigo-400">
               <span>View Course Analytics</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </div>
@@ -277,67 +277,67 @@ export const CourseOverviewPage: React.FC<CourseOverviewPageProps> = ({
       </div>
 
       {/* Suggested Course Preparation Checklist */}
-      <div className="bg-white rounded-xl border border-[#D9DEE7] p-5 shadow-2xs">
-        <h3 className="text-sm font-bold text-[#1F2937] mb-1">Suggested Preparation Checklist</h3>
-        <p className="text-xs text-[#5B6472] mb-4">
+      <div className="bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs rounded-2xl border border-gray-200/80 dark:border-gray-800/80 p-5 shadow-xs">
+        <h3 className="text-sm font-bold text-gray-900 dark:text-white dark:text-white dark:text-white dark:text-white mb-1">Suggested Preparation Checklist</h3>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
           Recommended authoring milestones before publishing this course to students.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
           <div
-            className={`p-3 rounded-lg border flex items-center gap-2.5 ${
+            className={`p-3 rounded-xl border flex items-center gap-2.5 ${
               hasTopics
-                ? 'bg-[#EAF7F0] border-[#18794E]/20 text-[#18794E]'
-                : 'bg-gray-50 border-gray-200 text-[#5B6472]'
+                ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200/60 dark:border-emerald-900/40 text-emerald-700 dark:text-emerald-300'
+                : 'bg-gray-50 dark:bg-gray-800/60 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400'
             }`}
           >
             {hasTopics ? (
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-[#18794E]" />
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
             ) : (
-              <AlertTriangle className="w-4 h-4 shrink-0 text-[#946200]" />
+              <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
             )}
             <span className="font-medium">1+ Curriculum Topics</span>
           </div>
 
           <div
-            className={`p-3 rounded-lg border flex items-center gap-2.5 ${
+            className={`p-3 rounded-xl border flex items-center gap-2.5 ${
               hasLessons
-                ? 'bg-[#EAF7F0] border-[#18794E]/20 text-[#18794E]'
-                : 'bg-gray-50 border-gray-200 text-[#5B6472]'
+                ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200/60 dark:border-emerald-900/40 text-emerald-700 dark:text-emerald-300'
+                : 'bg-gray-50 dark:bg-gray-800/60 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400'
             }`}
           >
             {hasLessons ? (
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-[#18794E]" />
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
             ) : (
-              <AlertTriangle className="w-4 h-4 shrink-0 text-[#946200]" />
+              <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
             )}
             <span className="font-medium">Structured Lessons</span>
           </div>
 
           <div
-            className={`p-3 rounded-lg border flex items-center gap-2.5 ${
+            className={`p-3 rounded-xl border flex items-center gap-2.5 ${
               hasResources
-                ? 'bg-[#EAF7F0] border-[#18794E]/20 text-[#18794E]'
-                : 'bg-gray-50 border-gray-200 text-[#5B6472]'
+                ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200/60 dark:border-emerald-900/40 text-emerald-700 dark:text-emerald-300'
+                : 'bg-gray-50 dark:bg-gray-800/60 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400'
             }`}
           >
             {hasResources ? (
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-[#18794E]" />
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
             ) : (
-              <AlertTriangle className="w-4 h-4 shrink-0 text-[#946200]" />
+              <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
             )}
             <span className="font-medium">Learning Materials</span>
           </div>
 
           <div
-            className={`p-3 rounded-lg border flex items-center gap-2.5 ${
+            className={`p-3 rounded-xl border flex items-center gap-2.5 ${
               hasAssessments
-                ? 'bg-[#EAF7F0] border-[#18794E]/20 text-[#18794E]'
-                : 'bg-gray-50 border-gray-200 text-[#5B6472]'
+                ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200/60 dark:border-emerald-900/40 text-emerald-700 dark:text-emerald-300'
+                : 'bg-gray-50 dark:bg-gray-800/60 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400'
             }`}
           >
             {hasAssessments ? (
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-[#18794E]" />
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
             ) : (
               <AlertTriangle className="w-4 h-4 shrink-0 text-[#946200]" />
             )}
@@ -349,13 +349,13 @@ export const CourseOverviewPage: React.FC<CourseOverviewPageProps> = ({
       {/* Edit Details Modal */}
       {editModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-xs"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/15 dark:bg-black/25 backdrop-blur-md"
           role="dialog"
           aria-modal="true"
         >
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-[#D9DEE7]">
-            <h2 className="text-lg font-bold text-[#1F2937] mb-1">Edit Course Details</h2>
-            <p className="text-xs text-[#5B6472] mb-5">
+          <div className="bg-white dark:bg-[#181C24] rounded-2xl max-w-lg w-full p-6 shadow-xl border border-[#D9DEE7] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545]">
+            <h2 className="text-lg font-bold text-[#1F2937] dark:text-white dark:text-white dark:text-white dark:text-white mb-1">Edit Course Details</h2>
+            <p className="text-xs text-[#5B6472] dark:text-gray-400 dark:text-gray-400 dark:text-gray-400 dark:text-gray-400 mb-5">
               Update academic title, summary, or publication status.
             </p>
 
@@ -366,7 +366,7 @@ export const CourseOverviewPage: React.FC<CourseOverviewPageProps> = ({
                   type="text"
                   value={formTitle}
                   onChange={(e) => setFormTitle(e.target.value)}
-                  className="w-full bg-white border border-[#D9DEE7] text-sm rounded-lg px-3.5 py-2.5 focus:border-[#3156D3] focus:outline-none"
+                  className="w-full bg-white dark:bg-[#1E232E] border border-[#D9DEE7] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-gray-700 text-sm rounded-lg px-3.5 py-2.5 focus:border-[#3156D3] focus:outline-none"
                 />
               </FormField>
 
@@ -376,24 +376,32 @@ export const CourseOverviewPage: React.FC<CourseOverviewPageProps> = ({
                   rows={3}
                   value={formDesc}
                   onChange={(e) => setFormDesc(e.target.value)}
-                  className="w-full bg-white border border-[#D9DEE7] text-sm rounded-lg px-3.5 py-2.5 focus:border-[#3156D3] focus:outline-none"
+                  className="w-full bg-white dark:bg-[#1E232E] border border-[#D9DEE7] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-gray-700 text-sm rounded-lg px-3.5 py-2.5 focus:border-[#3156D3] focus:outline-none"
                 />
               </FormField>
 
-              <FormField id="edit-status" label="Course status">
+              <FormField
+                id="edit-status"
+                label="Course status"
+                helperText={
+                  formStatus === 'archived'
+                    ? 'Archiving will automatically unenroll all students and make the course eligible for deletion.'
+                    : 'Draft courses are instructor-only. Published courses are accessible to students.'
+                }
+              >
                 <select
                   id="edit-status"
                   value={formStatus}
                   onChange={(e) => setFormStatus(e.target.value as CourseStatus)}
-                  className="w-full bg-white border border-[#D9DEE7] text-sm rounded-lg px-3.5 py-2.5 focus:border-[#3156D3] focus:outline-none"
+                  className="w-full bg-white dark:bg-[#1E232E] border border-[#D9DEE7] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-gray-700 text-sm rounded-lg px-3.5 py-2.5 focus:border-[#3156D3] focus:outline-none"
                 >
-                  <option value="draft">Draft</option>
-                  <option value="published">Published</option>
-                  <option value="archived">Archived</option>
+                  <option value="draft">Draft (Private)</option>
+                  <option value="published">Published (Active)</option>
+                  <option value="archived">Archived (Unenrolls students)</option>
                 </select>
               </FormField>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#D9DEE7]">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#D9DEE7] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545]">
                 <Button variant="secondary" type="button" onClick={() => setEditModalOpen(false)}>
                   Cancel
                 </Button>

@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from decimal import Decimal
-from typing import List, Optional
+from typing import Any, List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -113,6 +113,16 @@ class TopicBase(BaseModel):
     order: int = Field(default=0, ge=0)
     mastery_threshold: Decimal = Field(default=Decimal("0.7500"), ge=0, le=1)
 
+    @field_validator("mastery_threshold", mode="before")
+    @classmethod
+    def normalize_threshold(cls, v: Any) -> Any:
+        if v is not None:
+            val = Decimal(str(v))
+            if val > 1 and val <= 100:
+                return val / Decimal("100")
+            return val
+        return v
+
 
 class TopicCreateRequest(TopicBase):
     """Payload for creating a topic in a course."""
@@ -125,6 +135,16 @@ class TopicUpdateRequest(BaseModel):
     description: Optional[str] = None
     order: Optional[int] = Field(default=None, ge=0)
     mastery_threshold: Optional[Decimal] = Field(default=None, ge=0, le=1)
+
+    @field_validator("mastery_threshold", mode="before")
+    @classmethod
+    def normalize_threshold(cls, v: Any) -> Any:
+        if v is not None:
+            val = Decimal(str(v))
+            if val > 1 and val <= 100:
+                return val / Decimal("100")
+            return val
+        return v
 
 
 class TopicPrerequisiteUpdateRequest(BaseModel):
@@ -168,6 +188,7 @@ class CourseUpdateRequest(BaseModel):
     """Payload for modifying an existing course."""
     title: Optional[str] = Field(default=None, min_length=1, max_length=255)
     description: Optional[str] = None
+    status: Optional[str] = None
 
 
 class CourseResponse(BaseModel):

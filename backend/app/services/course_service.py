@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.models.course import Course
 from app.models.course_teacher import CourseTeacher
+from app.models.enrollment import Enrollment
 from app.models.lesson import Lesson
 from app.models.resource import LearningResource
 from app.models.security_audit_event import SecurityAuditEvent
@@ -37,21 +38,21 @@ class CourseService:
         current_user: Optional[User] = None,
         skip: int = 0,
         limit: int = 50,
+        scope: Optional[str] = None,
     ) -> List[CourseResponse]:
-        """List courses according to the caller's role and authorization boundaries."""
+        """List courses according to the caller's role, authorization boundaries, and optional scope."""
         stmt = select(Course)
 
-        if current_user is None or current_user.role.name == "student":
-            # Public / student: only published courses
+        if scope == "catalog" or current_user is None or current_user.role.name == "student":
+            # Public / student catalog exploration: only published courses
             stmt = stmt.where(Course.status == "published")
         elif current_user.role.name == "teacher":
-            # Teacher: assigned/created courses + published courses
+            # Teacher workspace: strictly assigned/created courses (no foreign published courses)
             assigned_subquery = (
                 select(CourseTeacher.course_id).where(CourseTeacher.teacher_id == current_user.id)
             )
             stmt = stmt.where(
                 or_(
-                    Course.status == "published",
                     Course.creator_id == current_user.id,
                     Course.id.in_(assigned_subquery),
                 )
@@ -296,7 +297,7 @@ class CourseService:
         data: CourseUpdateRequest,
         actor: User,
     ) -> CourseResponse:
-        """Update course metadata (title, description)."""
+        """Update course metadata (title, description, status)."""
         course = db.get(Course, course_id)
         if not course:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
@@ -305,6 +306,15 @@ class CourseService:
             course.title = data.title
         if data.description is not None:
             course.description = data.description
+        if data.status is not None:
+            if data.status == "archived":
+                # Unenroll students when archived
+                enrollments = db.execute(
+                    select(Enrollment).where(Enrollment.course_id == course.id)
+                ).scalars().all()
+                for enr in enrollments:
+                    db.delete(enr)
+            course.status = data.status
 
         log_audit_event(
             db=db,
@@ -315,7 +325,7 @@ class CourseService:
             target_type="course",
             target_id=str(course.id),
             outcome="SUCCESS",
-            details={"title": course.title},
+            details={"title": course.title, "status": course.status},
         )
         db.commit()
         db.refresh(course)
@@ -339,6 +349,146 @@ class CourseService:
             created_at=course.created_at,
             updated_at=course.updated_at,
         )
+
+    @staticmethod
+    def archive_course(
+        db: Session,
+        course_id: UUID,
+        actor: User,
+    ) -> CourseResponse:
+        """Archive a course, unenrolling all students and preparing it for safe deletion."""
+        course = db.get(Course, course_id)
+        if not course:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
+
+        # Unenroll all students
+        enrollments = db.execute(
+            select(Enrollment).where(Enrollment.course_id == course.id)
+        ).scalars().all()
+        unenrolled_count = len(enrollments)
+        for enr in enrollments:
+            db.delete(enr)
+
+        course.status = "archived"
+
+        log_audit_event(
+            db=db,
+            actor_id=actor.id,
+            actor_email=actor.email,
+            actor_role=actor.role.name,
+            action="course.archive",
+            target_type="course",
+            target_id=str(course.id),
+            outcome="SUCCESS",
+            details={
+                "title": course.title,
+                "status": "archived",
+                "unenrolled_students_count": unenrolled_count,
+            },
+        )
+        db.commit()
+        db.refresh(course)
+
+        topics_count = db.scalar(select(func.count(Topic.id)).where(Topic.course_id == course.id)) or 0
+        lessons_count = db.scalar(
+            select(func.count(Lesson.id))
+            .join(Topic, Topic.id == Lesson.topic_id)
+            .where(Topic.course_id == course.id)
+        ) or 0
+
+        return CourseResponse(
+            id=course.id,
+            title=course.title,
+            description=course.description,
+            status=course.status,
+            creator_id=course.creator_id,
+            creator_name=course.creator.full_name if course.creator else None,
+            topics_count=topics_count,
+            lessons_count=lessons_count,
+            created_at=course.created_at,
+            updated_at=course.updated_at,
+        )
+
+    @staticmethod
+    def draft_course(
+        db: Session,
+        course_id: UUID,
+        actor: User,
+    ) -> CourseResponse:
+        """Revert a course to draft status."""
+        course = db.get(Course, course_id)
+        if not course:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
+
+        course.status = "draft"
+
+        log_audit_event(
+            db=db,
+            actor_id=actor.id,
+            actor_email=actor.email,
+            actor_role=actor.role.name,
+            action="course.draft",
+            target_type="course",
+            target_id=str(course.id),
+            outcome="SUCCESS",
+            details={"title": course.title, "status": "draft"},
+        )
+        db.commit()
+        db.refresh(course)
+
+        topics_count = db.scalar(select(func.count(Topic.id)).where(Topic.course_id == course.id)) or 0
+        lessons_count = db.scalar(
+            select(func.count(Lesson.id))
+            .join(Topic, Topic.id == Lesson.topic_id)
+            .where(Topic.course_id == course.id)
+        ) or 0
+
+        return CourseResponse(
+            id=course.id,
+            title=course.title,
+            description=course.description,
+            status=course.status,
+            creator_id=course.creator_id,
+            creator_name=course.creator.full_name if course.creator else None,
+            topics_count=topics_count,
+            lessons_count=lessons_count,
+            created_at=course.created_at,
+            updated_at=course.updated_at,
+        )
+
+    @staticmethod
+    def delete_course(
+        db: Session,
+        course_id: UUID,
+        actor: User,
+    ) -> None:
+        """Delete an archived course. Courses cannot be deleted unless first archived."""
+        course = db.get(Course, course_id)
+        if not course:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
+
+        if course.status != "archived":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Course '{course.title}' cannot be deleted because its status is '{course.status}'. Courses must be archived first to unenroll students safely.",
+            )
+
+        course_title = course.title
+        course_id_str = str(course.id)
+
+        db.delete(course)
+        log_audit_event(
+            db=db,
+            actor_id=actor.id,
+            actor_email=actor.email,
+            actor_role=actor.role.name,
+            action="course.delete",
+            target_type="course",
+            target_id=course_id_str,
+            outcome="SUCCESS",
+            details={"title": course_title},
+        )
+        db.commit()
 
     @staticmethod
     def publish_course(

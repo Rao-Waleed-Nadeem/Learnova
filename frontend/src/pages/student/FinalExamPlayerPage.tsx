@@ -97,9 +97,9 @@ export const FinalExamPlayerPage: React.FC<FinalExamPlayerPageProps> = ({
 
   if (!currentQuestion) {
     return (
-      <div className="p-12 text-center">
-        <p className="text-sm text-gray-500">Exam questions could not be loaded.</p>
-        <button type="button" onClick={onExit} className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs">
+      <div className="p-12 text-center bg-white dark:bg-[#181C24] rounded-2xl border border-gray-200 dark:border-gray-800">
+        <p className="text-sm text-gray-500 dark:text-gray-400">Exam questions could not be loaded.</p>
+        <button type="button" onClick={onExit} className="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold cursor-pointer">
           Return to Course
         </button>
       </div>
@@ -142,7 +142,7 @@ export const FinalExamPlayerPage: React.FC<FinalExamPlayerPageProps> = ({
 
       {/* Final Submission Confirmation Dialog */}
       {showSubmitModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/15 dark:bg-black/25 backdrop-blur-md">
           <div className="bg-white dark:bg-[#181C24] border border-[#D9DEE7] dark:border-[#2D3545] rounded-2xl p-6 sm:p-7 max-w-md w-full shadow-2xl">
             <div className="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-4">
               <CheckCircle2 className="w-6 h-6" />

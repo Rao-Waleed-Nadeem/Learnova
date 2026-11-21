@@ -61,7 +61,7 @@ export const AchievementsBadgesPage: React.FC<AchievementsBadgesPageProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 view-enter-animation">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -74,14 +74,14 @@ export const AchievementsBadgesPage: React.FC<AchievementsBadgesPageProps> = ({
         </div>
 
         {/* Filter Pills */}
-        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-gray-100 dark:bg-gray-800 text-xs font-semibold self-start sm:self-auto">
+        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-gray-100/80 dark:bg-gray-800/80 border border-gray-200/60 dark:border-gray-700/60 text-xs font-semibold self-start sm:self-auto">
           <button
             type="button"
             onClick={() => setFilter('all')}
-            className={`px-3 py-1.5 rounded-lg transition ${
+            className={`px-3 py-1.5 rounded-lg transition cursor-pointer active:scale-[0.98] ${
               filter === 'all'
-                ? 'bg-white dark:bg-[#181C24] text-indigo-600 dark:text-indigo-400 shadow-2xs'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+                ? 'bg-white dark:bg-[#181C24] text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
             }`}
           >
             All Badges ({badges.length})
@@ -89,10 +89,10 @@ export const AchievementsBadgesPage: React.FC<AchievementsBadgesPageProps> = ({
           <button
             type="button"
             onClick={() => setFilter('unlocked')}
-            className={`px-3 py-1.5 rounded-lg transition ${
+            className={`px-3 py-1.5 rounded-lg transition cursor-pointer active:scale-[0.98] ${
               filter === 'unlocked'
-                ? 'bg-white dark:bg-[#181C24] text-indigo-600 dark:text-indigo-400 shadow-2xs'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+                ? 'bg-white dark:bg-[#181C24] text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
             }`}
           >
             Unlocked ({unlockedCount})
@@ -100,10 +100,10 @@ export const AchievementsBadgesPage: React.FC<AchievementsBadgesPageProps> = ({
           <button
             type="button"
             onClick={() => setFilter('locked')}
-            className={`px-3 py-1.5 rounded-lg transition ${
+            className={`px-3 py-1.5 rounded-lg transition cursor-pointer active:scale-[0.98] ${
               filter === 'locked'
-                ? 'bg-white dark:bg-[#181C24] text-indigo-600 dark:text-indigo-400 shadow-2xs'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+                ? 'bg-white dark:bg-[#181C24] text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
             }`}
           >
             Locked ({badges.length - unlockedCount})
@@ -112,7 +112,7 @@ export const AchievementsBadgesPage: React.FC<AchievementsBadgesPageProps> = ({
       </div>
 
       {/* Gamification Progress Bar Banner */}
-      <div className="p-6 rounded-2xl bg-white dark:bg-[#181C24] border border-[#D9DEE7] dark:border-[#2D3545] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+      <div className="p-6 rounded-2xl bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-6">
         <div className="space-y-1">
           <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
             Gamification Profile Status
@@ -129,16 +129,16 @@ export const AchievementsBadgesPage: React.FC<AchievementsBadgesPageProps> = ({
           <button
             type="button"
             onClick={() => onNavigate('xp_history')}
-            className="px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-xs font-semibold text-gray-700 dark:text-gray-300 transition"
+            className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-xs font-semibold text-gray-700 dark:text-gray-300 transition cursor-pointer active:scale-[0.98]"
           >
             XP Activity History
           </button>
           <button
             type="button"
             onClick={() => onNavigate('leaderboard')}
-            className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition shadow-2xs"
+            className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition shadow-2xs cursor-pointer active:scale-[0.98]"
           >
-            View Leaderboard
+            Leaderboard
           </button>
         </div>
       </div>
@@ -149,18 +149,18 @@ export const AchievementsBadgesPage: React.FC<AchievementsBadgesPageProps> = ({
           <div
             key={badge.id}
             onClick={() => setSelectedBadge(badge)}
-            className={`p-6 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between ${
+            className={`interactive-card p-6 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between ${
               badge.isUnlocked
-                ? 'bg-white dark:bg-[#181C24] border-[#D9DEE7] dark:border-[#2D3545] hover:border-indigo-300 dark:hover:border-indigo-600 shadow-xs'
-                : 'bg-gray-50/60 dark:bg-[#151820] border-gray-200 dark:border-gray-800 opacity-70 hover:opacity-100'
+                ? 'bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border-gray-200/90 dark:border-gray-800/90 hover:border-amber-300 dark:hover:border-amber-600 shadow-xs'
+                : 'bg-gray-50/60 dark:bg-[#151820]/80 border-gray-200/70 dark:border-gray-800/70 opacity-75 hover:opacity-100'
             }`}
           >
             <div>
               <div className="flex items-center justify-between mb-4">
                 <div
-                  className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
+                  className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${
                     badge.isUnlocked
-                      ? 'bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800'
+                      ? 'bg-amber-50 dark:bg-amber-950/40 border border-amber-200/90 dark:border-amber-800/80 shadow-xs'
                       : 'bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700'
                   }`}
                 >

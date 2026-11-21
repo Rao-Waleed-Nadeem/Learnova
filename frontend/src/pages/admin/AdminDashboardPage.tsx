@@ -15,12 +15,14 @@ import {
 import { UserAccount, AuditEvent, ServiceHealthCheck } from '../../types';
 import { RoleBadge } from '../../components/admin/RoleBadge';
 import { AdminNavigationPage } from '../../components/admin/AdminLayout';
+import { AdminDashboardResponse } from '../../services/api/adminApi';
 
 interface AdminDashboardPageProps {
   users: UserAccount[];
   auditEvents: AuditEvent[];
   serviceHealth: ServiceHealthCheck[];
   onNavigate: (page: AdminNavigationPage, params?: Record<string, string>) => void;
+  dashboardData?: AdminDashboardResponse | null;
 }
 
 export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
@@ -28,23 +30,28 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   auditEvents,
   serviceHealth,
   onNavigate,
+  dashboardData,
 }) => {
-  // Aggregate KPI Calculations (SRS §3.2.9 verified summaries)
-  const totalUsers = users.length;
-  const studentCount = users.filter((u) => u.role === 'student').length;
-  const teacherCount = users.filter((u) => u.role === 'teacher').length;
-  const adminCount = users.filter((u) => u.role === 'administrator').length;
-  const activeCount = users.filter((u) => u.isActive).length;
-  const inactiveCount = users.filter((u) => !u.isActive).length;
+  // Aggregate KPI Calculations (SRS §3.2.9 verified summaries, with live backend fallback)
+  const serverUsers = (dashboardData?.users || dashboardData?.users_summary) as any;
+  const totalUsers = serverUsers ? serverUsers.total : users.length;
+  const studentCount = serverUsers ? serverUsers.students : users.filter((u) => u.role === 'student').length;
+  const teacherCount = serverUsers ? serverUsers.teachers : users.filter((u) => u.role === 'teacher').length;
+  const adminCount = serverUsers ? serverUsers.administrators : users.filter((u) => u.role === 'administrator').length;
+  const activeCount = serverUsers ? serverUsers.active : users.filter((u) => u.isActive).length;
+  const inactiveCount = serverUsers ? (serverUsers.inactive ?? serverUsers.deactivated ?? 0) : users.filter((u) => !u.isActive).length;
 
-  const totalAuditCount = auditEvents.length;
-  const blockedAttempts = auditEvents.filter((e) => e.outcome === 'blocked' || e.outcome === 'failure').length;
+  const serverAudit = (dashboardData?.security_audit || dashboardData?.security_summary) as any;
+  const totalAuditCount = serverAudit ? serverAudit.total_events_24h : auditEvents.length;
+  const blockedAttempts = serverAudit
+    ? (serverAudit.blocked_events_24h ?? serverAudit.failures_blocked_24h ?? 0)
+    : auditEvents.filter((e) => e.outcome === 'blocked' || e.outcome === 'failure').length;
 
   const healthyServices = serviceHealth.filter((s) => s.status === 'healthy').length;
   const recentEvents = auditEvents.slice(0, 5);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 view-enter-animation">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2">
         <div>
@@ -67,7 +74,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       {/* 4 Summary Metric Tiles */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Tile 1: Total Accounts */}
-        <div className="p-5 rounded-2xl bg-white dark:bg-[#181C24] border border-gray-200 dark:border-gray-800 shadow-xs hover:border-purple-200 dark:hover:border-purple-900 transition">
+        <div className="interactive-card p-5 rounded-2xl bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 shadow-xs hover:border-purple-300 dark:hover:border-purple-800 transition">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Total Accounts
@@ -85,7 +92,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
         </div>
 
         {/* Tile 2: Active vs Inactive */}
-        <div className="p-5 rounded-2xl bg-white dark:bg-[#181C24] border border-gray-200 dark:border-gray-800 shadow-xs hover:border-emerald-200 dark:hover:border-emerald-900 transition">
+        <div className="interactive-card p-5 rounded-2xl bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 shadow-xs hover:border-emerald-300 dark:hover:border-emerald-800 transition">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Account Status
@@ -106,7 +113,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
         </div>
 
         {/* Tile 3: Security Events */}
-        <div className="p-5 rounded-2xl bg-white dark:bg-[#181C24] border border-gray-200 dark:border-gray-800 shadow-xs hover:border-purple-200 dark:hover:border-purple-900 transition">
+        <div className="interactive-card p-5 rounded-2xl bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 shadow-xs hover:border-purple-300 dark:hover:border-purple-800 transition">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Audit Log Events
@@ -130,7 +137,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
         </div>
 
         {/* Tile 4: Service Health */}
-        <div className="p-5 rounded-2xl bg-white dark:bg-[#181C24] border border-gray-200 dark:border-gray-800 shadow-xs hover:border-blue-200 dark:hover:border-blue-900 transition">
+        <div className="interactive-card p-5 rounded-2xl bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 shadow-xs hover:border-blue-300 dark:hover:border-blue-800 transition">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Operational Health
@@ -157,7 +164,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column (2 Cols): Recent Security Activity */}
         <div className="lg:col-span-2 space-y-4">
-          <div className="p-6 rounded-2xl bg-white dark:bg-[#181C24] border border-gray-200 dark:border-gray-800 shadow-xs">
+          <div className="p-6 rounded-2xl bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 shadow-xs">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -171,9 +178,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigate('audit')}
-                className="text-xs font-bold text-purple-600 hover:text-purple-700 dark:text-purple-400 flex items-center gap-1 cursor-pointer"
+                className="text-xs font-bold text-purple-600 hover:text-purple-700 dark:text-purple-400 flex items-center gap-1 cursor-pointer active:scale-[0.98]"
               >
-                <span>View Full Log</span>
+                <span>Full Log</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -225,7 +232,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
             <button
               type="button"
               onClick={() => onNavigate('users')}
-              className="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#181C24] hover:border-purple-300 dark:hover:border-purple-800 transition text-left cursor-pointer group"
+              className="interactive-card p-4 rounded-xl border border-gray-200/80 dark:border-gray-800/80 bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs hover:border-purple-300 dark:hover:border-purple-800 transition text-left cursor-pointer group active:scale-[0.98]"
             >
               <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
                 <Users className="w-4 h-4" />
@@ -239,7 +246,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
             <button
               type="button"
               onClick={() => onNavigate('roles')}
-              className="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#181C24] hover:border-purple-300 dark:hover:border-purple-800 transition text-left cursor-pointer group"
+              className="interactive-card p-4 rounded-xl border border-gray-200/80 dark:border-gray-800/80 bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs hover:border-purple-300 dark:hover:border-purple-800 transition text-left cursor-pointer group active:scale-[0.98]"
             >
               <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
                 <ShieldCheck className="w-4 h-4" />
@@ -253,7 +260,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
             <button
               type="button"
               onClick={() => onNavigate('health')}
-              className="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#181C24] hover:border-purple-300 dark:hover:border-purple-800 transition text-left cursor-pointer group"
+              className="interactive-card p-4 rounded-xl border border-gray-200/80 dark:border-gray-800/80 bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs hover:border-purple-300 dark:hover:border-purple-800 transition text-left cursor-pointer group active:scale-[0.98]"
             >
               <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
                 <Activity className="w-4 h-4" />
@@ -268,7 +275,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
 
         {/* Right Column (1 Col): System Telemetry Status */}
         <div className="space-y-4">
-          <div className="p-6 rounded-2xl bg-white dark:bg-[#181C24] border border-gray-200 dark:border-gray-800 shadow-xs">
+          <div className="p-6 rounded-2xl bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 shadow-xs">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -282,7 +289,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigate('health')}
-                className="text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 flex items-center gap-1 cursor-pointer"
+                className="text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 flex items-center gap-1 cursor-pointer active:scale-[0.98]"
               >
                 <span>Details</span>
                 <ArrowRight className="w-3.5 h-3.5" />

@@ -173,31 +173,31 @@ export const PrerequisiteManagerPage: React.FC<PrerequisiteManagerPageProps> = (
       {/* Main 2-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Column: Eligible Topics List with Checkboxes (7 cols) */}
-        <div className="lg:col-span-7 bg-white rounded-xl border border-[#D9DEE7] p-5 shadow-2xs space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-[#D9DEE7]">
+        <div className="lg:col-span-7 bg-white dark:bg-[#181C24] rounded-xl border border-[#D9DEE7] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545] p-5 shadow-2xs space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-[#D9DEE7] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545]">
             <div>
-              <h2 className="text-sm font-bold text-[#1F2937]">Eligible Topics in Course</h2>
-              <p className="text-xs text-[#5B6472]">Select topics that form foundational requirements</p>
+              <h2 className="text-sm font-bold text-[#1F2937] dark:text-white dark:text-white dark:text-white">Eligible Topics in Course</h2>
+              <p className="text-xs text-[#5B6472] dark:text-gray-400 dark:text-gray-400 dark:text-gray-400">Select topics that form foundational requirements</p>
             </div>
-            <span className="text-xs font-semibold text-[#5B6472] bg-gray-100 px-2.5 py-0.5 rounded-full">
+            <span className="text-xs font-semibold text-[#5B6472] dark:text-gray-400 dark:text-gray-400 dark:text-gray-400 bg-gray-100 px-2.5 py-0.5 rounded-full">
               {eligibleTopics.length} available
             </span>
           </div>
 
           {/* Search box */}
           <div className="relative">
-            <Search className="w-4 h-4 text-[#737D8C] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="w-4 h-4 text-[#737D8C] dark:text-gray-400 dark:text-gray-400 dark:text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search eligible topics..."
-              className="w-full bg-white border border-[#D9DEE7] text-xs rounded-lg pl-9 pr-4 py-2 focus:border-[#3156D3] focus:outline-none"
+              className="w-full bg-white dark:bg-[#12161F] dark:text-white border border-[#D9DEE7] dark:border-[#2D3545] text-xs rounded-lg pl-9 pr-4 py-2 focus:border-[#3156D3] focus:outline-none"
             />
           </div>
 
           {eligibleTopics.length === 0 ? (
-            <div className="text-center py-8 text-[#5B6472] text-xs">
+            <div className="text-center py-8 text-[#5B6472] dark:text-gray-400 dark:text-gray-400 dark:text-gray-400 text-xs">
               {searchQuery ? 'No topics match your search query.' : 'No other topics in this course to select.'}
             </div>
           ) : (
@@ -211,15 +211,15 @@ export const PrerequisiteManagerPage: React.FC<PrerequisiteManagerPageProps> = (
                     onClick={() => handleTogglePrerequisite(t.id)}
                     className={`py-3 px-3 rounded-lg flex items-start gap-3 my-1 transition-colors cursor-pointer select-none ${
                       isSelected
-                        ? 'bg-[#E8EEFF] border border-[#3156D3]/30'
-                        : 'hover:bg-gray-50 border border-transparent'
+                        ? 'bg-[#E8EEFF] dark:bg-indigo-950/40 border border-[#3156D3]/30 dark:border-indigo-800/40'
+                        : 'hover:bg-gray-50 dark:bg-[#1C212B] dark:bg-[#1C212B] dark:bg-[#1C212B] border border-transparent'
                     }`}
                   >
                     <div
                       className={`w-5 h-5 rounded flex items-center justify-center shrink-0 mt-0.5 border ${
                         isSelected
                           ? 'bg-[#3156D3] border-[#3156D3] text-white'
-                          : 'border-gray-300 bg-white'
+                          : 'border-gray-300 dark:border-gray-700 bg-white dark:bg-[#12161F]'
                       }`}
                     >
                       {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
@@ -227,12 +227,12 @@ export const PrerequisiteManagerPage: React.FC<PrerequisiteManagerPageProps> = (
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-[#1F2937]">{t.title}</span>
-                        <span className="text-[10px] text-[#737D8C] bg-gray-100 px-1.5 py-0.5 rounded">
+                        <span className="text-xs font-semibold text-[#1F2937] dark:text-white dark:text-white dark:text-white">{t.title}</span>
+                        <span className="text-[10px] text-[#737D8C] dark:text-gray-400 dark:text-gray-400 dark:text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
                           Order #{t.order}
                         </span>
                       </div>
-                      <p className="text-[11px] text-[#5B6472] line-clamp-1 mt-0.5">
+                      <p className="text-[11px] text-[#5B6472] dark:text-gray-400 dark:text-gray-400 dark:text-gray-400 line-clamp-1 mt-0.5">
                         {t.description}
                       </p>
                       {t.prerequisiteTopicIds.length > 0 && (
@@ -251,18 +251,18 @@ export const PrerequisiteManagerPage: React.FC<PrerequisiteManagerPageProps> = (
         {/* Right Column: Selected Prerequisites & Graph Summary (5 cols) */}
         <div className="lg:col-span-5 space-y-5">
           {/* Selected Prerequisites Panel */}
-          <div className="bg-white rounded-xl border border-[#D9DEE7] p-5 shadow-2xs space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[#D9DEE7]">
-              <h2 className="text-sm font-bold text-[#1F2937]">Selected Prerequisites</h2>
-              <span className="text-xs font-bold text-[#3156D3] bg-[#E8EEFF] px-2.5 py-0.5 rounded-full">
+          <div className="bg-white dark:bg-[#181C24] rounded-xl border border-[#D9DEE7] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545] p-5 shadow-2xs space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#D9DEE7] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545]">
+              <h2 className="text-sm font-bold text-[#1F2937] dark:text-white dark:text-white dark:text-white">Selected Prerequisites</h2>
+              <span className="text-xs font-bold text-[#3156D3] dark:text-indigo-300 bg-[#E8EEFF] dark:bg-indigo-950/40 px-2.5 py-0.5 rounded-full">
                 {selectedPrereqIds.length} chosen
               </span>
             </div>
 
             {selectedPrereqIds.length === 0 ? (
-              <div className="p-4 rounded-lg bg-gray-50 border border-gray-200 text-center text-xs text-[#5B6472]">
+              <div className="p-4 rounded-lg bg-gray-50 dark:bg-[#1C212B] dark:bg-[#1C212B] dark:bg-[#1C212B] border border-gray-200 dark:border-gray-800 dark:border-gray-800 dark:border-gray-800 text-center text-xs text-[#5B6472] dark:text-gray-400 dark:text-gray-400 dark:text-gray-400">
                 <Info className="w-5 h-5 text-[#3156D3] mx-auto mb-1.5" />
-                <p className="font-semibold text-[#1F2937]">No prerequisites assigned</p>
+                <p className="font-semibold text-[#1F2937] dark:text-white dark:text-white dark:text-white">No prerequisites assigned</p>
                 <p className="text-[11px] mt-0.5">
                   This topic will be accessible to learners without any prior course prerequisites.
                 </p>
@@ -274,17 +274,17 @@ export const PrerequisiteManagerPage: React.FC<PrerequisiteManagerPageProps> = (
                   return (
                     <div
                       key={id}
-                      className="p-2.5 rounded-lg bg-[#F5F7FA] border border-[#D9DEE7] flex items-center justify-between gap-2 text-xs"
+                      className="p-2.5 rounded-lg bg-[#F5F7FA] border border-[#D9DEE7] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545] flex items-center justify-between gap-2 text-xs"
                     >
                       <div className="flex items-center gap-2 truncate">
                         <GitBranch className="w-3.5 h-3.5 text-[#3156D3] shrink-0" />
-                        <span className="font-semibold text-[#1F2937] truncate">
+                        <span className="font-semibold text-[#1F2937] dark:text-white dark:text-white dark:text-white truncate">
                           {topicObj?.title || id}
                         </span>
                       </div>
                       <button
                         onClick={() => handleRemoveChip(id)}
-                        className="p-1 text-[#737D8C] hover:text-[#B42318] hover:bg-white rounded cursor-pointer transition-colors"
+                        className="p-1 text-[#737D8C] dark:text-gray-400 dark:text-gray-400 dark:text-gray-400 hover:text-[#B42318] hover:bg-white dark:hover:bg-[#1E232E] rounded cursor-pointer transition-colors"
                         aria-label={`Remove prerequisite ${topicObj?.title || id}`}
                       >
                         <X className="w-3.5 h-3.5" />
@@ -297,26 +297,26 @@ export const PrerequisiteManagerPage: React.FC<PrerequisiteManagerPageProps> = (
           </div>
 
           {/* Visual Dependency Flow Representation */}
-          <div className="bg-white rounded-xl border border-[#D9DEE7] p-5 shadow-2xs space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[#737D8C]">
+          <div className="bg-white dark:bg-[#181C24] rounded-xl border border-[#D9DEE7] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545] p-5 shadow-2xs space-y-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[#737D8C] dark:text-gray-400 dark:text-gray-400 dark:text-gray-400">
               Learning Path Dependency Flow
             </h3>
 
-            <div className="p-4 rounded-lg bg-[#F5F7FA] border border-[#D9DEE7] space-y-3">
+            <div className="p-4 rounded-lg bg-[#F5F7FA] border border-[#D9DEE7] dark:border-[#2D3545] dark:border-[#2D3545] dark:border-[#2D3545] space-y-3">
               {selectedPrereqIds.length === 0 ? (
-                <div className="text-xs text-[#5B6472] flex items-center justify-center gap-2 py-2">
-                  <span className="font-medium text-[#1F2937]">[Start of Course]</span>
+                <div className="text-xs text-[#5B6472] dark:text-gray-400 dark:text-gray-400 dark:text-gray-400 flex items-center justify-center gap-2 py-2">
+                  <span className="font-medium text-[#1F2937] dark:text-white dark:text-white dark:text-white">[Start of Course]</span>
                   <ArrowRight className="w-3.5 h-3.5 text-[#3156D3]" />
                   <span className="font-semibold text-[#2646B8]">{currentTopic.title}</span>
                 </div>
               ) : (
                 <div className="flex flex-col gap-2">
                   <div className="space-y-1">
-                    <span className="text-[11px] font-semibold text-[#5B6472]">Required Prerequisites:</span>
+                    <span className="text-[11px] font-semibold text-[#5B6472] dark:text-gray-400 dark:text-gray-400 dark:text-gray-400">Required Prerequisites:</span>
                     {selectedPrereqIds.map((id) => (
                       <div
                         key={id}
-                        className="bg-white px-3 py-1.5 rounded border border-gray-200 text-xs font-medium text-[#1F2937] flex items-center justify-between"
+                        className="bg-white dark:bg-[#181C24] px-3 py-1.5 rounded border border-gray-200 dark:border-gray-800 text-xs font-medium text-[#1F2937] dark:text-white flex items-center justify-between"
                       >
                         <span>{topicNames[id] || id}</span>
                         <span className="text-[10px] text-[#18794E] font-semibold">Must complete</span>
@@ -336,7 +336,7 @@ export const PrerequisiteManagerPage: React.FC<PrerequisiteManagerPageProps> = (
               )}
             </div>
 
-            <p className="text-[11px] text-[#737D8C] leading-relaxed">
+            <p className="text-[11px] text-[#737D8C] dark:text-gray-400 dark:text-gray-400 dark:text-gray-400 leading-relaxed">
               Learners must meet the mastery threshold in each prerequisite topic before this unit
               becomes active on their learning path.
             </p>

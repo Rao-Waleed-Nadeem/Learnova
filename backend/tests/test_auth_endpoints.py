@@ -213,3 +213,49 @@ def test_get_me_unauthenticated(client_with_db: TestClient) -> None:
     """GET /me without authorization header must return 401."""
     res = client_with_db.get("/api/v1/auth/me")
     assert res.status_code == 401
+
+
+def test_google_auth_new_student_auto_provision(client_with_db: TestClient, db_session: Session) -> None:
+    """Authenticating with Google when user does not exist must auto-provision student account."""
+    payload = {
+        "credential": "dev-google-token:google.student@learnova.edu:Google Student",
+        "email": "google.student@learnova.edu",
+        "full_name": "Google Student",
+        "avatar_url": "https://lh3.googleusercontent.com/a/default-user=s96-c",
+    }
+    response = client_with_db.post("/api/v1/auth/google", json=payload)
+    assert response.status_code == 200
+
+    data = response.json()
+    assert "access_token" in data
+    assert data["token_type"] == "bearer"
+    assert data["user"]["email"] == "google.student@learnova.edu"
+    assert data["user"]["full_name"] == "Google Student"
+    assert data["user"]["role"] == "student"
+    assert data["user"]["is_active"] is True
+    assert data["user"]["profile"]["avatar_url"] == "https://lh3.googleusercontent.com/a/default-user=s96-c"
+
+    # Refresh cookie set
+    assert "learnova_refresh_token" in response.cookies
+
+
+def test_google_auth_existing_user_login(client_with_db: TestClient) -> None:
+    """Authenticating with Google when user already exists should login seamlessly."""
+    # First register regular student
+    client_with_db.post(
+        "/api/v1/auth/register",
+        json={"email": "existing.google@learnova.edu", "password": "Password123!", "full_name": "Existing Google"},
+    )
+
+    # Now login with Google matching same email
+    payload = {
+        "credential": "dev-google-token:existing.google@learnova.edu:Existing Google",
+        "email": "existing.google@learnova.edu",
+    }
+    response = client_with_db.post("/api/v1/auth/google", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["user"]["email"] == "existing.google@learnova.edu"
+    assert data["user"]["role"] == "student"
+    assert "access_token" in data
+

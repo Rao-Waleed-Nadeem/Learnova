@@ -14,6 +14,12 @@ import app.models  # noqa: F401 - Register models for Base.metadata
 from app.models.role import Role
 
 
+@pytest.fixture
+def anyio_backend():
+    """Ensure anyio tests run only with asyncio since trio is not installed."""
+    return "asyncio"
+
+
 @pytest.fixture(scope="session")
 def client() -> TestClient:
     """Create a FastAPI TestClient instance."""

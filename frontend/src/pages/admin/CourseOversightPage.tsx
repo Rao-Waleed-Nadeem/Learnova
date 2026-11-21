@@ -16,7 +16,7 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { Course, Topic, Lesson, UserAccount, Enrollment } from '../../types';
-import { storage } from '../../services/storageService';
+import { Avatar } from '../../components/ui/Avatar';
 
 interface CourseOversightPageProps {
   courses: Course[];
@@ -34,11 +34,11 @@ export const CourseOversightPage: React.FC<CourseOversightPageProps> = ({
   enrollments: propEnrollments,
 }) => {
   const users = useMemo(() => {
-    return propUsers && propUsers.length > 0 ? propUsers : storage.getUsers();
+    return propUsers || [];
   }, [propUsers]);
 
   const enrollments = useMemo(() => {
-    return propEnrollments && propEnrollments.length > 0 ? propEnrollments : storage.getEnrollments();
+    return propEnrollments || [];
   }, [propEnrollments]);
   const [search, setSearch] = useState('');
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
@@ -105,7 +105,7 @@ export const CourseOversightPage: React.FC<CourseOversightPageProps> = ({
   }, [selectedCourse, enrollments, users]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 view-enter-animation">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2">
         <div>
@@ -135,13 +135,12 @@ export const CourseOversightPage: React.FC<CourseOversightPageProps> = ({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Filter courses by title or description..."
-          className="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#12161F] text-xs sm:text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder:text-gray-400"
+          className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200/90 dark:border-gray-700/90 bg-white/90 dark:bg-[#12161F]/90 text-xs sm:text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder:text-gray-400 shadow-2xs"
         />
       </div>
 
       {/* Courses Oversight Table */}
-      {/* Courses Oversight Table */}
-      <div className="bg-white dark:bg-[#181C24] rounded-2xl border border-gray-200 dark:border-gray-800 shadow-xs overflow-hidden">
+      <div className="bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs rounded-2xl border border-gray-200/80 dark:border-gray-800/80 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -285,9 +284,12 @@ export const CourseOversightPage: React.FC<CourseOversightPageProps> = ({
                 </div>
 
                 <div className="flex items-center gap-3.5 mt-3">
-                  <div className="w-11 h-11 rounded-xl bg-indigo-600 text-white font-extrabold text-sm flex items-center justify-center shadow-md shadow-indigo-600/20 shrink-0">
-                    {courseCreator?.avatar || 'ER'}
-                  </div>
+                  <Avatar
+                    src={courseCreator?.avatar}
+                    name={courseCreator?.name}
+                    fallbackText="ER"
+                    className="w-11 h-11 rounded-xl bg-indigo-600 text-white font-extrabold text-sm shadow-md shadow-indigo-600/20"
+                  />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
                       {courseCreator?.name}
@@ -307,7 +309,7 @@ export const CourseOversightPage: React.FC<CourseOversightPageProps> = ({
               </div>
 
               {/* Key Curriculum Metrics */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
                 <div className="p-3 rounded-xl bg-gray-50 dark:bg-[#12161F] border border-gray-200/80 dark:border-gray-800">
                   <p className="text-[10px] uppercase font-bold text-gray-400">Curriculum Scope</p>
                   <p className="text-sm font-extrabold text-gray-900 dark:text-white mt-1">
@@ -399,9 +401,12 @@ export const CourseOversightPage: React.FC<CourseOversightPageProps> = ({
                             className="flex items-center justify-between p-2.5 rounded-lg bg-white dark:bg-[#181C24] border border-gray-100 dark:border-gray-800/80 shadow-2xs hover:border-indigo-200 dark:hover:border-indigo-900/60 transition"
                           >
                             <div className="flex items-center gap-2.5 min-w-0">
-                              <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/70 border border-indigo-200/60 dark:border-indigo-800 flex items-center justify-center text-xs font-bold text-indigo-700 dark:text-indigo-300 shrink-0">
-                                {st.avatar}
-                              </div>
+                              <Avatar
+                                src={st.avatar}
+                                name={st.name}
+                                fallbackText={st.name ? st.name.slice(0, 2).toUpperCase() : 'ST'}
+                                className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/70 border border-indigo-200/60 dark:border-indigo-800 text-xs font-bold text-indigo-700 dark:text-indigo-300"
+                              />
                               <div className="min-w-0">
                                 <p className="font-bold text-gray-900 dark:text-white truncate">
                                   {st.name}

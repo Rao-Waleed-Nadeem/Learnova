@@ -55,7 +55,7 @@ export const AssessmentResultsPage: React.FC<AssessmentResultsPageProps> = ({
         </div>
 
         {/* Score & Metrics Grid */}
-        <div className="grid grid-cols-3 gap-3 max-w-lg mx-auto pt-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-lg mx-auto pt-2">
           <div className="p-3.5 rounded-xl bg-gray-50 dark:bg-[#1C212B] border border-gray-200 dark:border-gray-800">
             <span className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Final Score</span>
             <span className={`text-2xl font-black ${isPassed ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>

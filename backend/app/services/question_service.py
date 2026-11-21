@@ -101,7 +101,7 @@ class QuestionService:
 
             if not raw_options or len(raw_options) < 2:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail="Multiple choice questions must have at least 2 options",
                 )
 
@@ -111,7 +111,7 @@ class QuestionService:
                 opt_text = opt.text.strip()
                 if not opt_text:
                     raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                         detail="Option text cannot be empty",
                     )
                 opt_id = opt.id or f"opt_{i+1}_{uuid.uuid4().hex[:6]}"
@@ -121,14 +121,14 @@ class QuestionService:
 
             if not correct_ids:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail="At least one option must be marked correct",
                 )
 
             allow_multi = bool(is_multiple_correct_allowed)
             if not allow_multi and len(correct_ids) > 1:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail="Multiple correct answers are not allowed for this question",
                 )
 
@@ -148,7 +148,7 @@ class QuestionService:
 
             if effective_bool is None or not isinstance(effective_bool, bool):
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail="True/False questions require a valid boolean correct_bool (True or False)",
                 )
 
@@ -163,14 +163,14 @@ class QuestionService:
 
             if not raw_answers:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail="Fill-in-the-blank questions require at least one accepted answer",
                 )
 
             cleaned_answers = [ans.strip() for ans in raw_answers if ans and ans.strip()]
             if not cleaned_answers:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail="Fill-in-the-blank accepted answers cannot be blank",
                 )
 
@@ -197,7 +197,7 @@ class QuestionService:
 
             if not raw_pairs or len(raw_pairs) < 2:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail="Matching questions require at least 2 pairs",
                 )
 
@@ -212,17 +212,17 @@ class QuestionService:
                 right_txt = p.right.strip()
                 if not left_txt or not right_txt:
                     raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                         detail="Matching pair items cannot be empty",
                     )
                 if left_txt in seen_left:
                     raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                         detail=f"Duplicate left matching item: '{left_txt}'",
                     )
                 if right_txt in seen_right:
                     raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                         detail=f"Duplicate right matching item: '{right_txt}'",
                     )
                 seen_left.add(left_txt)
@@ -250,14 +250,14 @@ class QuestionService:
 
             if not rubric or not rubric.strip():
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail="Short-answer questions require a non-empty expected_rubric",
                 )
 
             mode = grading_mode or (existing_answer_key.get("grading_mode") if existing_answer_key else "manual_review")
             if mode not in ("manual_review", "exact_match"):
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail="Short-answer grading_mode must be 'manual_review' or 'exact_match'",
                 )
 
@@ -266,13 +266,13 @@ class QuestionService:
                 raw_acc = accepted_answers or (existing_answer_key.get("accepted_answers") if existing_answer_key else None)
                 if not raw_acc:
                     raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                         detail="Exact match short-answer questions require at least one accepted answer",
                     )
                 cleaned_accepted = [a.strip() for a in raw_acc if a and a.strip()]
                 if not cleaned_accepted:
                     raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                         detail="Accepted answers cannot be empty for exact match grading",
                     )
 
@@ -284,7 +284,7 @@ class QuestionService:
             }
         else:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"Unsupported question type: {q_type}",
             )
 
@@ -393,7 +393,7 @@ class QuestionService:
         # Check prompt
         if not req.prompt or not req.prompt.strip():
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Question prompt cannot be empty",
             )
 
@@ -529,7 +529,7 @@ class QuestionService:
         if req.prompt is not None:
             if not req.prompt.strip():
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail="Question prompt cannot be empty",
                 )
             question.prompt = req.prompt.strip()

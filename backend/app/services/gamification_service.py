@@ -521,9 +521,15 @@ class GamificationService:
                     "is_current_user": True,
                 }
 
+        current_user_opted_in = True
+        if current_user_id:
+            my_prof = GamificationService.get_or_create_profile(db, current_user_id)
+            current_user_opted_in = my_prof.is_opted_in_leaderboard
+
         return {
             "entries": entries,
             "current_user_entry": current_user_entry,
+            "current_user_opted_in": current_user_opted_in,
             "total_ranked": len(entries),
         }
 

@@ -11,14 +11,23 @@ import {
   X,
   LogOut,
   ChevronRight,
+  ChevronLeft,
   ArrowRightLeft,
   CheckCircle2,
   AlertCircle,
   Shield,
   Layers,
+  Sparkles,
+  Palette,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { UserAccount } from '../../types';
 import { ToastMessage } from '../teacher/TeacherLayout';
+import { DesignStudioWidget } from '../ui/DesignStudioWidget';
+import { AppFooter } from '../ui/AppFooter';
+import { Avatar } from '../ui/Avatar';
+import { useTheme } from '../../context/ThemeContext';
 
 export type AdminNavigationPage =
   | 'dashboard'
@@ -46,7 +55,7 @@ interface AdminLayoutProps {
   onSwitchPortal: (portal: 'student' | 'teacher') => void;
   onSignOut: () => void;
   breadcrumbs?: BreadcrumbItem[];
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 export const AdminLayout: React.FC<AdminLayoutProps> = ({
@@ -60,27 +69,14 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
   breadcrumbs = [],
   children,
 }) => {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isDark, setIsDark] = useState<boolean>(() => {
-    try {
-      return document.documentElement.classList.contains('dark');
-    } catch {
-      return false;
-    }
-  });
+  const [designStudioOpen, setDesignStudioOpen] = useState(false);
+  const { actualTheme, setTheme } = useTheme();
+  const isDark = actualTheme === 'dark';
 
   const toggleTheme = () => {
-    const nextDark = !isDark;
-    setIsDark(nextDark);
-    if (nextDark) {
-      document.documentElement.classList.add('dark');
-      document.documentElement.setAttribute('data-theme', 'dark');
-      localStorage.setItem('learnova_theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      document.documentElement.setAttribute('data-theme', 'light');
-      localStorage.setItem('learnova_theme', 'light');
-    }
+    setTheme(isDark ? 'light' : 'dark');
   };
 
   const navItems = [
@@ -171,28 +167,58 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
         />
       )}
 
-      {/* Desktop & Mobile Sidebar (w-64) */}
+      {/* Desktop & Mobile Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-[#181C24] border-r border-[#D9DEE7] dark:border-[#2D3545] flex flex-col justify-between transition-transform duration-200 lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 bg-white dark:bg-[#181C24] border-r border-[#D9DEE7] dark:border-[#2D3545] flex flex-col justify-between transition-all duration-300 ease-in-out lg:translate-x-0 ${
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        } ${sidebarCollapsed ? 'lg:w-[72px]' : 'lg:w-64 w-64'}`}
       >
         <div>
           {/* Brand Header */}
-          <div className="h-16 px-5 border-b border-[#D9DEE7] dark:border-[#2D3545] flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-700 text-white flex items-center justify-center font-bold text-base shadow-sm">
-                <Shield className="w-4 h-4" />
-              </div>
-              <div>
-                <span className="font-bold text-base text-gray-900 dark:text-white tracking-tight">
-                  Learnova
-                </span>
-                <span className="block text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
-                  Admin Governance
-                </span>
-              </div>
+          <div
+            className={`h-16 border-b border-[#D9DEE7] dark:border-[#2D3545] flex items-center justify-between transition-all duration-200 ${
+              sidebarCollapsed ? 'px-2' : 'px-4'
+            }`}
+          >
+            <div className="flex items-center gap-2.5 overflow-hidden">
+              <img
+                src="/learnova-logo.png"
+                alt="Learnova"
+                className={`object-contain shrink-0 ${
+                  sidebarCollapsed ? 'w-7 h-7' : 'h-8 w-auto'
+                }`}
+                title="Learnova Admin Governance"
+              />
+              {!sidebarCollapsed && (
+                <div className="min-w-0">
+                  <span className="font-bold text-base text-gray-900 dark:text-white tracking-tight block truncate">
+                    Learnova
+                  </span>
+                  <span className="block text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
+                    Admin Governance
+                  </span>
+                </div>
+              )}
             </div>
+
+            {/* Desktop Collapse Toggle */}
+            <button
+              type="button"
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className={`hidden lg:flex text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer ${
+                sidebarCollapsed ? 'p-1' : 'p-1.5'
+              }`}
+              title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {sidebarCollapsed ? (
+                <ChevronRight className="w-4 h-4" />
+              ) : (
+                <ChevronLeft className="w-4 h-4" />
+              )}
+            </button>
+
+            {/* Mobile Close Button */}
             <button
               type="button"
               onClick={() => setMobileMenuOpen(false)}
@@ -214,23 +240,25 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
                   key={item.id}
                   type="button"
                   onClick={() => handleNavClick(item.id)}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                  title={sidebarCollapsed ? item.label : undefined}
+                  className={`w-full group relative flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 cursor-pointer ${
                     isActive
-                      ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 font-bold'
-                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/60'
-                  }`}
+                      ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 font-bold shadow-2xs'
+                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/60 hover:translate-x-0.5'
+                  } ${sidebarCollapsed ? 'justify-center px-0' : ''}`}
                 >
+                  {isActive && <span className="nav-indicator-pill" aria-hidden="true" />}
                   <div className="flex items-center gap-2.5">
                     <Icon
-                      className={`w-4 h-4 shrink-0 ${
+                      className={`w-4 h-4 shrink-0 transition-colors ${
                         isActive
                           ? 'text-purple-600 dark:text-purple-400'
-                          : 'text-gray-400 dark:text-gray-400'
+                          : 'text-gray-400 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white'
                       }`}
                     />
-                    <span>{item.label}</span>
+                    {!sidebarCollapsed && <span>{item.label}</span>}
                   </div>
-                  {item.badge && (
+                  {!sidebarCollapsed && item.badge && (
                     <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
                       {item.badge}
                     </span>
@@ -239,39 +267,23 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
               );
             })}
           </nav>
+
+          {/* Live System Health Badge (Expanded) */}
+          {!sidebarCollapsed && (
+            <div className="mx-3 my-2 p-2 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/40 flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+              </span>
+              <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300">
+                100% Operational
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Bottom Section: Portal Switcher, Profile, Theme Toggle */}
+        {/* Bottom Section: Profile, Theme Toggle */}
         <div className="p-3 border-t border-[#D9DEE7] dark:border-[#2D3545] space-y-2">
-          {/* Switch Portal Section */}
-          <div className="p-2 rounded-xl bg-gray-50/80 dark:bg-[#12161F] border border-gray-200/80 dark:border-gray-800/80 space-y-1">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-1">
-              Switch Workspace
-            </p>
-            <button
-              type="button"
-              onClick={() => onSwitchPortal('teacher')}
-              className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 transition cursor-pointer"
-            >
-              <div className="flex items-center gap-1.5">
-                <ArrowRightLeft className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                <span>Teacher Portal</span>
-              </div>
-              <span className="text-[10px] text-gray-400">Staff</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => onSwitchPortal('student')}
-              className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 transition cursor-pointer"
-            >
-              <div className="flex items-center gap-1.5">
-                <ArrowRightLeft className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                <span>Student Portal</span>
-              </div>
-              <span className="text-[10px] text-gray-400">Learner</span>
-            </button>
-          </div>
-
           {/* Admin Profile Row */}
           <div className="p-2 rounded-xl bg-purple-50/50 dark:bg-purple-950/30 border border-purple-200/60 dark:border-purple-800/50 flex items-center justify-between">
             <button
@@ -280,9 +292,12 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
               className="flex items-center gap-2.5 min-w-0 text-left hover:opacity-80 transition cursor-pointer"
               title="Administrator profile and security credentials"
             >
-              <div className="w-8 h-8 rounded-full bg-purple-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
-                {currentAdmin.avatar || currentAdmin.name.slice(0, 2).toUpperCase()}
-              </div>
+              <Avatar
+                src={currentAdmin.avatar}
+                name={currentAdmin.name}
+                fallbackText={currentAdmin.name ? currentAdmin.name.slice(0, 2).toUpperCase() : 'AD'}
+                className="w-8 h-8 rounded-full bg-purple-600 text-white font-bold text-xs shrink-0 shadow-xs"
+              />
               <div className="min-w-0">
                 <p className="text-xs font-bold text-gray-900 dark:text-white truncate">
                   {currentAdmin.name}
@@ -307,9 +322,13 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 lg:pl-64 flex flex-col min-h-screen">
+      <div
+        className={`flex-1 transition-all duration-300 ease-in-out flex flex-col min-h-screen ${
+          sidebarCollapsed ? 'lg:pl-[72px]' : 'lg:pl-64'
+        }`}
+      >
         {/* Global Header */}
-        <header className="sticky top-0 z-30 h-16 bg-white dark:bg-[#181C24] border-b border-[#D9DEE7] dark:border-[#2D3545] px-4 sm:px-6 flex items-center justify-between gap-4">
+        <header className="sticky top-0 z-30 h-16 frosted-header px-4 sm:px-6 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
@@ -351,7 +370,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
           </div>
 
           {/* Right Header: Health indicator, Security Badge, Theme Toggle */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {/* Live Operational Health Status Dot */}
             <button
               type="button"
@@ -360,39 +379,64 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
               title="View system telemetry"
             >
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Telemetry: Active</span>
+              <span>Operational</span>
             </button>
 
-            {/* Dark/Light Theme Toggle */}
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="p-2 rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer"
-              aria-label="Toggle theme mode"
-              title="Toggle theme mode"
-            >
-              {isDark ? (
-                <svg className="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path
-                    fillRule="evenodd"
-                    d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4 text-gray-700" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
-                </svg>
-              )}
-            </button>
+            {/* Utility Command Dock */}
+            <div className="command-dock">
+              {/* Dark/Light Theme Toggle */}
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="p-1.5 rounded-full text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-white dark:hover:bg-gray-800 transition cursor-pointer"
+                aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                title="Toggle appearance mode"
+              >
+                {isDark ? (
+                  <Sun className="w-4 h-4 text-amber-400" />
+                ) : (
+                  <Moon className="w-4 h-4 text-gray-600" />
+                )}
+              </button>
+
+              {/* Design Studio Trigger */}
+              <button
+                type="button"
+                data-design-studio-trigger="true"
+                onClick={() => setDesignStudioOpen((prev) => !prev)}
+                className={`p-1.5 rounded-full transition cursor-pointer ${
+                  designStudioOpen
+                    ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 shadow-xs'
+                    : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-white dark:hover:bg-gray-800'
+                }`}
+                aria-label="Toggle Design Studio"
+                aria-expanded={designStudioOpen}
+                aria-controls="design-studio-dialog"
+                title="Design Studio (Palettes & Fonts)"
+              >
+                <Palette className="w-4 h-4 text-purple-600 dark:text-purple-400 pointer-events-none" />
+              </button>
+            </div>
           </div>
         </header>
 
         {/* Page Content Viewport */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
-          {children}
+          <div className="view-enter-animation">
+            {children}
+          </div>
         </main>
+
+        {/* Quiet Studio-Grade Utility Footer */}
+        <AppFooter onOpenDesignStudio={() => setDesignStudioOpen(true)} />
       </div>
+
+      {/* Design Studio Customizer Widget */}
+      <DesignStudioWidget
+        isOpen={designStudioOpen}
+        onClose={() => setDesignStudioOpen(false)}
+        onToggle={() => setDesignStudioOpen((prev) => !prev)}
+      />
     </div>
   );
 };

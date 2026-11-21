@@ -128,8 +128,8 @@ export const AdaptivePracticePlayerPage: React.FC<AdaptivePracticePlayerPageProp
 
   if (!currentQuestion) {
     return (
-      <div className="p-12 text-center">
-        <p className="text-sm text-gray-500">Initializing adaptive practice item...</p>
+      <div className="p-12 text-center bg-white dark:bg-[#181C24] rounded-2xl border border-gray-200 dark:border-gray-800">
+        <p className="text-sm text-gray-500 dark:text-gray-400">Initializing adaptive practice item...</p>
       </div>
     );
   }

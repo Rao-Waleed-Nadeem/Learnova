@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 from sqlalchemy.orm import Session
 
-from app.ai.adapter import AISimplifyRequest, GeminiServiceAdapter, ILLMServiceAdapter
+from app.ai.adapter import AISimplifyRequest, AgyServiceAdapter, ILLMServiceAdapter
 from app.core.config import settings
 from app.core.sanitizer import scrub_pii
 from app.models.ai import AIContentCache
@@ -30,10 +30,9 @@ class AIService:
     def get_adapter(cls) -> ILLMServiceAdapter:
         """Provide LLM service adapter singleton."""
         if cls._adapter is None:
-            cls._adapter = GeminiServiceAdapter(
-                api_key=settings.GEMINI_API_KEY,
-                model=settings.GEMINI_MODEL,
-                timeout_seconds=settings.AI_TIMEOUT_SECONDS,
+            cls._adapter = AgyServiceAdapter(
+                model=getattr(settings, "AGY_MODEL", "flash"),
+                timeout_seconds=getattr(settings, "AI_TIMEOUT_SECONDS", 35),
             )
         return cls._adapter
 
@@ -73,7 +72,7 @@ class AIService:
         # 1. Require and resolve persisted lesson
         if not req.lesson_id:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="A valid lesson_id is required for AI lesson tutoring",
             )
 
@@ -194,7 +193,7 @@ class AIService:
                     is_valid_cache = True
 
         if cached and is_valid_cache:
-            source_label = "gemini_cache" if cached.source == "gemini" else "academic_cache"
+            source_label = "agy_cache" if "agy" in (cached.provider or "") else "academic_cache"
             return AISimplifyLessonResponse(
                 success=True,
                 explanation=cached.content,
@@ -224,8 +223,8 @@ class AIService:
             # Refresh expired cache row
             cached.content = res.explanation
             cached.source = res.source
-            cached.provider = "gemini" if res.source == "gemini" else "deterministic_fallback"
-            cached.model = settings.GEMINI_MODEL
+            cached.provider = "agy_cli" if res.source == "agy_cli" else "deterministic_fallback"
+            cached.model = "agy-flash"
             cached.prompt_version = "v2"
             cached.created_at = now
             cached.expires_at = expires_at
@@ -235,8 +234,8 @@ class AIService:
                 content_type="lesson_simplification",
                 content=res.explanation,
                 source=res.source,
-                provider="gemini" if res.source == "gemini" else "deterministic_fallback",
-                model=settings.GEMINI_MODEL,
+                provider="agy_cli" if res.source == "agy_cli" else "deterministic_fallback",
+                model="agy-flash",
                 prompt_version="v2",
                 created_at=now,
                 expires_at=expires_at,

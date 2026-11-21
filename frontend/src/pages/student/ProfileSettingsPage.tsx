@@ -15,6 +15,7 @@ import {
   Laptop,
 } from 'lucide-react';
 import { StudentNavigationPage } from '../../components/student/StudentLayout';
+import { Avatar } from '../../components/ui/Avatar';
 
 interface ProfileSettingsPageProps {
   currentUser: StudentUser;
@@ -110,7 +111,7 @@ export const ProfileSettingsPage: React.FC<ProfileSettingsPageProps> = ({
   };
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
+    <div className="space-y-6 max-w-3xl mx-auto view-enter-animation">
       {/* Header */}
       <div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
@@ -124,11 +125,14 @@ export const ProfileSettingsPage: React.FC<ProfileSettingsPageProps> = ({
       {/* Main Profile Form */}
       <form onSubmit={handleSaveProfile} className="space-y-6">
         {/* Section 1: Personal Identity */}
-        <div className="bg-white dark:bg-[#181C24] border border-[#D9DEE7] dark:border-[#2D3545] rounded-2xl p-6 sm:p-7 shadow-xs space-y-5">
+        <div className="bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 rounded-2xl p-6 sm:p-7 shadow-xs space-y-5">
           <div className="flex items-center gap-4 pb-4 border-b border-gray-100 dark:border-gray-800">
-            <div className="w-14 h-14 rounded-2xl bg-indigo-600 text-white font-extrabold text-lg flex items-center justify-center shrink-0">
-              {currentUser.avatar || name.slice(0, 2).toUpperCase()}
-            </div>
+            <Avatar
+              src={currentUser.avatar}
+              name={name || 'Student'}
+              fallbackText={name ? name.slice(0, 2).toUpperCase() : 'ST'}
+              className="w-14 h-14 rounded-2xl bg-indigo-600 text-white font-extrabold text-lg"
+            />
             <div>
               <h3 className="text-base font-bold text-gray-900 dark:text-white">
                 {name || 'Student'}
@@ -150,7 +154,7 @@ export const ProfileSettingsPage: React.FC<ProfileSettingsPageProps> = ({
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#181C24] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-gray-200/90 dark:border-gray-800/90 bg-white/90 dark:bg-[#181C24]/90 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
               />
             </div>
 
@@ -164,7 +168,7 @@ export const ProfileSettingsPage: React.FC<ProfileSettingsPageProps> = ({
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#181C24] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-gray-200/90 dark:border-gray-800/90 bg-white/90 dark:bg-[#181C24]/90 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
               />
             </div>
           </div>
@@ -179,15 +183,15 @@ export const ProfileSettingsPage: React.FC<ProfileSettingsPageProps> = ({
               value={bio}
               onChange={(e) => setBio(e.target.value)}
               placeholder="Tell instructors and peers about your academic interests..."
-              className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#181C24] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-gray-200/90 dark:border-gray-800/90 bg-white/90 dark:bg-[#181C24]/90 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
             />
           </div>
         </div>
 
         {/* Section 2: Privacy & Gamification Preferences */}
-        <div className="bg-white dark:bg-[#181C24] border border-[#D9DEE7] dark:border-[#2D3545] rounded-2xl p-6 sm:p-7 shadow-xs space-y-4">
+        <div className="bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 rounded-2xl p-6 sm:p-7 shadow-xs space-y-4">
           <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <Shield className="w-4 h-4 text-indigo-600" />
+            <Shield className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
             <span>Privacy & Public Standing</span>
           </h3>
 
@@ -233,7 +237,7 @@ export const ProfileSettingsPage: React.FC<ProfileSettingsPageProps> = ({
           <button
             type="submit"
             disabled={isSaving}
-            className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition flex items-center gap-2 shadow-xs cursor-pointer"
+            className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition flex items-center gap-2 shadow-xs cursor-pointer active:scale-[0.98]"
           >
             {isSaving ? (
               <>
@@ -251,9 +255,9 @@ export const ProfileSettingsPage: React.FC<ProfileSettingsPageProps> = ({
       </form>
 
       {/* Security: Password Change */}
-      <div className="bg-white dark:bg-[#181C24] border border-[#D9DEE7] dark:border-[#2D3545] rounded-2xl p-6 sm:p-7 shadow-xs space-y-4">
+      <div className="bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 rounded-2xl p-6 sm:p-7 shadow-xs space-y-4">
         <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
-          <Lock className="w-4 h-4 text-indigo-600" />
+          <Lock className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
           <span>Security & Password</span>
         </h3>
 
@@ -269,7 +273,7 @@ export const ProfileSettingsPage: React.FC<ProfileSettingsPageProps> = ({
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#181C24] text-gray-900 dark:text-gray-100"
+                className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-gray-200/90 dark:border-gray-800/90 bg-white/90 dark:bg-[#181C24]/90 text-gray-900 dark:text-gray-100 shadow-2xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
@@ -283,7 +287,7 @@ export const ProfileSettingsPage: React.FC<ProfileSettingsPageProps> = ({
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="At least 8 characters"
-                className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#181C24] text-gray-900 dark:text-gray-100"
+                className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-gray-200/90 dark:border-gray-800/90 bg-white/90 dark:bg-[#181C24]/90 text-gray-900 dark:text-gray-100 shadow-2xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
           </div>
@@ -291,7 +295,7 @@ export const ProfileSettingsPage: React.FC<ProfileSettingsPageProps> = ({
           <div className="flex justify-end">
             <button
               type="submit"
-              className="px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-xs font-semibold text-gray-700 dark:text-gray-300 transition"
+              className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-xs font-semibold text-gray-700 dark:text-gray-300 transition cursor-pointer active:scale-[0.98]"
             >
               Update Password
             </button>
@@ -313,7 +317,7 @@ export const ProfileSettingsPage: React.FC<ProfileSettingsPageProps> = ({
         <button
           type="button"
           onClick={onSignOut}
-          className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs transition flex items-center gap-1.5 self-start sm:self-auto shadow-2xs cursor-pointer"
+          className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs transition flex items-center gap-1.5 self-start sm:self-auto shadow-2xs cursor-pointer active:scale-[0.98]"
         >
           <LogOut className="w-3.5 h-3.5" />
           <span>Sign Out</span>

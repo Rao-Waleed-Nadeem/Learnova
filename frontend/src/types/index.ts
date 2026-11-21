@@ -70,6 +70,7 @@ export interface QuestionData {
   id: string;
   courseId: string;
   topicId: string;
+  lessonId?: string;
   type: QuestionType;
   prompt: string;
   difficulty: Difficulty;
@@ -92,6 +93,7 @@ export interface AICandidateQuestion {
   id: string;
   courseId: string;
   topicId: string;
+  lessonId?: string;
   prompt: string;
   type: QuestionType;
   difficulty: Difficulty;
@@ -212,6 +214,7 @@ export interface GamificationProfile {
   level: number;
   streakDays: number;
   lastActiveDate: string;
+  isOptedInLeaderboard?: boolean;
 }
 
 export type XPEventType =

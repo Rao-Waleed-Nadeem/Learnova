@@ -62,7 +62,7 @@ export const SystemHealthPage: React.FC<SystemHealthPageProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 view-enter-animation">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2">
         <div>
@@ -78,7 +78,7 @@ export const SystemHealthPage: React.FC<SystemHealthPageProps> = ({
           type="button"
           onClick={handleRefresh}
           disabled={isRefreshing}
-          className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-50 transition shadow-sm flex items-center gap-2 cursor-pointer w-fit"
+          className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-50 transition shadow-sm flex items-center gap-2 cursor-pointer w-fit active:scale-[0.98]"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
           <span>{isRefreshing ? 'Checking Services...' : 'Run Live Diagnostic Check'}</span>
@@ -125,7 +125,7 @@ export const SystemHealthPage: React.FC<SystemHealthPageProps> = ({
         {serviceHealth.map((svc) => (
           <div
             key={svc.id}
-            className="p-5 rounded-2xl bg-white dark:bg-[#181C24] border border-gray-200 dark:border-gray-800 shadow-xs flex flex-col justify-between"
+            className="interactive-card p-5 rounded-2xl bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 shadow-xs flex flex-col justify-between"
           >
             <div>
               <div className="flex items-center justify-between mb-3">
@@ -157,7 +157,7 @@ export const SystemHealthPage: React.FC<SystemHealthPageProps> = ({
       </div>
 
       {/* AI Usage & Caching Policy (SRS Stakeholder Requirement) */}
-      <div className="p-6 rounded-2xl bg-white dark:bg-[#181C24] border border-gray-200 dark:border-gray-800 shadow-xs space-y-4">
+      <div className="p-6 rounded-2xl bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 shadow-xs space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-800">
           <div className="flex items-center gap-2.5">
             <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400" />

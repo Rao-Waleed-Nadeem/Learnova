@@ -85,6 +85,7 @@ class LeaderboardEntryResponse(BaseModel):
 class LeaderboardResponse(BaseModel):
     entries: List[LeaderboardEntryResponse]
     current_user_entry: Optional[LeaderboardEntryResponse] = None
+    current_user_opted_in: Optional[bool] = None
     total_ranked: int
 
 
@@ -109,3 +110,22 @@ class OutboxProcessResultResponse(BaseModel):
     processed_count: int
     failed_count: int
     message: str
+
+
+class AwardXPRequest(BaseModel):
+    """Payload for directly awarding XP to the authenticated student."""
+
+    event_type: str = Field(..., min_length=1, max_length=64, description="Event type name")
+    xp_amount: int = Field(..., ge=1, le=1000, description="Amount of XP to award")
+    description: str = Field(..., min_length=1, max_length=255, description="Event description")
+    related_id: Optional[str] = Field(default=None, max_length=128, description="Related entity ID")
+    idempotency_key: Optional[str] = Field(default=None, max_length=128, description="Optional idempotency key")
+
+
+class AwardXPResponse(BaseModel):
+    """Result of an XP award operation including updated profile status."""
+
+    profile: GamificationProfileResponse
+    xp_awarded: int
+    is_newly_awarded: bool
+    newly_unlocked_badges: List[str] = []

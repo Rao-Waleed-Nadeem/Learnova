@@ -96,7 +96,7 @@ def test_lesson_simplification_cache_hit_and_miss(student_auth_context: Dict, db
     data1 = resp1.json()
     assert data1["success"] is True
     assert data1["is_cached"] is False
-    assert data1["source"] in ("gemini", "deterministic_fallback")
+    assert data1["source"] in ("gemini", "deterministic_fallback", "agy_cli")
 
     # Verify persisted in database
     db_entry = db_session.query(AIContentCache).first()
@@ -115,7 +115,7 @@ def test_lesson_simplification_cache_hit_and_miss(student_auth_context: Dict, db
     assert data2["success"] is True
     assert data2["is_cached"] is True
     assert data2["explanation"] == data1["explanation"]
-    assert data2["source"] in ("gemini_cache", "academic_cache")
+    assert data2["source"] in ("gemini_cache", "academic_cache", "agy_cache")
 
 
 def test_cache_invalidation_when_lesson_content_changes(student_auth_context: Dict, db_session: Session):

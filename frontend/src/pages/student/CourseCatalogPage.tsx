@@ -37,7 +37,7 @@ export const CourseCatalogPage: React.FC<CourseCatalogPageProps> = ({
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 view-enter-animation">
       {/* Header */}
       <div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
@@ -60,13 +60,13 @@ export const CourseCatalogPage: React.FC<CourseCatalogPageProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by course title or keyword..."
-            className="block w-full pl-10 pr-9 py-2.5 text-sm rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#181C24] text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="block w-full pl-10 pr-9 py-2.5 text-sm rounded-xl border border-gray-200/90 dark:border-gray-800/90 bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
           />
           {searchQuery && (
             <button
               type="button"
               onClick={() => setSearchQuery('')}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
               aria-label="Clear search query"
             >
               <X className="w-4 h-4" />
@@ -75,14 +75,14 @@ export const CourseCatalogPage: React.FC<CourseCatalogPageProps> = ({
         </div>
 
         {/* Filter Pills */}
-        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-gray-100 dark:bg-gray-800 text-xs font-semibold self-start sm:self-auto">
+        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-gray-100/80 dark:bg-gray-800/80 border border-gray-200/60 dark:border-gray-700/60 text-xs font-semibold self-start sm:self-auto">
           <button
             type="button"
             onClick={() => setFilter('all')}
-            className={`px-3 py-1.5 rounded-lg transition ${
+            className={`px-3 py-1.5 rounded-lg transition cursor-pointer active:scale-[0.98] ${
               filter === 'all'
-                ? 'bg-white dark:bg-[#181C24] text-indigo-600 dark:text-indigo-400 shadow-2xs'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+                ? 'bg-white dark:bg-[#181C24] text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
             }`}
           >
             All Courses ({publishedCourses.length})
@@ -90,10 +90,10 @@ export const CourseCatalogPage: React.FC<CourseCatalogPageProps> = ({
           <button
             type="button"
             onClick={() => setFilter('available')}
-            className={`px-3 py-1.5 rounded-lg transition ${
+            className={`px-3 py-1.5 rounded-lg transition cursor-pointer active:scale-[0.98] ${
               filter === 'available'
-                ? 'bg-white dark:bg-[#181C24] text-indigo-600 dark:text-indigo-400 shadow-2xs'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+                ? 'bg-white dark:bg-[#181C24] text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
             }`}
           >
             Available to Join
@@ -101,10 +101,10 @@ export const CourseCatalogPage: React.FC<CourseCatalogPageProps> = ({
           <button
             type="button"
             onClick={() => setFilter('enrolled')}
-            className={`px-3 py-1.5 rounded-lg transition ${
+            className={`px-3 py-1.5 rounded-lg transition cursor-pointer active:scale-[0.98] ${
               filter === 'enrolled'
-                ? 'bg-white dark:bg-[#181C24] text-indigo-600 dark:text-indigo-400 shadow-2xs'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+                ? 'bg-white dark:bg-[#181C24] text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
             }`}
           >
             My Enrolled ({enrolledCourseIds.size})
@@ -123,7 +123,7 @@ export const CourseCatalogPage: React.FC<CourseCatalogPageProps> = ({
             return (
               <div
                 key={course.id}
-                className="bg-white dark:bg-[#181C24] border border-[#D9DEE7] dark:border-[#2D3545] rounded-2xl p-6 flex flex-col justify-between hover:border-indigo-300 dark:hover:border-indigo-700 transition shadow-xs group"
+                className="interactive-card bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 rounded-2xl p-6 flex flex-col justify-between hover:border-indigo-300 dark:hover:border-indigo-700 transition shadow-xs group"
               >
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-3">
@@ -153,7 +153,7 @@ export const CourseCatalogPage: React.FC<CourseCatalogPageProps> = ({
 
                   <div className="mt-4 flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
                     <span className="flex items-center gap-1">
-                      <BookOpen className="w-3.5 h-3.5" />
+                      <BookOpen className="w-3.5 h-3.5 text-gray-400" />
                       <span>{courseTopics.length} Topics</span>
                     </span>
                     {isEnrolled && (
@@ -164,20 +164,20 @@ export const CourseCatalogPage: React.FC<CourseCatalogPageProps> = ({
                   </div>
                 </div>
 
-                <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
+                <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800/80 flex items-center justify-between">
                   <button
                     type="button"
                     onClick={() => onNavigate('course_details', { courseId: course.id })}
                     className="text-xs font-semibold text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer"
                   >
-                    View Syllabus Details
+                    Syllabus Details
                   </button>
 
                   {isEnrolled ? (
                     <button
                       type="button"
                       onClick={() => onNavigate('course_map', { courseId: course.id })}
-                      className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs flex items-center gap-1.5 transition shadow-2xs cursor-pointer"
+                      className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs flex items-center gap-1.5 transition shadow-2xs cursor-pointer active:scale-[0.98]"
                     >
                       <span>Go to Course</span>
                       <ArrowRight className="w-3.5 h-3.5" />
@@ -186,7 +186,7 @@ export const CourseCatalogPage: React.FC<CourseCatalogPageProps> = ({
                     <button
                       type="button"
                       onClick={() => onNavigate('course_details', { courseId: course.id })}
-                      className="px-4 py-2 rounded-xl border border-indigo-600 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 font-semibold text-xs flex items-center gap-1.5 transition cursor-pointer"
+                      className="px-4 py-2 rounded-xl border border-indigo-600 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 font-semibold text-xs flex items-center gap-1.5 transition cursor-pointer active:scale-[0.98]"
                     >
                       <span>Inspect & Enroll</span>
                       <ArrowRight className="w-3.5 h-3.5" />
@@ -198,7 +198,7 @@ export const CourseCatalogPage: React.FC<CourseCatalogPageProps> = ({
           })}
         </div>
       ) : (
-        <div className="p-12 text-center bg-white dark:bg-[#181C24] border border-[#D9DEE7] dark:border-[#2D3545] rounded-2xl space-y-3">
+        <div className="p-12 text-center bg-white/90 dark:bg-[#181C24]/90 backdrop-blur-xs border border-gray-200/80 dark:border-gray-800/80 rounded-2xl space-y-3 shadow-xs">
           <Search className="w-8 h-8 mx-auto text-gray-400" />
           <h3 className="text-base font-bold text-gray-900 dark:text-white">
             No courses match your query
@@ -212,7 +212,7 @@ export const CourseCatalogPage: React.FC<CourseCatalogPageProps> = ({
               setSearchQuery('');
               setFilter('all');
             }}
-            className="px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-700 text-xs font-semibold hover:bg-gray-50 dark:hover:bg-gray-800"
+            className="px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-700 text-xs font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer active:scale-[0.98]"
           >
             Clear Filters
           </button>

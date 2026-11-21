@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "node --test src/utils/dag.test.ts src/utils/assessment.test.ts src/utils/studentLogic.test.ts src/utils/adminLogic.test.ts src/utils/aiProxy.test.ts"
+    "test": "node --experimental-strip-types --test src/utils/dag.test.ts src/utils/assessment.test.ts src/utils/studentLogic.test.ts src/utils/adminLogic.test.ts src/utils/teacherLogic.test.ts src/utils/authLogic.test.ts src/utils/routerLogic.test.ts src/utils/themeLogic.test.ts && tsx --test src/utils/uiPageRendering.test.ts src/utils/e2eIntegration.test.ts src/utils/publicPages.test.ts src/utils/e2eSimplificationStudio.test.tsx",
+    "test:e2e": "tsx --test src/utils/e2eStudentWorkflow.test.ts src/utils/e2eTeacherWorkflow.test.ts src/utils/e2eAdminWorkflow.test.ts src/utils/e2eSimplificationStudio.test.tsx",
+    "test:ui": "tsx --test src/utils/uiPageRendering.test.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -18,10 +20,13 @@
     "@vitejs/plugin-react": "^6.1.1",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
+    "gsap": "^3.15.1",
     "lucide-react": "^0.546.0",
+    "mermaid": "^12.3.0",
     "motion": "^12.23.24",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
+    "three": "^0.187.0",
     "vite": "^8.3.0"
   },
   "devDependencies": {
@@ -29,6 +34,7 @@
     "@types/node": "^22.14.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "@types/three": "^0.187.0",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.28.2",
     "tailwindcss": "^4.3.3",

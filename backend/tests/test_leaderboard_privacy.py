@@ -123,6 +123,7 @@ def test_leaderboard_self_view_for_opted_out_user(
     # For Bob viewing himself: is_current_user is True, so his name is NOT masked to himself
     assert bob_entry["is_current_user"] is True
     assert bob_entry["display_name"] == "Bob Privacy"
+    assert data["current_user_opted_in"] is False
 
 
 def test_challenges_progress_and_completion(

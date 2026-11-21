@@ -44,8 +44,6 @@ export const AssessmentsPage: React.FC<AssessmentsPageProps> = ({
   const [courseFilter, setCourseFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-
-  const [confirmPublishAssessment, setConfirmPublishAssessment] = useState<Assessment | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const filteredAssessments = useMemo(() => {
@@ -117,21 +115,17 @@ export const AssessmentsPage: React.FC<AssessmentsPageProps> = ({
     },
   ];
 
-  const handlePublishConfirmed = () => {
-    if (confirmPublishAssessment) {
-      if (confirmPublishAssessment.questionIds.length === 0) {
-        onNotify('error', 'Cannot publish an assessment with zero questions.');
-        setConfirmPublishAssessment(null);
-        return;
-      }
-      onSaveAssessment({
-        ...confirmPublishAssessment,
-        status: 'published',
-        updatedAt: new Date().toISOString(),
-      });
-      setConfirmPublishAssessment(null);
-      onNotify('success', 'Assessment published to enrolled learners.');
+  const handlePublishDirect = (assessment: Assessment) => {
+    if (assessment.questionIds.length === 0) {
+      onNotify('error', 'Cannot publish an assessment with zero questions.');
+      return;
     }
+    onSaveAssessment({
+      ...assessment,
+      status: 'published',
+      updatedAt: new Date().toISOString(),
+    });
+    onNotify('success', `"${assessment.title}" published directly to students.`);
   };
 
   const handleDeleteConfirmed = () => {
@@ -196,12 +190,12 @@ export const AssessmentsPage: React.FC<AssessmentsPageProps> = ({
           />
         )
       ) : (
-        <div className="bg-white rounded-xl border border-[#D9DEE7] overflow-hidden shadow-2xs">
+        <div className="bg-white dark:bg-[#181C24] rounded-xl border border-[#D9DEE7] dark:border-[#2D3545] overflow-hidden shadow-2xs">
           {/* Desktop Table View */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-[#F5F7FA] border-b border-[#D9DEE7] text-xs font-semibold text-[#5B6472]">
+                <tr className="bg-[#F5F7FA] dark:bg-[#151922] border-b border-[#D9DEE7] dark:border-[#2D3545] text-xs font-semibold text-[#5B6472] dark:text-gray-400">
                   <th scope="col" className="py-3.5 px-5">Assessment Title</th>
                   <th scope="col" className="py-3.5 px-4">Course / Topic</th>
                   <th scope="col" className="py-3.5 px-3">Type</th>
@@ -211,41 +205,41 @@ export const AssessmentsPage: React.FC<AssessmentsPageProps> = ({
                   <th scope="col" className="py-3.5 px-5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#D9DEE7] text-sm">
+              <tbody className="divide-y divide-[#D9DEE7] dark:divide-gray-800 text-sm">
                 {filteredAssessments.map((a) => {
                   const courseObj = courses.find((c) => c.id === a.courseId);
                   const topicObj = topics.find((t) => t.id === a.topicId);
 
                   return (
-                    <tr key={a.id} className="hover:bg-[#F5F7FA] transition-colors group">
+                    <tr key={a.id} className="hover:bg-[#F5F7FA] dark:bg-[#151922] transition-colors group">
                       <td className="py-4 px-5 max-w-sm">
                         <button
                           onClick={() => onNavigate('assessment_editor', { assessmentId: a.id })}
-                          className="font-semibold text-[#1F2937] group-hover:text-[#3156D3] text-left transition-colors cursor-pointer text-sm"
+                          className="font-semibold text-[#1F2937] dark:text-white group-hover:text-[#3156D3] text-left transition-colors cursor-pointer text-sm"
                         >
                           {a.title}
                         </button>
-                        <p className="text-xs text-[#5B6472] line-clamp-1 mt-0.5">
+                        <p className="text-xs text-[#5B6472] dark:text-gray-400 line-clamp-1 mt-0.5">
                           {a.instructions}
                         </p>
                       </td>
-                      <td className="py-4 px-4 text-xs text-[#5B6472]">
-                        <p className="font-semibold text-[#1F2937] truncate max-w-[150px]">
+                      <td className="py-4 px-4 text-xs text-[#5B6472] dark:text-gray-400">
+                        <p className="font-semibold text-[#1F2937] dark:text-white truncate max-w-[150px]">
                           {courseObj?.title || 'Course'}
                         </p>
-                        <p className="text-[11px] text-[#737D8C] truncate max-w-[150px]">
+                        <p className="text-[11px] text-[#737D8C] dark:text-gray-400 truncate max-w-[150px]">
                           {topicObj?.title || 'General'}
                         </p>
                       </td>
                       <td className="py-4 px-3 text-xs">
-                        <span className="capitalize font-medium text-[#1F2937] bg-gray-100 px-2.5 py-0.5 rounded border border-gray-200">
+                        <span className="capitalize font-medium text-[#1F2937] dark:text-white bg-gray-100 dark:bg-gray-800 px-2.5 py-0.5 rounded border border-gray-200 dark:border-gray-700">
                           {a.type}
                         </span>
                       </td>
-                      <td className="py-4 px-3 text-center text-xs font-semibold text-[#1F2937]">
+                      <td className="py-4 px-3 text-center text-xs font-semibold text-[#1F2937] dark:text-white">
                         {a.questionIds.length} items
                       </td>
-                      <td className="py-4 px-3 text-xs text-[#5B6472]">
+                      <td className="py-4 px-3 text-xs text-[#5B6472] dark:text-gray-400">
                         {a.timeLimitMinutes ? `${a.timeLimitMinutes} mins` : 'No limit'}
                       </td>
                       <td className="py-4 px-3">
@@ -258,7 +252,7 @@ export const AssessmentsPage: React.FC<AssessmentsPageProps> = ({
                               variant="outline"
                               size="sm"
                               leftIcon={<UploadCloud className="w-3.5 h-3.5" />}
-                              onClick={() => setConfirmPublishAssessment(a)}
+                              onClick={() => handlePublishDirect(a)}
                             >
                               Publish
                             </Button>
@@ -280,7 +274,7 @@ export const AssessmentsPage: React.FC<AssessmentsPageProps> = ({
                           </Button>
                           <button
                             onClick={() => setConfirmDeleteId(a.id)}
-                            className="p-1.5 text-[#5B6472] hover:text-[#B42318] hover:bg-[#FEF0EF] rounded cursor-pointer transition-colors"
+                            className="p-1.5 text-[#5B6472] dark:text-gray-400 hover:text-[#B42318] hover:bg-[#FEF0EF] rounded cursor-pointer transition-colors"
                             title="Delete assessment"
                             aria-label={`Delete ${a.title}`}
                           >
@@ -296,22 +290,22 @@ export const AssessmentsPage: React.FC<AssessmentsPageProps> = ({
           </div>
 
           {/* Mobile Cards */}
-          <div className="md:hidden divide-y divide-[#D9DEE7]">
+          <div className="md:hidden divide-y divide-[#D9DEE7] dark:divide-gray-800">
             {filteredAssessments.map((a) => (
               <div key={a.id} className="p-4 space-y-2.5">
                 <div className="flex items-start justify-between gap-2">
-                  <span className="text-xs uppercase font-semibold text-[#3156D3] bg-[#E8EEFF] px-2 py-0.5 rounded">
+                  <span className="text-xs uppercase font-semibold text-[#3156D3] dark:text-indigo-300 bg-[#E8EEFF] dark:bg-indigo-950/40 px-2 py-0.5 rounded">
                     {a.type}
                   </span>
                   <StatusBadge status={a.status} />
                 </div>
                 <h3
                   onClick={() => onNavigate('assessment_editor', { assessmentId: a.id })}
-                  className="font-bold text-sm text-[#1F2937] cursor-pointer hover:text-[#3156D3]"
+                  className="font-bold text-sm text-[#1F2937] dark:text-white cursor-pointer hover:text-[#3156D3]"
                 >
                   {a.title}
                 </h3>
-                <div className="flex items-center justify-between text-xs text-[#737D8C]">
+                <div className="flex items-center justify-between text-xs text-[#737D8C] dark:text-gray-400">
                   <span>{a.questionIds.length} questions</span>
                   <span>{a.timeLimitMinutes ? `${a.timeLimitMinutes} min limit` : 'Untimed'}</span>
                 </div>
@@ -329,7 +323,7 @@ export const AssessmentsPage: React.FC<AssessmentsPageProps> = ({
                       variant="primary"
                       size="sm"
                       className="flex-1"
-                      onClick={() => setConfirmPublishAssessment(a)}
+                      onClick={() => handlePublishDirect(a)}
                     >
                       Publish
                     </Button>
@@ -340,17 +334,6 @@ export const AssessmentsPage: React.FC<AssessmentsPageProps> = ({
           </div>
         </div>
       )}
-
-      {/* Confirmation Dialog for Publishing Assessment */}
-      <ConfirmDialog
-        isOpen={!!confirmPublishAssessment}
-        title="Publish assessment to learners?"
-        targetObject={confirmPublishAssessment?.title}
-        consequence={`Once published, enrolled students will be able to attempt this ${confirmPublishAssessment?.type} assessment according to its time limit (${confirmPublishAssessment?.timeLimitMinutes || 'Untimed'} mins) and attempt constraints.`}
-        confirmLabel="Publish assessment"
-        onConfirm={handlePublishConfirmed}
-        onCancel={() => setConfirmPublishAssessment(null)}
-      />
 
       {/* Delete Confirmation */}
       <ConfirmDialog

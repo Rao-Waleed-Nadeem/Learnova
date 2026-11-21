@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Course,
   Topic,
@@ -20,7 +20,7 @@ import {
   Download,
 } from 'lucide-react';
 import { StudentNavigationPage } from '../../components/student/StudentLayout';
-import { AIHelperPanel } from '../../components/student/AIHelperPanel';
+import { RichMarkdownRenderer } from '../../components/common/RichMarkdownRenderer';
 import { curriculumApi } from '../../services/api/curriculumApi';
 
 interface LessonWorkspacePageProps {
@@ -48,19 +48,75 @@ export const LessonWorkspacePage: React.FC<LessonWorkspacePageProps> = ({
   onMarkComplete,
   onNavigate,
 }) => {
-  const [isAIOpen, setIsAIOpen] = useState(false);
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
 
   const course = courses.find((c) => c.id === courseId) || courses[0];
   const topic = topics.find((t) => t.id === topicId) || topics[0];
-  const lesson = lessons.find((l) => l.id === lessonId) || lessons[0];
+  const propLesson = lessons.find((l) => l.id === lessonId) || lessons[0];
+
+  const [liveLesson, setLiveLesson] = useState<Lesson | null>(null);
+  const [liveResources, setLiveResources] = useState<LearningResource[] | null>(null);
+  const [isLoadingLesson, setIsLoadingLesson] = useState(false);
+
+  // Authoritatively fetch fresh lesson details and instructional introduction from the database
+  const activeLessonId = lessonId || propLesson?.id;
+
+  useEffect(() => {
+    let isMounted = true;
+    if (!activeLessonId) return;
+
+    setIsLoadingLesson(true);
+    curriculumApi
+      .getLesson(activeLessonId)
+      .then((data) => {
+        if (!isMounted) return;
+        setLiveLesson({
+          id: data.id,
+          topicId: data.topic_id,
+          courseId: data.course_id || courseId,
+          title: data.title,
+          description: data.description || '',
+          order: data.order,
+          createdAt: data.created_at,
+          updatedAt: data.updated_at,
+        });
+
+        if (Array.isArray(data.resources) && data.resources.length > 0) {
+          setLiveResources(
+            data.resources.map((r) => ({
+              id: r.id,
+              lessonId: r.lesson_id,
+              courseId: r.course_id || courseId,
+              title: r.title,
+              type: r.type,
+              contentOrUrl: r.content_or_url,
+              fileSize: r.file_size_bytes ? `${Math.round(r.file_size_bytes / 1024)} KB` : undefined,
+              createdAt: r.created_at,
+            }))
+          );
+        }
+      })
+      .catch((err) => {
+        // Fall back gracefully to local curriculum data if offline or network error
+        console.warn('Could not fetch authoritative lesson from server:', err);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingLesson(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeLessonId, courseId]);
+
+  const lesson = liveLesson || propLesson;
 
   const topicLessons = lessons.filter((l) => l.topicId === topic?.id).sort((a, b) => a.order - b.order);
   const currentIdx = topicLessons.findIndex((l) => l.id === lesson?.id);
   const prevLesson = currentIdx > 0 ? topicLessons[currentIdx - 1] : null;
   const nextLesson = currentIdx >= 0 && currentIdx < topicLessons.length - 1 ? topicLessons[currentIdx + 1] : null;
 
-  const lessonResources = resources.filter((r) => r.lessonId === lesson?.id);
+  const lessonResources = liveResources || resources.filter((r) => r.lessonId === lesson?.id);
 
   const handleCopyCode = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
@@ -81,7 +137,7 @@ export const LessonWorkspacePage: React.FC<LessonWorkspacePageProps> = ({
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-6 max-w-5xl mx-auto pb-12 view-enter-animation">
       {/* Top Bar with Navigation & AI Helper Action */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <button
@@ -93,11 +149,18 @@ export const LessonWorkspacePage: React.FC<LessonWorkspacePageProps> = ({
           <span>Back to Course Learning Map</span>
         </button>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <button
             type="button"
-            onClick={() => setIsAIOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 font-bold text-xs transition shadow-2xs cursor-pointer"
+            onClick={() =>
+              onNavigate('simplification_studio', {
+                courseId: course.id,
+                topicId: topic.id,
+                lessonId: lesson.id,
+              })
+            }
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 font-bold text-xs transition shadow-2xs cursor-pointer"
+            title="Open dedicated Simplification Studio"
           >
             <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
             <span>Simplify with AI</span>
@@ -133,27 +196,37 @@ export const LessonWorkspacePage: React.FC<LessonWorkspacePageProps> = ({
           <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white">
             {lesson?.title}
           </h1>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300 leading-relaxed max-w-3xl">
-            {lesson?.description}
-          </p>
         </div>
 
-        {/* Learning Content Body */}
-        <div className="prose dark:prose-invert max-w-none pt-4 border-t border-gray-100 dark:border-gray-800 space-y-4 text-sm leading-relaxed text-gray-800 dark:text-gray-200">
-          <p>
-            In this unit, we investigate foundational principles and structural abstractions in <strong>{course?.title}</strong>.
-            Understanding how state variables bind to physical registers and heap references gives you predictive control over application memory.
-          </p>
-          <div className="p-4 rounded-xl bg-gray-50 dark:bg-[#1C212B] border border-gray-200 dark:border-gray-800 space-y-2">
-            <h4 className="font-bold text-gray-900 dark:text-white text-xs uppercase tracking-wider">
-              Core Architectural Invariants:
-            </h4>
-            <ul className="list-disc pl-5 text-xs text-gray-700 dark:text-gray-300 space-y-1">
-              <li>Deterministic state evaluation prevents runtime divergence.</li>
-              <li>Prerequisite validation ensures downstream modules receive strictly typed inputs.</li>
-              <li>Immutability safeguards memory references from unexpected shared concurrency mutations.</li>
-            </ul>
+        {/* Learning Content & Lesson Overview */}
+        <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-2">
+              <FileText className="w-4 h-4 text-indigo-600" />
+              <span>Instructional Notes & Introduction</span>
+            </h3>
+            {isLoadingLesson && (
+              <span className="text-[11px] text-indigo-500 flex items-center gap-1.5 font-medium">
+                <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+                Syncing with server...
+              </span>
+            )}
           </div>
+          {isLoadingLesson && !lesson?.description ? (
+            <div className="p-6 rounded-2xl bg-gray-50/50 dark:bg-[#1C212B]/50 border border-gray-200/80 dark:border-gray-800/80 space-y-3 animate-pulse">
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6"></div>
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+            </div>
+          ) : lesson?.description?.trim() ? (
+            <div className="prose dark:prose-invert max-w-none text-sm leading-relaxed text-gray-800 dark:text-gray-200 bg-gray-50/50 dark:bg-[#1C212B]/50 p-5 rounded-2xl border border-gray-200/80 dark:border-gray-800/80">
+              <RichMarkdownRenderer content={lesson.description} />
+            </div>
+          ) : (
+            <div className="p-5 rounded-2xl bg-gray-50/50 dark:bg-[#1C212B]/50 border border-gray-200/80 dark:border-gray-800/80 text-xs text-gray-500 dark:text-gray-400">
+              No custom introduction written for this lesson yet. Review the official syllabus resources below or click "Simplify with AI" to generate an architectural breakdown.
+            </div>
+          )}
         </div>
 
         {/* Published Learning Resources Group */}
@@ -297,17 +370,6 @@ export const LessonWorkspacePage: React.FC<LessonWorkspacePageProps> = ({
           </button>
         )}
       </div>
-
-      {/* Attached AI Helper Drawer */}
-      <AIHelperPanel
-        isOpen={isAIOpen}
-        onClose={() => setIsAIOpen(false)}
-        lessonId={lesson?.id || lessonId}
-        lessonTitle={lesson?.title || 'Current Lesson'}
-        topicTitle={topic?.title || 'Topic'}
-        courseTitle={course?.title || 'Course'}
-        lessonContent={lesson?.description || ''}
-      />
     </div>
   );
 };

@@ -64,10 +64,13 @@ export interface BackendLeaderboardEntry {
 }
 
 export interface BackendLeaderboardResponse {
-  leaderboard: BackendLeaderboardEntry[];
+  entries?: BackendLeaderboardEntry[];
+  leaderboard?: BackendLeaderboardEntry[];
+  current_user_entry?: BackendLeaderboardEntry | null;
   current_user_rank?: number | null;
-  current_user_opted_in: boolean;
-  total_participants: number;
+  current_user_opted_in?: boolean;
+  total_participants?: number;
+  total_ranked?: number;
 }
 
 export function mapBackendProfileToProfile(p: BackendGamificationProfileResponse): GamificationProfile {
@@ -78,6 +81,7 @@ export function mapBackendProfileToProfile(p: BackendGamificationProfileResponse
     level: p.level,
     streakDays: p.streak_days,
     lastActiveDate: p.last_active_date || new Date().toISOString(),
+    isOptedInLeaderboard: p.is_opted_in_leaderboard ?? true,
   };
 }
 
@@ -164,6 +168,32 @@ class GamificationApiClient {
     const query = courseId ? `?course_id=${courseId}&limit=${limit}` : `?limit=${limit}`;
     return authApi.request<BackendLeaderboardResponse>(`/gamification/leaderboard${query}`, {
       method: 'GET',
+    });
+  }
+
+  /**
+   * Directly record a gamification XP event in the backend database.
+   */
+  public async awardXP(payload: {
+    event_type: string;
+    xp_amount: number;
+    description: string;
+    related_id?: string;
+    idempotency_key?: string;
+  }): Promise<{
+    profile: BackendGamificationProfileResponse;
+    xp_awarded: number;
+    is_newly_awarded: boolean;
+    newly_unlocked_badges: string[];
+  }> {
+    return authApi.request<{
+      profile: BackendGamificationProfileResponse;
+      xp_awarded: number;
+      is_newly_awarded: boolean;
+      newly_unlocked_badges: string[];
+    }>('/gamification/events', {
+      method: 'POST',
+      body: JSON.stringify(payload),
     });
   }
 }

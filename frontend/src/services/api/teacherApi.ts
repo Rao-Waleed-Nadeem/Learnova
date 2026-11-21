@@ -132,6 +132,24 @@ class TeacherApiClient {
     });
   }
 
+  public async archiveCourse(courseId: string): Promise<BackendCourseResponse> {
+    return authApi.request<BackendCourseResponse>(`/courses/${courseId}/archive`, {
+      method: 'POST',
+    });
+  }
+
+  public async draftCourse(courseId: string): Promise<BackendCourseResponse> {
+    return authApi.request<BackendCourseResponse>(`/courses/${courseId}/draft`, {
+      method: 'POST',
+    });
+  }
+
+  public async deleteCourse(courseId: string): Promise<void> {
+    return authApi.request<void>(`/courses/${courseId}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Topic Hierarchy & Prerequisite DAG
   public async createTopic(courseId: string, payload: CreateTopicPayload): Promise<BackendTopicResponse> {
     return authApi.request<BackendTopicResponse>(`/courses/${courseId}/topics`, {
